@@ -24,7 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize managers
     configManager = new ConfigManager();
     binaryManager = new BinaryManager(context.extensionPath, configManager);
-    processManager = new ProcessManager();
+    processManager = new ProcessManager(binaryManager, logger);
     commandManager = new CommandManager();
 
     // Initialize sidebar provider

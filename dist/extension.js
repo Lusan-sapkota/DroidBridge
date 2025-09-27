@@ -75,40 +75,205 @@ var CommandManager = class {
 };
 
 // src/managers/processManager.ts
+var import_child_process = require("child_process");
 var ProcessManager = class {
+  scrcpyProcess = null;
+  managedProcesses = /* @__PURE__ */ new Set();
+  binaryManager;
+  logger;
+  constructor(binaryManager2, logger2) {
+    this.binaryManager = binaryManager2;
+    this.logger = logger2;
+  }
   /**
    * Execute an ADB command with the given arguments
    */
   async executeAdbCommand(args) {
-    return {
-      success: false,
-      stdout: "",
-      stderr: "",
-      exitCode: -1
-    };
+    const adbPath = this.binaryManager.getAdbPath();
+    return new Promise((resolve) => {
+      let stdout = "";
+      let stderr = "";
+      this.logger.info(`Executing ADB command: ${adbPath} ${args.join(" ")}`);
+      const process = (0, import_child_process.spawn)(adbPath, args, {
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      this.managedProcesses.add(process);
+      process.stdout?.on("data", (data) => {
+        const output = data.toString();
+        stdout += output;
+        this.logger.logProcessOutput("adb", output);
+      });
+      process.stderr?.on("data", (data) => {
+        const output = data.toString();
+        stderr += output;
+        this.logger.logProcessOutput("adb", output);
+      });
+      process.on("close", (code) => {
+        this.managedProcesses.delete(process);
+        const exitCode = code ?? -1;
+        const success = exitCode === 0;
+        const result = {
+          success,
+          stdout: stdout.trim(),
+          stderr: stderr.trim(),
+          exitCode
+        };
+        this.logger.info(`ADB command completed with exit code: ${exitCode}`);
+        resolve(result);
+      });
+      process.on("error", (error) => {
+        this.managedProcesses.delete(process);
+        this.logger.error(`ADB process error: ${error.message}`, error);
+        resolve({
+          success: false,
+          stdout: stdout.trim(),
+          stderr: error.message,
+          exitCode: -1
+        });
+      });
+    });
   }
   /**
    * Launch scrcpy with optional configuration
    */
   async launchScrcpy(options) {
-    throw new Error("Not implemented");
+    if (this.isScrcpyRunning()) {
+      throw new Error("Scrcpy is already running. Stop the current instance first.");
+    }
+    const scrcpyPath = this.binaryManager.getScrcpyPath();
+    const args = this.buildScrcpyArgs(options);
+    this.logger.info(`Launching scrcpy: ${scrcpyPath} ${args.join(" ")}`);
+    return new Promise((resolve, reject) => {
+      const process = (0, import_child_process.spawn)(scrcpyPath, args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        detached: false
+      });
+      this.scrcpyProcess = process;
+      this.managedProcesses.add(process);
+      let hasResolved = false;
+      const onData = (data) => {
+        const output = data.toString();
+        this.logger.logProcessOutput("scrcpy", output);
+        if (!hasResolved) {
+          hasResolved = true;
+          resolve(process);
+        }
+      };
+      process.stdout?.on("data", onData);
+      process.stderr?.on("data", onData);
+      process.on("close", (code) => {
+        this.managedProcesses.delete(process);
+        if (this.scrcpyProcess === process) {
+          this.scrcpyProcess = null;
+        }
+        this.logger.info(`Scrcpy process closed with exit code: ${code}`);
+      });
+      process.on("error", (error) => {
+        this.managedProcesses.delete(process);
+        if (this.scrcpyProcess === process) {
+          this.scrcpyProcess = null;
+        }
+        this.logger.error(`Scrcpy process error: ${error.message}`, error);
+        if (!hasResolved) {
+          hasResolved = true;
+          reject(error);
+        }
+      });
+      setTimeout(() => {
+        if (!hasResolved) {
+          hasResolved = true;
+          reject(new Error("Scrcpy failed to start within timeout period"));
+        }
+      }, 5e3);
+    });
   }
   /**
    * Stop the current scrcpy process
    */
   async stopScrcpy() {
-    return false;
+    if (!this.scrcpyProcess) {
+      return true;
+    }
+    return new Promise((resolve) => {
+      const process = this.scrcpyProcess;
+      this.logger.info("Stopping scrcpy process");
+      const cleanup = () => {
+        this.managedProcesses.delete(process);
+        this.scrcpyProcess = null;
+        resolve(true);
+      };
+      const timeout = setTimeout(() => {
+        if (process && !process.killed) {
+          this.logger.info("Force killing scrcpy process");
+          process.kill("SIGKILL");
+        }
+        cleanup();
+      }, 3e3);
+      process.on("close", () => {
+        clearTimeout(timeout);
+        cleanup();
+      });
+      if (process && !process.killed) {
+        process.kill("SIGTERM");
+      } else {
+        clearTimeout(timeout);
+        cleanup();
+      }
+    });
   }
   /**
    * Check if scrcpy is currently running
    */
   isScrcpyRunning() {
-    return false;
+    return this.scrcpyProcess !== null && !this.scrcpyProcess.killed;
   }
   /**
    * Clean up all managed processes
    */
   async cleanup() {
+    this.logger.info("Cleaning up all managed processes");
+    const cleanupPromises = [];
+    if (this.isScrcpyRunning()) {
+      cleanupPromises.push(this.stopScrcpy().then(() => {
+      }));
+    }
+    for (const process of this.managedProcesses) {
+      if (!process.killed) {
+        cleanupPromises.push(new Promise((resolve) => {
+          process.on("close", () => resolve());
+          process.kill("SIGTERM");
+          setTimeout(() => {
+            if (!process.killed) {
+              process.kill("SIGKILL");
+            }
+            resolve();
+          }, 2e3);
+        }));
+      }
+    }
+    await Promise.all(cleanupPromises);
+    this.managedProcesses.clear();
+    this.scrcpyProcess = null;
+    this.logger.info("Process cleanup completed");
+  }
+  /**
+   * Build command line arguments for scrcpy based on options
+   */
+  buildScrcpyArgs(options) {
+    const args = [];
+    if (options?.bitrate) {
+      args.push("--bit-rate", options.bitrate.toString());
+    }
+    if (options?.maxSize) {
+      args.push("--max-size", options.maxSize.toString());
+    }
+    if (options?.crop) {
+      args.push("--crop", options.crop);
+    }
+    if (options?.recordFile) {
+      args.push("--record", options.recordFile);
+    }
+    return args;
   }
 };
 
@@ -787,7 +952,7 @@ function activate(context) {
   try {
     configManager = new ConfigManager();
     binaryManager = new BinaryManager(context.extensionPath, configManager);
-    processManager = new ProcessManager();
+    processManager = new ProcessManager(binaryManager, logger);
     commandManager = new CommandManager();
     sidebarProvider = new DroidBridgeSidebarProvider();
     extensionState = {
