@@ -31,6 +31,11 @@
         "category": "DroidBridge"
       },
       {
+        "command": "droidbridge.launchScrcpyScreenOff",
+        "title": "Launch Scrcpy Screen Off",
+        "category": "DroidBridge"
+      },
+      {
         "command": "droidbridge.stopScrcpy",
         "title": "Stop Scrcpy",
         "category": "DroidBridge"

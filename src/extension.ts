@@ -25,7 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
     configManager = new ConfigManager();
     binaryManager = new BinaryManager(context.extensionPath, configManager);
     processManager = new ProcessManager(binaryManager, logger);
-    commandManager = new CommandManager();
+    commandManager = new CommandManager(processManager, configManager, logger);
 
     // Initialize sidebar provider
     sidebarProvider = new DroidBridgeSidebarProvider();
