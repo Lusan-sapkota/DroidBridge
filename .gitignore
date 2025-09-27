@@ -1,0 +1,25 @@
+# Node dependencies
+node_modules/
+
+# Output of TypeScript compilation
+out/
+
+# VSCode extension test environment
+.vscode-test/
+
+# VSCode workspace settings (local only)
+.vscode/
+
+# Source maps
+**/*.map
+
+# Environment files
+.env
+
+# Ignore local IDE files
+.idea/
+.DS_Store
+Thumbs.db
+
+# Ignore build/test temp files
+.kiro/

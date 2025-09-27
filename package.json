@@ -9,15 +9,81 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:droidbridge-sidebar"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "droidbridge.helloWorld",
-        "title": "Hello World"
+        "command": "droidbridge.connectDevice",
+        "title": "Connect to Device",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.disconnectDevice",
+        "title": "Disconnect Device",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.launchScrcpy",
+        "title": "Launch Scrcpy",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.stopScrcpy",
+        "title": "Stop Scrcpy",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.showLogs",
+        "title": "Show Logs",
+        "category": "DroidBridge"
       }
-    ]
+    ],
+    "views": {
+      "droidbridge": [
+        {
+          "id": "droidbridge-sidebar",
+          "name": "Device Manager",
+          "when": "true"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "droidbridge",
+          "title": "DroidBridge",
+          "icon": "$(device-mobile)"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DroidBridge",
+      "properties": {
+        "droidbridge.adbPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to ADB binary. Leave empty to use bundled binary."
+        },
+        "droidbridge.scrcpyPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to scrcpy binary. Leave empty to use bundled binary."
+        },
+        "droidbridge.defaultIp": {
+          "type": "string",
+          "default": "192.168.1.100",
+          "description": "Default IP address for ADB connection."
+        },
+        "droidbridge.defaultPort": {
+          "type": "string",
+          "default": "5555",
+          "description": "Default port for ADB connection."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -34,16 +100,18 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.104.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/sinon": "^17.0.4",
+    "@types/vscode": "^1.104.0",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
-    "eslint": "^9.34.0",
-    "esbuild": "^0.25.9",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.9.2",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.9",
+    "eslint": "^9.34.0",
+    "npm-run-all": "^4.1.5",
+    "sinon": "^21.0.0",
+    "typescript": "^5.9.2"
   }
 }
