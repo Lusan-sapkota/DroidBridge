@@ -288,43 +288,52 @@ var ConfigManager = class _ConfigManager {
 
 // src/managers/binaryManager.ts
 var path = __toESM(require("path"));
+var fs = __toESM(require("fs/promises"));
+
+// src/utils/platformUtils.ts
 var os = __toESM(require("os"));
-var BinaryManager = class {
-  extensionPath;
-  constructor(extensionPath) {
-    this.extensionPath = extensionPath;
+var PlatformUtils = class {
+  /**
+   * Get the binary file extension for the current platform
+   */
+  static getBinaryExtension() {
+    return os.platform() === "win32" ? ".exe" : "";
   }
   /**
-   * Get the path to the ADB binary (bundled or custom)
+   * Get the binary path with platform-appropriate extension
    */
-  getAdbPath() {
-    return this.getBundledBinaryPath("adb");
+  static getBinaryPath(name) {
+    return `${name}${this.getBinaryExtension()}`;
   }
   /**
-   * Get the path to the scrcpy binary (bundled or custom)
+   * Make a file executable (Unix systems only)
    */
-  getScrcpyPath() {
-    return this.getBundledBinaryPath("scrcpy");
+  static async makeExecutable(path2) {
+    if (os.platform() !== "win32") {
+      const fs2 = await import("fs/promises");
+      try {
+        await fs2.chmod(path2, 493);
+      } catch (error) {
+        throw new Error(`Failed to make ${path2} executable: ${error}`);
+      }
+    }
   }
   /**
-   * Validate that required binaries exist and are executable
+   * Get platform-specific spawn options
    */
-  async validateBinaries() {
-    return {
-      adbValid: false,
-      scrcpyValid: false,
-      errors: ["Not implemented"]
+  static getPlatformSpecificOptions() {
+    const options = {
+      stdio: ["pipe", "pipe", "pipe"]
     };
-  }
-  /**
-   * Extract bundled binaries if needed
-   */
-  async extractBinaries() {
+    if (os.platform() === "win32") {
+      options.shell = true;
+    }
+    return options;
   }
   /**
    * Get the current platform identifier
    */
-  getPlatform() {
+  static getCurrentPlatform() {
     const platform2 = os.platform();
     switch (platform2) {
       case "win32":
@@ -337,24 +346,148 @@ var BinaryManager = class {
         throw new Error(`Unsupported platform: ${platform2}`);
     }
   }
+};
+
+// src/managers/binaryManager.ts
+var BinaryManager = class {
+  extensionPath;
+  configManager;
+  constructor(extensionPath, configManager2) {
+    this.extensionPath = extensionPath;
+    this.configManager = configManager2;
+  }
   /**
-   * Get the binary extension for the current platform
+   * Get the path to the ADB binary (bundled or custom)
    */
-  getBinaryExtension() {
-    return os.platform() === "win32" ? ".exe" : "";
+  getAdbPath() {
+    const customPath = this.configManager.getCustomAdbPath();
+    if (customPath) {
+      return customPath;
+    }
+    return this.getBundledBinaryPath("adb");
+  }
+  /**
+   * Get the path to the scrcpy binary (bundled or custom)
+   */
+  getScrcpyPath() {
+    const customPath = this.configManager.getCustomScrcpyPath();
+    if (customPath) {
+      return customPath;
+    }
+    return this.getBundledBinaryPath("scrcpy");
+  }
+  /**
+   * Validate that required binaries exist and are executable
+   */
+  async validateBinaries() {
+    const errors = [];
+    let adbValid = false;
+    let scrcpyValid = false;
+    try {
+      const adbPath = this.getAdbPath();
+      adbValid = await this.validateBinary(adbPath, "adb");
+      if (!adbValid) {
+        errors.push(`ADB binary not found or not executable: ${adbPath}`);
+      }
+    } catch (error) {
+      errors.push(`Error validating ADB binary: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      const scrcpyPath = this.getScrcpyPath();
+      scrcpyValid = await this.validateBinary(scrcpyPath, "scrcpy");
+      if (!scrcpyValid) {
+        errors.push(`Scrcpy binary not found or not executable: ${scrcpyPath}`);
+      }
+    } catch (error) {
+      errors.push(`Error validating scrcpy binary: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return {
+      adbValid,
+      scrcpyValid,
+      errors
+    };
+  }
+  /**
+   * Extract bundled binaries if needed (placeholder for future implementation)
+   */
+  async extractBinaries() {
+    const platform2 = PlatformUtils.getCurrentPlatform();
+    const binariesDir = path.join(this.extensionPath, "binaries", platform2);
+    try {
+      await fs.access(binariesDir);
+    } catch {
+      await fs.mkdir(binariesDir, { recursive: true });
+    }
+  }
+  /**
+   * Get information about binary paths and their sources
+   */
+  getBinaryInfo() {
+    const customAdbPath = this.configManager.getCustomAdbPath();
+    const customScrcpyPath = this.configManager.getCustomScrcpyPath();
+    return {
+      adb: {
+        path: this.getAdbPath(),
+        isCustom: !!customAdbPath,
+        bundledPath: this.getBundledBinaryPath("adb")
+      },
+      scrcpy: {
+        path: this.getScrcpyPath(),
+        isCustom: !!customScrcpyPath,
+        bundledPath: this.getBundledBinaryPath("scrcpy")
+      }
+    };
+  }
+  /**
+   * Check if bundled binaries directory exists for current platform
+   */
+  async hasBundledBinaries() {
+    const platform2 = PlatformUtils.getCurrentPlatform();
+    const binariesDir = path.join(this.extensionPath, "binaries", platform2);
+    try {
+      const stats = await fs.stat(binariesDir);
+      return stats.isDirectory();
+    } catch {
+      return false;
+    }
   }
   /**
    * Get the path to a bundled binary
    */
   getBundledBinaryPath(binaryName) {
-    const platform2 = this.getPlatform();
-    const extension = this.getBinaryExtension();
+    const platform2 = PlatformUtils.getCurrentPlatform();
+    const extension = PlatformUtils.getBinaryExtension();
     return path.join(
       this.extensionPath,
       "binaries",
       platform2,
       `${binaryName}${extension}`
     );
+  }
+  /**
+   * Validate that a binary exists and is executable
+   */
+  async validateBinary(binaryPath, binaryName) {
+    try {
+      const stats = await fs.stat(binaryPath);
+      if (!stats.isFile()) {
+        return false;
+      }
+      if (PlatformUtils.getCurrentPlatform() !== "win32") {
+        try {
+          await fs.access(binaryPath, fs.constants.X_OK);
+        } catch {
+          try {
+            await PlatformUtils.makeExecutable(binaryPath);
+          } catch {
+            return false;
+          }
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 };
 
@@ -653,7 +786,7 @@ function activate(context) {
   logger.info("DroidBridge extension is activating...");
   try {
     configManager = new ConfigManager();
-    binaryManager = new BinaryManager(context.extensionPath);
+    binaryManager = new BinaryManager(context.extensionPath, configManager);
     processManager = new ProcessManager();
     commandManager = new CommandManager();
     sidebarProvider = new DroidBridgeSidebarProvider();
