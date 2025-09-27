@@ -177,10 +177,19 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
     });
 
     test('should handle disconnect when no device is connected', async () => {
-      // First disconnect to clear state
+      // First disconnect to clear state - need to mock this too
+      const firstMockProcess = createMockProcess();
+      spawnStub.returns(firstMockProcess);
+
+      setTimeout(() => {
+        firstMockProcess.stdout.emit('data', Buffer.from('disconnected 192.168.1.100:5555'));
+        firstMockProcess.emit('close', 0);
+      }, 10);
+
       await processManager.disconnectDevice();
       spawnStub.resetHistory();
 
+      // Now test disconnecting when no device is connected
       const result = await processManager.disconnectDevice();
 
       assert.strictEqual(result, true);
@@ -369,17 +378,23 @@ function createMockProcess(): any {
   const stderrEvents: { [key: string]: Function[] } = {};
 
   mockProcess.on.callsFake((event: string, callback: Function) => {
-    if (!events[event]) events[event] = [];
+    if (!events[event]) {
+      events[event] = [];
+    }
     events[event].push(callback);
   });
 
   mockProcess.stdout.on.callsFake((event: string, callback: Function) => {
-    if (!stdoutEvents[event]) stdoutEvents[event] = [];
+    if (!stdoutEvents[event]) {
+      stdoutEvents[event] = [];
+    }
     stdoutEvents[event].push(callback);
   });
 
   mockProcess.stderr.on.callsFake((event: string, callback: Function) => {
-    if (!stderrEvents[event]) stderrEvents[event] = [];
+    if (!stderrEvents[event]) {
+      stderrEvents[event] = [];
+    }
     stderrEvents[event].push(callback);
   });
 

@@ -81,9 +81,13 @@ var ProcessManager = class {
   managedProcesses = /* @__PURE__ */ new Set();
   binaryManager;
   logger;
+  connectionState;
   constructor(binaryManager2, logger2) {
     this.binaryManager = binaryManager2;
     this.logger = logger2;
+    this.connectionState = {
+      connected: false
+    };
   }
   /**
    * Execute an ADB command with the given arguments
@@ -134,11 +138,166 @@ var ProcessManager = class {
     });
   }
   /**
+   * Connect to an Android device via ADB using IP and port
+   */
+  async connectDevice(ip, port) {
+    try {
+      if (!this.isValidIpAddress(ip)) {
+        const error = `Invalid IP address format: ${ip}`;
+        this.logger.error(error);
+        this.connectionState = {
+          connected: false,
+          connectionError: error
+        };
+        return false;
+      }
+      if (!this.isValidPort(port)) {
+        const error = `Invalid port number: ${port}. Port must be between 1 and 65535.`;
+        this.logger.error(error);
+        this.connectionState = {
+          connected: false,
+          connectionError: error
+        };
+        return false;
+      }
+      const target = `${ip}:${port}`;
+      this.logger.info(`Attempting to connect to device at ${target}`);
+      const result = await this.executeAdbCommand(["connect", target]);
+      if (result.success) {
+        const isConnected = this.parseConnectResult(result.stdout, target);
+        if (isConnected) {
+          this.connectionState = {
+            connected: true,
+            deviceIp: ip,
+            devicePort: port,
+            lastConnected: /* @__PURE__ */ new Date(),
+            connectionError: void 0
+          };
+          this.logger.info(`Successfully connected to device at ${target}`);
+          return true;
+        } else {
+          const error = this.extractConnectionError(result.stdout, result.stderr);
+          this.connectionState = {
+            connected: false,
+            connectionError: error
+          };
+          this.logger.error(`Failed to connect to device at ${target}: ${error}`);
+          return false;
+        }
+      } else {
+        const error = this.extractConnectionError(result.stdout, result.stderr);
+        this.connectionState = {
+          connected: false,
+          connectionError: error
+        };
+        this.logger.error(`ADB connect command failed: ${error}`);
+        return false;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Connection attempt failed: ${errorMessage}`, error instanceof Error ? error : void 0);
+      this.connectionState = {
+        connected: false,
+        connectionError: errorMessage
+      };
+      return false;
+    }
+  }
+  /**
+   * Disconnect from the currently connected Android device
+   */
+  async disconnectDevice() {
+    try {
+      if (!this.connectionState.connected || !this.connectionState.deviceIp || !this.connectionState.devicePort) {
+        this.logger.info("No device currently connected");
+        return true;
+      }
+      const target = `${this.connectionState.deviceIp}:${this.connectionState.devicePort}`;
+      this.logger.info(`Attempting to disconnect from device at ${target}`);
+      const result = await this.executeAdbCommand(["disconnect", target]);
+      if (result.success) {
+        this.connectionState = {
+          connected: false,
+          connectionError: void 0
+        };
+        this.logger.info(`Successfully disconnected from device at ${target}`);
+        return true;
+      } else {
+        const error = this.extractConnectionError(result.stdout, result.stderr);
+        this.logger.error(`Failed to disconnect from device: ${error}`);
+        this.connectionState = {
+          connected: false,
+          connectionError: error
+        };
+        return false;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Disconnect attempt failed: ${errorMessage}`, error instanceof Error ? error : void 0);
+      this.connectionState = {
+        connected: false,
+        connectionError: errorMessage
+      };
+      return false;
+    }
+  }
+  /**
+   * Check if a device is currently connected and reachable
+   */
+  async checkDeviceConnectivity() {
+    try {
+      this.logger.info("Checking device connectivity");
+      const result = await this.executeAdbCommand(["devices"]);
+      if (!result.success) {
+        this.logger.error("Failed to check device connectivity");
+        this.connectionState = {
+          ...this.connectionState,
+          connected: false,
+          connectionError: "Failed to query ADB devices"
+        };
+        return false;
+      }
+      const isConnected = this.parseDevicesOutput(result.stdout);
+      if (isConnected !== this.connectionState.connected) {
+        this.connectionState = {
+          ...this.connectionState,
+          connected: isConnected,
+          connectionError: isConnected ? void 0 : "Device no longer connected"
+        };
+        this.logger.info(`Device connectivity status updated: ${isConnected ? "connected" : "disconnected"}`);
+      }
+      return isConnected;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Connectivity check failed: ${errorMessage}`, error instanceof Error ? error : void 0);
+      this.connectionState = {
+        ...this.connectionState,
+        connected: false,
+        connectionError: errorMessage
+      };
+      return false;
+    }
+  }
+  /**
+   * Get the current connection state
+   */
+  getConnectionState() {
+    return { ...this.connectionState };
+  }
+  /**
+   * Check if a device is currently connected
+   */
+  isDeviceConnected() {
+    return this.connectionState.connected;
+  }
+  /**
    * Launch scrcpy with optional configuration
    */
   async launchScrcpy(options) {
     if (this.isScrcpyRunning()) {
-      throw new Error("Scrcpy is already running. Stop the current instance first.");
+      throw new Error(
+        "Scrcpy is already running. Stop the current instance first."
+      );
     }
     const scrcpyPath = this.binaryManager.getScrcpyPath();
     const args = this.buildScrcpyArgs(options);
@@ -239,22 +398,97 @@ var ProcessManager = class {
     }
     for (const process of this.managedProcesses) {
       if (!process.killed) {
-        cleanupPromises.push(new Promise((resolve) => {
-          process.on("close", () => resolve());
-          process.kill("SIGTERM");
-          setTimeout(() => {
-            if (!process.killed) {
-              process.kill("SIGKILL");
-            }
-            resolve();
-          }, 2e3);
-        }));
+        cleanupPromises.push(
+          new Promise((resolve) => {
+            process.on("close", () => resolve());
+            process.kill("SIGTERM");
+            setTimeout(() => {
+              if (!process.killed) {
+                process.kill("SIGKILL");
+              }
+              resolve();
+            }, 2e3);
+          })
+        );
       }
     }
     await Promise.all(cleanupPromises);
     this.managedProcesses.clear();
     this.scrcpyProcess = null;
     this.logger.info("Process cleanup completed");
+  }
+  /**
+   * Validate IP address format
+   */
+  isValidIpAddress(ip) {
+    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipRegex.test(ip);
+  }
+  /**
+   * Validate port number
+   */
+  isValidPort(port) {
+    const portNum = parseInt(port, 10);
+    return !isNaN(portNum) && portNum >= 1 && portNum <= 65535;
+  }
+  /**
+   * Parse the result of ADB connect command to determine if connection was successful
+   */
+  parseConnectResult(stdout, target) {
+    const output = stdout.toLowerCase();
+    if (output.includes("connected to") || output.includes("already connected")) {
+      return true;
+    }
+    if (output.includes("failed to connect") || output.includes("cannot connect") || output.includes("connection refused") || output.includes("no route to host") || output.includes("timeout")) {
+      return false;
+    }
+    return false;
+  }
+  /**
+   * Parse ADB devices output to check if our target device is connected
+   */
+  parseDevicesOutput(stdout) {
+    if (!this.connectionState.deviceIp || !this.connectionState.devicePort) {
+      return false;
+    }
+    const target = `${this.connectionState.deviceIp}:${this.connectionState.devicePort}`;
+    const lines = stdout.split("\n");
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine.startsWith(target) && trimmedLine.includes("device")) {
+        return true;
+      }
+    }
+    return false;
+  }
+  /**
+   * Extract meaningful error message from ADB command output
+   */
+  extractConnectionError(stdout, stderr) {
+    const output = (stdout + " " + stderr).toLowerCase();
+    if (output.includes("connection refused")) {
+      return "Connection refused. Make sure the device is reachable and ADB debugging is enabled.";
+    }
+    if (output.includes("no route to host")) {
+      return "No route to host. Check the IP address and network connectivity.";
+    }
+    if (output.includes("timeout") || output.includes("timed out")) {
+      return "Connection timeout. The device may be unreachable or busy.";
+    }
+    if (output.includes("failed to connect")) {
+      return "Failed to connect to device. Verify the IP address and port are correct.";
+    }
+    if (output.includes("cannot connect")) {
+      return "Cannot connect to device. Check if wireless debugging is enabled.";
+    }
+    if (output.includes("device offline")) {
+      return "Device is offline. Try reconnecting the device.";
+    }
+    if (output.includes("unauthorized")) {
+      return "Device unauthorized. Please accept the debugging authorization on your device.";
+    }
+    const errorOutput = stderr.trim() || stdout.trim();
+    return errorOutput || "Unknown connection error occurred.";
   }
   /**
    * Build command line arguments for scrcpy based on options
