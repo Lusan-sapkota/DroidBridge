@@ -2,10 +2,10 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { EventEmitter } from 'events';
 import { ChildProcess } from 'child_process';
-import { ProcessManager } from '../managers/processManager';
-import { BinaryManager } from '../managers/binaryManager';
-import { Logger } from '../managers/logger';
-import { ProcessResult, ScrcpyOptions } from '../types';
+import { ProcessManager } from '../managers/processManager.js';
+import { BinaryManager } from '../managers/binaryManager.js';
+import { Logger } from '../managers/logger.js';
+import { ProcessResult, ScrcpyOptions } from '../types/index.js';
 
 // Mock child_process module
 const mockChildProcess = {
@@ -15,6 +15,7 @@ const mockChildProcess = {
 // Mock ChildProcess class
 class MockChildProcess extends EventEmitter {
   public killed = false;
+  public exitCode: number | null = null;
   public stdout = new EventEmitter();
   public stderr = new EventEmitter();
   
@@ -385,6 +386,186 @@ suite('ProcessManager Tests', () => {
       // Should complete without errors
       assert.ok(mockLogger.info.calledWith('Cleaning up all managed processes'));
       assert.ok(mockLogger.info.calledWith('Process cleanup completed'));
+    });
+  });
+
+  suite('getScrcpyState', () => {
+    test('should return initial state when scrcpy is not running', () => {
+      const state = processManager.getScrcpyState();
+      assert.strictEqual(state.running, false);
+      assert.strictEqual(state.process, undefined);
+      assert.strictEqual(state.startTime, undefined);
+      assert.strictEqual(state.options, undefined);
+    });
+
+    test('should return running state when scrcpy is active', async () => {
+      const mockProcess = new MockChildProcess();
+      spawnStub.returns(mockProcess);
+
+      const options: ScrcpyOptions = { bitrate: 8000000 };
+      const launchPromise = processManager.launchScrcpy(options);
+      setTimeout(() => {
+        mockProcess.stdout.emit('data', Buffer.from('scrcpy started\n'));
+      }, 10);
+      await launchPromise;
+
+      const state = processManager.getScrcpyState();
+      assert.strictEqual(state.running, true);
+      assert.ok(state.process);
+      assert.ok(state.startTime);
+      assert.deepStrictEqual(state.options, options);
+    });
+
+    test('should update state when scrcpy stops', async () => {
+      const mockProcess = new MockChildProcess();
+      spawnStub.returns(mockProcess);
+
+      const launchPromise = processManager.launchScrcpy();
+      setTimeout(() => {
+        mockProcess.stdout.emit('data', Buffer.from('scrcpy started\n'));
+      }, 10);
+      await launchPromise;
+
+      // Stop scrcpy
+      await processManager.stopScrcpy();
+
+      const state = processManager.getScrcpyState();
+      assert.strictEqual(state.running, false);
+      assert.strictEqual(state.process, undefined);
+    });
+  });
+
+  suite('getScrcpyUptime', () => {
+    test('should return null when scrcpy is not running', () => {
+      const uptime = processManager.getScrcpyUptime();
+      assert.strictEqual(uptime, null);
+    });
+
+    test('should return uptime when scrcpy is running', async () => {
+      const mockProcess = new MockChildProcess();
+      spawnStub.returns(mockProcess);
+
+      const launchPromise = processManager.launchScrcpy();
+      setTimeout(() => {
+        mockProcess.stdout.emit('data', Buffer.from('scrcpy started\n'));
+      }, 10);
+      await launchPromise;
+
+      // Wait a bit to get some uptime
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const uptime = processManager.getScrcpyUptime();
+      assert.ok(uptime !== null);
+      assert.ok(uptime >= 40); // Should be at least 40ms
+    });
+
+    test('should return null after scrcpy stops', async () => {
+      const mockProcess = new MockChildProcess();
+      spawnStub.returns(mockProcess);
+
+      const launchPromise = processManager.launchScrcpy();
+      setTimeout(() => {
+        mockProcess.stdout.emit('data', Buffer.from('scrcpy started\n'));
+      }, 10);
+      await launchPromise;
+
+      await processManager.stopScrcpy();
+
+      const uptime = processManager.getScrcpyUptime();
+      assert.strictEqual(uptime, null);
+    });
+  });
+
+  suite('monitorScrcpyProcess', () => {
+    test('should detect process termination', async () => {
+      const mockProcess = new MockChildProcess();
+      spawnStub.returns(mockProcess);
+
+      const launchPromise = processManager.launchScrcpy();
+      setTimeout(() => {
+        mockProcess.stdout.emit('data', Buffer.from('scrcpy started\n'));
+      }, 10);
+      await launchPromise;
+
+      assert.strictEqual(processManager.isScrcpyRunning(), true);
+
+      // Simulate process termination
+      mockProcess.killed = true;
+      mockProcess.exitCode = 0;
+
+      // Monitor should detect the termination
+      processManager.monitorScrcpyProcess();
+
+      assert.strictEqual(processManager.isScrcpyRunning(), false);
+      const state = processManager.getScrcpyState();
+      assert.strictEqual(state.running, false);
+    });
+
+    test('should handle monitoring when no process exists', () => {
+      // Should not throw error
+      processManager.monitorScrcpyProcess();
+      assert.strictEqual(processManager.isScrcpyRunning(), false);
+    });
+  });
+
+  suite('launchScrcpyScreenOff', () => {
+    test('should launch scrcpy with screen off option', async () => {
+      const mockProcess = new MockChildProcess();
+      spawnStub.returns(mockProcess);
+
+      const launchPromise = processManager.launchScrcpyScreenOff();
+      setTimeout(() => {
+        mockProcess.stdout.emit('data', Buffer.from('scrcpy started\n'));
+      }, 10);
+      await launchPromise;
+
+      // Verify spawn was called with screen off argument
+      assert.ok(spawnStub.calledWith('/path/to/scrcpy', ['--turn-screen-off']));
+      assert.strictEqual(processManager.isScrcpyRunning(), true);
+    });
+
+    test('should launch scrcpy with screen off and additional options', async () => {
+      const mockProcess = new MockChildProcess();
+      spawnStub.returns(mockProcess);
+
+      const options: ScrcpyOptions = {
+        bitrate: 4000000,
+        maxSize: 1080
+      };
+
+      const launchPromise = processManager.launchScrcpyScreenOff(options);
+      setTimeout(() => {
+        mockProcess.stdout.emit('data', Buffer.from('scrcpy started\n'));
+      }, 10);
+      await launchPromise;
+
+      const expectedArgs = [
+        '--bit-rate', '4000000',
+        '--max-size', '1080',
+        '--turn-screen-off'
+      ];
+      assert.ok(spawnStub.calledWith('/path/to/scrcpy', expectedArgs));
+    });
+
+    test('should reject if scrcpy is already running', async () => {
+      const mockProcess = new MockChildProcess();
+      spawnStub.returns(mockProcess);
+
+      // Start first instance
+      const firstLaunch = processManager.launchScrcpy();
+      setTimeout(() => {
+        mockProcess.stdout.emit('data', Buffer.from('scrcpy started\n'));
+      }, 10);
+      await firstLaunch;
+
+      // Try to start screen off instance
+      try {
+        await processManager.launchScrcpyScreenOff();
+        assert.fail('Should have thrown an error');
+      } catch (error) {
+        assert.ok(error instanceof Error);
+        assert.strictEqual(error.message, 'Scrcpy is already running. Stop the current instance first.');
+      }
     });
   });
 

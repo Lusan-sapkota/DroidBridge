@@ -1,5 +1,5 @@
 import { ChildProcess, spawn } from "child_process";
-import { ProcessResult, ScrcpyOptions, ConnectionState } from "../types";
+import { ProcessResult, ScrcpyOptions, ConnectionState, ScrcpyState } from "../types";
 import { BinaryManager } from "./binaryManager";
 import { Logger } from "./logger";
 
@@ -12,12 +12,16 @@ export class ProcessManager {
   private binaryManager: BinaryManager;
   private logger: Logger;
   private connectionState: ConnectionState;
+  private scrcpyState: ScrcpyState;
 
   constructor(binaryManager: BinaryManager, logger: Logger) {
     this.binaryManager = binaryManager;
     this.logger = logger;
     this.connectionState = {
       connected: false,
+    };
+    this.scrcpyState = {
+      running: false,
     };
   }
 
@@ -263,72 +267,7 @@ export class ProcessManager {
    * Launch scrcpy with optional configuration
    */
   async launchScrcpy(options?: ScrcpyOptions): Promise<ChildProcess> {
-    if (this.isScrcpyRunning()) {
-      throw new Error(
-        "Scrcpy is already running. Stop the current instance first."
-      );
-    }
-
-    const scrcpyPath = this.binaryManager.getScrcpyPath();
-    const args = this.buildScrcpyArgs(options);
-
-    this.logger.info(`Launching scrcpy: ${scrcpyPath} ${args.join(" ")}`);
-
-    return new Promise((resolve, reject) => {
-      const process = spawn(scrcpyPath, args, {
-        stdio: ["pipe", "pipe", "pipe"],
-        detached: false,
-      });
-
-      this.scrcpyProcess = process;
-      this.managedProcesses.add(process);
-
-      let hasResolved = false;
-
-      // Handle process startup
-      const onData = (data: Buffer) => {
-        const output = data.toString();
-        this.logger.logProcessOutput("scrcpy", output);
-
-        // Consider scrcpy successfully started if we get any output
-        if (!hasResolved) {
-          hasResolved = true;
-          resolve(process);
-        }
-      };
-
-      process.stdout?.on("data", onData);
-      process.stderr?.on("data", onData);
-
-      process.on("close", (code: number | null) => {
-        this.managedProcesses.delete(process);
-        if (this.scrcpyProcess === process) {
-          this.scrcpyProcess = null;
-        }
-        this.logger.info(`Scrcpy process closed with exit code: ${code}`);
-      });
-
-      process.on("error", (error: Error) => {
-        this.managedProcesses.delete(process);
-        if (this.scrcpyProcess === process) {
-          this.scrcpyProcess = null;
-        }
-        this.logger.error(`Scrcpy process error: ${error.message}`, error);
-
-        if (!hasResolved) {
-          hasResolved = true;
-          reject(error);
-        }
-      });
-
-      // Timeout for process startup
-      setTimeout(() => {
-        if (!hasResolved) {
-          hasResolved = true;
-          reject(new Error("Scrcpy failed to start within timeout period"));
-        }
-      }, 5000);
-    });
+    return this.launchScrcpyWithCustomArgs(options);
   }
 
   /**
@@ -336,6 +275,10 @@ export class ProcessManager {
    */
   async stopScrcpy(): Promise<boolean> {
     if (!this.scrcpyProcess) {
+      // Update state to ensure it's marked as not running
+      this.scrcpyState = {
+        running: false,
+      };
       return true; // Already stopped
     }
 
@@ -347,6 +290,13 @@ export class ProcessManager {
       const cleanup = () => {
         this.managedProcesses.delete(process);
         this.scrcpyProcess = null;
+        
+        // Update state to indicate scrcpy has stopped
+        this.scrcpyState = {
+          running: false,
+        };
+        
+        this.logger.info("Scrcpy process stopped successfully");
         resolve(true);
       };
 
@@ -378,7 +328,60 @@ export class ProcessManager {
    * Check if scrcpy is currently running
    */
   isScrcpyRunning(): boolean {
-    return this.scrcpyProcess !== null && !this.scrcpyProcess.killed;
+    const processRunning = this.scrcpyProcess !== null && !this.scrcpyProcess.killed;
+    
+    // Sync state with actual process status
+    if (this.scrcpyState.running !== processRunning) {
+      this.scrcpyState = {
+        ...this.scrcpyState,
+        running: processRunning,
+      };
+    }
+    
+    return processRunning;
+  }
+
+  /**
+   * Get the current scrcpy state
+   */
+  getScrcpyState(): ScrcpyState {
+    // Ensure state is synchronized with actual process status
+    this.isScrcpyRunning();
+    return { ...this.scrcpyState };
+  }
+
+  /**
+   * Get scrcpy process uptime in milliseconds
+   */
+  getScrcpyUptime(): number | null {
+    if (!this.isScrcpyRunning() || !this.scrcpyState.startTime) {
+      return null;
+    }
+    
+    return Date.now() - this.scrcpyState.startTime.getTime();
+  }
+
+  /**
+   * Monitor scrcpy process health and update state accordingly
+   */
+  monitorScrcpyProcess(): void {
+    if (!this.scrcpyProcess) {
+      return;
+    }
+
+    const process = this.scrcpyProcess;
+    
+    // Check if process is still alive
+    if (process.killed || process.exitCode !== null) {
+      this.logger.info("Detected scrcpy process termination during monitoring");
+      
+      // Clean up references and update state
+      this.managedProcesses.delete(process);
+      this.scrcpyProcess = null;
+      this.scrcpyState = {
+        running: false,
+      };
+    }
   }
 
   /**
@@ -417,6 +420,11 @@ export class ProcessManager {
     await Promise.all(cleanupPromises);
     this.managedProcesses.clear();
     this.scrcpyProcess = null;
+    
+    // Reset scrcpy state
+    this.scrcpyState = {
+      running: false,
+    };
 
     this.logger.info("Process cleanup completed");
   }
@@ -519,6 +527,125 @@ export class ProcessManager {
     // Return the raw output if no specific error pattern is found
     const errorOutput = stderr.trim() || stdout.trim();
     return errorOutput || "Unknown connection error occurred.";
+  }
+
+  /**
+   * Launch scrcpy with screen off functionality
+   */
+  async launchScrcpyScreenOff(options?: ScrcpyOptions): Promise<ChildProcess> {
+    const screenOffOptions: ScrcpyOptions = {
+      ...options,
+    };
+    
+    // Add screen off arguments by modifying the args building process
+    this.logger.info("Launching scrcpy with screen off functionality");
+    
+    return this.launchScrcpyWithCustomArgs(screenOffOptions, ["--turn-screen-off"]);
+  }
+
+  /**
+   * Launch scrcpy with custom additional arguments
+   */
+  private async launchScrcpyWithCustomArgs(options?: ScrcpyOptions, additionalArgs: string[] = []): Promise<ChildProcess> {
+    if (this.isScrcpyRunning()) {
+      throw new Error(
+        "Scrcpy is already running. Stop the current instance first."
+      );
+    }
+
+    const scrcpyPath = this.binaryManager.getScrcpyPath();
+    const args = [...this.buildScrcpyArgs(options), ...additionalArgs];
+
+    this.logger.info(`Launching scrcpy: ${scrcpyPath} ${args.join(" ")}`);
+
+    // Update state to indicate scrcpy is starting
+    this.scrcpyState = {
+      running: false,
+      startTime: new Date(),
+      options: options ? { ...options } : undefined,
+    };
+
+    return new Promise((resolve, reject) => {
+      const process = spawn(scrcpyPath, args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        detached: false,
+      });
+
+      this.scrcpyProcess = process;
+      this.managedProcesses.add(process);
+
+      let hasResolved = false;
+
+      // Handle process startup
+      const onData = (data: Buffer) => {
+        const output = data.toString();
+        this.logger.logProcessOutput("scrcpy", output);
+
+        // Consider scrcpy successfully started if we get any output
+        if (!hasResolved) {
+          hasResolved = true;
+          
+          // Update state to indicate scrcpy is now running
+          this.scrcpyState = {
+            running: true,
+            process: process,
+            startTime: this.scrcpyState.startTime,
+            options: this.scrcpyState.options,
+          };
+          
+          this.logger.info("Scrcpy process started successfully");
+          resolve(process);
+        }
+      };
+
+      process.stdout?.on("data", onData);
+      process.stderr?.on("data", onData);
+
+      process.on("close", (code: number | null) => {
+        this.managedProcesses.delete(process);
+        if (this.scrcpyProcess === process) {
+          this.scrcpyProcess = null;
+          
+          // Update state to indicate scrcpy has stopped
+          this.scrcpyState = {
+            running: false,
+          };
+        }
+        this.logger.info(`Scrcpy process closed with exit code: ${code}`);
+      });
+
+      process.on("error", (error: Error) => {
+        this.managedProcesses.delete(process);
+        if (this.scrcpyProcess === process) {
+          this.scrcpyProcess = null;
+          
+          // Update state to indicate scrcpy failed to start
+          this.scrcpyState = {
+            running: false,
+          };
+        }
+        this.logger.error(`Scrcpy process error: ${error.message}`, error);
+
+        if (!hasResolved) {
+          hasResolved = true;
+          reject(error);
+        }
+      });
+
+      // Timeout for process startup
+      setTimeout(() => {
+        if (!hasResolved) {
+          hasResolved = true;
+          
+          // Update state to indicate scrcpy failed to start
+          this.scrcpyState = {
+            running: false,
+          };
+          
+          reject(new Error("Scrcpy failed to start within timeout period"));
+        }
+      }, 5000);
+    });
   }
 
   /**
