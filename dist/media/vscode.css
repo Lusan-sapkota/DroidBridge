@@ -1,0 +1,63 @@
+/* VSCode theme variables and base styles */
+:root {
+  /* Colors */
+  --vscode-foreground: var(--vscode-foreground);
+  --vscode-background: var(--vscode-background);
+  --vscode-focusBorder: var(--vscode-focusBorder);
+  
+  /* Button colors */
+  --vscode-button-background: var(--vscode-button-background);
+  --vscode-button-foreground: var(--vscode-button-foreground);
+  --vscode-button-hoverBackground: var(--vscode-button-hoverBackground);
+  --vscode-button-secondaryBackground: var(--vscode-button-secondaryBackground);
+  --vscode-button-secondaryForeground: var(--vscode-button-secondaryForeground);
+  --vscode-button-secondaryHoverBackground: var(--vscode-button-secondaryHoverBackground);
+  
+  /* Input colors */
+  --vscode-input-background: var(--vscode-input-background);
+  --vscode-input-foreground: var(--vscode-input-foreground);
+  --vscode-input-border: var(--vscode-input-border);
+  --vscode-input-placeholderForeground: var(--vscode-input-placeholderForeground);
+  
+  /* Status colors */
+  --vscode-statusBarItem-errorBackground: var(--vscode-statusBarItem-errorBackground);
+  --vscode-statusBarItem-warningBackground: var(--vscode-statusBarItem-warningBackground);
+  --vscode-charts-green: var(--vscode-charts-green);
+  --vscode-charts-red: var(--vscode-charts-red);
+  
+  /* Sidebar colors */
+  --vscode-sideBar-background: var(--vscode-sideBar-background);
+  --vscode-sideBar-foreground: var(--vscode-sideBar-foreground);
+  --vscode-sideBarSectionHeader-background: var(--vscode-sideBarSectionHeader-background);
+  --vscode-sideBarSectionHeader-foreground: var(--vscode-sideBarSectionHeader-foreground);
+  
+  /* Font */
+  --vscode-font-family: var(--vscode-font-family);
+  --vscode-font-size: var(--vscode-font-size);
+  --vscode-font-weight: var(--vscode-font-weight);
+}
+
+body {
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  font-weight: var(--vscode-font-weight);
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-background);
+}
+
+/* Codicon font support */
+.codicon {
+  font-family: 'codicon';
+  font-display: block;
+  font-style: normal;
+  font-variant: normal;
+  font-weight: normal;
+  font-size: 16px;
+  line-height: 1;
+  text-rendering: auto;
+  text-align: center;
+  text-transform: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}

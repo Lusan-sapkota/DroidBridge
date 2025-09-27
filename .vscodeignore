@@ -23,6 +23,9 @@ test-results/**
 
 # Documentation and development
 .kiro/**
+BUILD.md
+PUBLISHING.md
+MARKETPLACE.md
 *.md.backup
 .DS_Store
 Thumbs.db

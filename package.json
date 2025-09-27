@@ -139,7 +139,9 @@
     "clean": "rimraf dist out *.vsix",
     "package:vsix": "npm run package && vsce package",
     "publish": "npm run package && vsce publish",
-    "publish:pre": "npm run package && vsce publish --pre-release"
+    "publish:pre": "npm run package && vsce publish --pre-release",
+    "publish:interactive": "node scripts/publish.js",
+    "validate": "node scripts/validate.js"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",

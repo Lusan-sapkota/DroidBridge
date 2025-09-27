@@ -1,0 +1,453 @@
+{
+  "inputs": {
+    "src/utils/errorHandler.ts": {
+      "bytes": 19013,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "../managers/logger",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/managers/commandManager.ts": {
+      "bytes": 23267,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "./processManager",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "./configManager",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "./logger",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/utils/errorHandler.ts",
+          "kind": "import-statement",
+          "original": "../utils/errorHandler"
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/utils/platformUtils.ts": {
+      "bytes": 5499,
+      "imports": [
+        {
+          "path": "os",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/managers/processManager.ts": {
+      "bytes": 20546,
+      "imports": [
+        {
+          "path": "child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "../types",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "./binaryManager",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "./logger",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/utils/errorHandler.ts",
+          "kind": "import-statement",
+          "original": "../utils/errorHandler"
+        },
+        {
+          "path": "src/utils/platformUtils.ts",
+          "kind": "import-statement",
+          "original": "../utils/platformUtils"
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/managers/configManager.ts": {
+      "bytes": 6631,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/managers/binaryManager.ts": {
+      "bytes": 9119,
+      "imports": [
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "../types",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/utils/platformUtils.ts",
+          "kind": "import-statement",
+          "original": "../utils/platformUtils"
+        },
+        {
+          "path": "./configManager",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/managers/logger.ts": {
+      "bytes": 5181,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/managers/index.ts": {
+      "bytes": 276,
+      "imports": [
+        {
+          "path": "src/managers/commandManager.ts",
+          "kind": "import-statement",
+          "original": "./commandManager"
+        },
+        {
+          "path": "src/managers/processManager.ts",
+          "kind": "import-statement",
+          "original": "./processManager"
+        },
+        {
+          "path": "src/managers/configManager.ts",
+          "kind": "import-statement",
+          "original": "./configManager"
+        },
+        {
+          "path": "src/managers/binaryManager.ts",
+          "kind": "import-statement",
+          "original": "./binaryManager"
+        },
+        {
+          "path": "src/managers/logger.ts",
+          "kind": "import-statement",
+          "original": "./logger"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/utils/themeManager.ts": {
+      "bytes": 6596,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/providers/sidebarProvider.ts": {
+      "bytes": 14117,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "../managers/configManager",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/utils/themeManager.ts",
+          "kind": "import-statement",
+          "original": "../utils/themeManager"
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/providers/index.ts": {
+      "bytes": 106,
+      "imports": [
+        {
+          "path": "src/providers/sidebarProvider.ts",
+          "kind": "import-statement",
+          "original": "./sidebarProvider"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension.ts": {
+      "bytes": 8795,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/managers/index.ts",
+          "kind": "import-statement",
+          "original": "./managers"
+        },
+        {
+          "path": "src/providers/index.ts",
+          "kind": "import-statement",
+          "original": "./providers"
+        },
+        {
+          "path": "./types",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/utils/themeManager.ts",
+          "kind": "import-statement",
+          "original": "./utils/themeManager"
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    }
+  },
+  "outputs": {
+    "dist/extension.js": {
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "child_process",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "os",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        }
+      ],
+      "exports": [],
+      "entryPoint": "src/extension.ts",
+      "inputs": {
+        "src/extension.ts": {
+          "bytesInOutput": 3402
+        },
+        "src/managers/commandManager.ts": {
+          "bytesInOutput": 11234
+        },
+        "src/utils/errorHandler.ts": {
+          "bytesInOutput": 9065
+        },
+        "src/managers/index.ts": {
+          "bytesInOutput": 0
+        },
+        "src/managers/processManager.ts": {
+          "bytesInOutput": 9648
+        },
+        "src/utils/platformUtils.ts": {
+          "bytesInOutput": 1992
+        },
+        "src/managers/configManager.ts": {
+          "bytesInOutput": 2593
+        },
+        "src/managers/binaryManager.ts": {
+          "bytesInOutput": 3421
+        },
+        "src/managers/logger.ts": {
+          "bytesInOutput": 1796
+        },
+        "src/providers/sidebarProvider.ts": {
+          "bytesInOutput": 8408
+        },
+        "src/utils/themeManager.ts": {
+          "bytesInOutput": 2519
+        },
+        "src/providers/index.ts": {
+          "bytesInOutput": 0
+        }
+      },
+      "bytes": 54946
+    }
+  }
+}

@@ -1,0 +1,240 @@
+/* Main styles for DroidBridge sidebar */
+/* Theme-specific root variables */
+:root {
+  --droidbridge-icon-color: var(--vscode-foreground);
+  --droidbridge-section-border: var(--vscode-sideBarSectionHeader-background);
+  --droidbridge-success-color: var(--vscode-charts-green, #4CAF50);
+  --droidbridge-error-color: var(--vscode-charts-red, #F44336);
+  --droidbridge-warning-color: var(--vscode-charts-orange, #FF9800);
+}
+
+/* Theme-specific overrides */
+.vscode-light {
+  --droidbridge-icon-color: #424242;
+  --droidbridge-section-border: #E0E0E0;
+}
+
+.vscode-dark {
+  --droidbridge-icon-color: #CCCCCC;
+  --droidbridge-section-border: #2D2D30;
+}
+
+.vscode-high-contrast {
+  --droidbridge-icon-color: #FFFFFF;
+  --droidbridge-section-border: #FFFFFF;
+  --droidbridge-success-color: #00FF00;
+  --droidbridge-error-color: #FF0000;
+}
+
+.vscode-high-contrast-light {
+  --droidbridge-icon-color: #000000;
+  --droidbridge-section-border: #000000;
+  --droidbridge-success-color: #008000;
+  --droidbridge-error-color: #800000;
+}
+
+.container {
+  padding: 16px;
+  max-width: 100%;
+}
+
+/* Section styles */
+.section {
+  margin-bottom: 24px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--droidbridge-section-border);
+}
+
+.section-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-sideBarSectionHeader-foreground);
+  margin: 0;
+}
+
+.section-header .codicon {
+  color: var(--droidbridge-icon-color);
+  font-size: 16px;
+}
+
+.section-header .section-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.section-content {
+  padding-left: 4px;
+}
+
+/* Status indicator styles */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  background-color: var(--vscode-sideBar-background);
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+.status-text {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Connected status */
+.status-indicator.connected .status-icon {
+  color: var(--droidbridge-success-color);
+}
+
+.status-indicator.connected .status-text {
+  color: var(--droidbridge-success-color);
+}
+
+/* Disconnected status */
+.status-indicator.disconnected .status-icon {
+  color: var(--droidbridge-error-color);
+}
+
+.status-indicator.disconnected .status-text {
+  color: var(--droidbridge-error-color);
+}
+
+/* Running status */
+.status-indicator.running .status-icon {
+  color: var(--droidbridge-success-color);
+}
+
+.status-indicator.running .status-text {
+  color: var(--droidbridge-success-color);
+}/*
+ Stopped status */
+.status-indicator.stopped .status-icon {
+  color: var(--vscode-foreground);
+  opacity: 0.7;
+}
+
+.status-indicator.stopped .status-text {
+  color: var(--vscode-foreground);
+  opacity: 0.7;
+}
+
+/* Input group styles */
+.input-group {
+  margin-bottom: 12px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--vscode-foreground);
+}
+
+.input-group input {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 2px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.input-group input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.input-group input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+/* Button group styles */
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Button base styles */
+button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  outline: none;
+  min-height: 28px;
+}
+
+button:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+button .codicon {
+  font-size: 14px;
+}
+
+/* Primary button styles */
+.primary-button {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.primary-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+/* Secondary button styles */
+.secondary-button {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.secondary-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Disabled button styles */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive design */
+@media (max-width: 300px) {
+  .container {
+    padding: 12px;
+  }
+  
+  .button-group {
+    gap: 6px;
+  }
+  
+  button {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+}
