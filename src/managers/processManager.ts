@@ -2,6 +2,7 @@ import { ChildProcess, spawn } from "child_process";
 import { ProcessResult, ScrcpyOptions, ConnectionState, ScrcpyState } from "../types";
 import { BinaryManager } from "./binaryManager";
 import { Logger } from "./logger";
+import { ErrorHandler } from "../utils/errorHandler";
 
 /**
  * Manages external process execution for ADB and scrcpy operations
@@ -11,12 +12,14 @@ export class ProcessManager {
   private managedProcesses: Set<ChildProcess> = new Set();
   private binaryManager: BinaryManager;
   private logger: Logger;
+  private errorHandler: ErrorHandler;
   private connectionState: ConnectionState;
   private scrcpyState: ScrcpyState;
 
   constructor(binaryManager: BinaryManager, logger: Logger) {
     this.binaryManager = binaryManager;
     this.logger = logger;
+    this.errorHandler = new ErrorHandler(logger);
     this.connectionState = {
       connected: false,
     };
@@ -90,23 +93,21 @@ export class ProcessManager {
    */
   async connectDevice(ip: string, port: string): Promise<boolean> {
     try {
-      // Validate IP and port format
-      if (!this.isValidIpAddress(ip)) {
-        const error = `Invalid IP address format: ${ip}`;
-        this.logger.error(error);
+      // Enhanced validation with better error handling
+      const ipValidation = this.errorHandler.validateAndHandleInput(ip, 'ip', 'IP address');
+      if (!ipValidation.isValid) {
         this.connectionState = {
           connected: false,
-          connectionError: error,
+          connectionError: ipValidation.error?.userMessage || 'Invalid IP address',
         };
         return false;
       }
 
-      if (!this.isValidPort(port)) {
-        const error = `Invalid port number: ${port}. Port must be between 1 and 65535.`;
-        this.logger.error(error);
+      const portValidation = this.errorHandler.validateAndHandleInput(port, 'port', 'Port number');
+      if (!portValidation.isValid) {
         this.connectionState = {
           connected: false,
-          connectionError: error,
+          connectionError: portValidation.error?.userMessage || 'Invalid port number',
         };
         return false;
       }

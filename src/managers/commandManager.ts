@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ProcessManager } from './processManager';
 import { ConfigManager } from './configManager';
 import { Logger } from './logger';
+import { ErrorHandler, ProgressContext } from '../utils/errorHandler';
 
 /**
  * Manages all VSCode commands for the DroidBridge extension
@@ -11,11 +12,21 @@ export class CommandManager {
   private processManager: ProcessManager;
   private configManager: ConfigManager;
   private logger: Logger;
+  private errorHandler: ErrorHandler;
+  private sidebarProvider?: any; // Will be properly typed when sidebar provider is available
+  private statusUpdateInterval?: NodeJS.Timeout;
 
-  constructor(processManager: ProcessManager, configManager: ConfigManager, logger: Logger) {
+  constructor(processManager: ProcessManager, configManager: ConfigManager, logger: Logger, sidebarProvider?: any) {
     this.processManager = processManager;
     this.configManager = configManager;
     this.logger = logger;
+    this.errorHandler = new ErrorHandler(logger);
+    this.sidebarProvider = sidebarProvider;
+    
+    // Start periodic status updates if sidebar provider is available
+    if (this.sidebarProvider) {
+      this.startStatusUpdates();
+    }
   }
 
   /**
@@ -25,7 +36,7 @@ export class CommandManager {
   registerCommands(context: vscode.ExtensionContext): void {
     const commands = [
       // Requirement 4.1: Connect to Device command
-      vscode.commands.registerCommand('droidbridge.connectDevice', () => this.connectDeviceCommand()),
+      vscode.commands.registerCommand('droidbridge.connectDevice', (ip?: string, port?: string) => this.connectDeviceCommand(ip, port)),
       
       // Requirement 4.2: Disconnect Device command
       vscode.commands.registerCommand('droidbridge.disconnectDevice', () => this.disconnectDeviceCommand()),
@@ -53,86 +64,110 @@ export class CommandManager {
    * Connect to Android device via ADB
    * Requirement 4.1: Provide "DroidBridge: Connect to Device" command
    */
-  async connectDeviceCommand(): Promise<void> {
+  async connectDeviceCommand(providedIp?: string, providedPort?: string): Promise<void> {
     try {
       this.logger.info('Connect Device command executed');
 
       // Get default values from configuration
       const config = this.configManager.getConfigWithDefaults();
-      let ip = config.ip;
-      let port = config.port;
+      let ip = providedIp || config.ip;
+      let port = providedPort || config.port;
 
-      // Prompt user for IP address with default value
-      const inputIp = await vscode.window.showInputBox({
-        prompt: 'Enter the IP address of your Android device',
-        value: ip,
-        validateInput: (value: string) => {
-          if (!value.trim()) {
-            return 'IP address cannot be empty';
+      // If no IP/port provided, prompt user for input
+      if (!providedIp || !providedPort) {
+        // Prompt user for IP address with default value
+        const inputIp = await vscode.window.showInputBox({
+          prompt: 'Enter the IP address of your Android device',
+          value: ip,
+          validateInput: (value: string) => {
+            if (!value.trim()) {
+              return 'IP address cannot be empty';
+            }
+            if (!this.configManager.validateIpAddress(value.trim())) {
+              return 'Please enter a valid IP address (e.g., 192.168.1.100 or localhost)';
+            }
+            return null;
           }
-          if (!this.configManager.validateIpAddress(value.trim())) {
-            return 'Please enter a valid IP address (e.g., 192.168.1.100 or localhost)';
-          }
-          return null;
+        });
+
+        if (inputIp === undefined) {
+          this.logger.info('Connect Device command cancelled by user');
+          return;
         }
-      });
 
-      if (inputIp === undefined) {
-        this.logger.info('Connect Device command cancelled by user');
-        return;
-      }
+        ip = inputIp.trim();
 
-      ip = inputIp.trim();
-
-      // Prompt user for port with default value
-      const inputPort = await vscode.window.showInputBox({
-        prompt: 'Enter the port number for ADB connection',
-        value: port,
-        validateInput: (value: string) => {
-          if (!value.trim()) {
-            return 'Port cannot be empty';
+        // Prompt user for port with default value
+        const inputPort = await vscode.window.showInputBox({
+          prompt: 'Enter the port number for ADB connection',
+          value: port,
+          validateInput: (value: string) => {
+            if (!value.trim()) {
+              return 'Port cannot be empty';
+            }
+            if (!this.configManager.validatePort(value.trim())) {
+              return 'Please enter a valid port number (1-65535)';
+            }
+            return null;
           }
-          if (!this.configManager.validatePort(value.trim())) {
-            return 'Please enter a valid port number (1-65535)';
-          }
-          return null;
+        });
+
+        if (inputPort === undefined) {
+          this.logger.info('Connect Device command cancelled by user');
+          return;
         }
-      });
 
-      if (inputPort === undefined) {
-        this.logger.info('Connect Device command cancelled by user');
-        return;
+        port = inputPort.trim();
       }
 
-      port = inputPort.trim();
-
-      // Validate the combination
-      const validation = this.configManager.validateConnection(ip, port);
-      if (!validation.isValid) {
-        const errorMessage = `Invalid connection parameters: ${validation.errors.join(', ')}`;
-        this.logger.showError(errorMessage);
-        return;
+      // Enhanced validation with better error handling
+      const ipValidation = this.errorHandler.validateAndHandleInput(ip, 'ip', 'IP address');
+      if (!ipValidation.isValid) {
+        return; // Error already handled by validator
       }
 
-      // Show progress notification
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: `🔌 Connecting to ${ip}:${port}...`,
-          cancellable: false
-        },
-        async () => {
+      const portValidation = this.errorHandler.validateAndHandleInput(port, 'port', 'Port number');
+      if (!portValidation.isValid) {
+        return; // Error already handled by validator
+      }
+
+      // Show progress notification with enhanced error handling
+      const progressContext: ProgressContext = {
+        title: `🔌 Connecting to ${ip}:${port}...`,
+        cancellable: true,
+        location: vscode.ProgressLocation.Notification
+      };
+
+      await this.errorHandler.showProgress(
+        async (progress, token) => {
+          if (token.isCancellationRequested) {
+            throw new Error('Connection cancelled by user');
+          }
+          
+          progress.report({ message: 'Establishing connection...' });
           const success = await this.connectDevice(ip, port);
+          
           if (success) {
-            this.logger.showSuccess(`✅ Device connected to ${ip}:${port}`);
+            progress.report({ message: 'Connected successfully', increment: 100 });
+            this.errorHandler.showSuccess(`Device connected to ${ip}:${port}`);
           }
-        }
+          
+          return success;
+        },
+        progressContext,
+        'connect-device'
       );
 
     } catch (error) {
-      const errorMessage = 'Failed to execute Connect Device command';
-      this.logger.error(errorMessage, error instanceof Error ? error : undefined);
-      this.logger.showError(errorMessage);
+      if (error instanceof Error && error.message.includes('cancelled')) {
+        this.logger.info('Connect Device command cancelled by user');
+        return;
+      }
+      
+      this.errorHandler.handleSystemError(
+        error instanceof Error ? error : new Error('Unknown error'),
+        'Connect Device command'
+      );
     }
   }
 
@@ -155,25 +190,34 @@ export class CommandManager {
         ? `${connectionState.deviceIp}:${connectionState.devicePort}` 
         : 'device';
 
-      // Show progress notification
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: `🔌 Disconnecting from ${target}...`,
-          cancellable: false
-        },
-        async () => {
+      // Show progress notification with enhanced error handling
+      const progressContext: ProgressContext = {
+        title: `🔌 Disconnecting from ${target}...`,
+        cancellable: false,
+        location: vscode.ProgressLocation.Notification
+      };
+
+      await this.errorHandler.showProgress(
+        async (progress) => {
+          progress.report({ message: 'Disconnecting device...' });
           const success = await this.disconnectDevice();
+          
           if (success) {
-            this.logger.showSuccess(`✅ Device disconnected from ${target}`);
+            progress.report({ message: 'Disconnected successfully', increment: 100 });
+            this.errorHandler.showSuccess(`Device disconnected from ${target}`);
           }
-        }
+          
+          return success;
+        },
+        progressContext,
+        'disconnect-device'
       );
 
     } catch (error) {
-      const errorMessage = 'Failed to execute Disconnect Device command';
-      this.logger.error(errorMessage, error instanceof Error ? error : undefined);
-      this.logger.showError(errorMessage);
+      this.errorHandler.handleSystemError(
+        error instanceof Error ? error : new Error('Unknown error'),
+        'Disconnect Device command'
+      );
     }
   }
 
@@ -208,25 +252,44 @@ export class CommandManager {
         }
       }
 
-      // Show progress notification
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: '📱 Launching scrcpy...',
-          cancellable: false
-        },
-        async () => {
-          const success = await this.launchScrcpy();
-          if (success) {
-            this.logger.showSuccess('✅ Scrcpy launched successfully');
+      // Show progress notification with enhanced error handling
+      const progressContext: ProgressContext = {
+        title: '📱 Launching scrcpy...',
+        cancellable: true,
+        location: vscode.ProgressLocation.Notification
+      };
+
+      await this.errorHandler.showProgress(
+        async (progress, token) => {
+          if (token.isCancellationRequested) {
+            throw new Error('Scrcpy launch cancelled by user');
           }
-        }
+          
+          progress.report({ message: 'Starting screen mirroring...' });
+          const success = await this.launchScrcpy();
+          
+          if (success) {
+            progress.report({ message: 'Screen mirroring started', increment: 100 });
+            this.errorHandler.showSuccess('Scrcpy launched successfully');
+          }
+          
+          return success;
+        },
+        progressContext,
+        'launch-scrcpy'
       );
 
     } catch (error) {
-      const errorMessage = 'Failed to execute Launch Scrcpy command';
-      this.logger.error(errorMessage, error instanceof Error ? error : undefined);
-      this.logger.showError(errorMessage);
+      if (error instanceof Error && error.message.includes('cancelled')) {
+        this.logger.info('Launch Scrcpy command cancelled by user');
+        return;
+      }
+      
+      this.errorHandler.handleProcessError(
+        error instanceof Error ? error : new Error('Unknown error'),
+        'scrcpy',
+        'Launch Scrcpy command'
+      );
     }
   }
 
@@ -261,25 +324,44 @@ export class CommandManager {
         }
       }
 
-      // Show progress notification
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: '📱 Launching scrcpy with screen off...',
-          cancellable: false
-        },
-        async () => {
-          const success = await this.launchScrcpyScreenOff();
-          if (success) {
-            this.logger.showSuccess('✅ Scrcpy launched successfully with screen off');
+      // Show progress notification with enhanced error handling
+      const progressContext: ProgressContext = {
+        title: '📱 Launching scrcpy with screen off...',
+        cancellable: true,
+        location: vscode.ProgressLocation.Notification
+      };
+
+      await this.errorHandler.showProgress(
+        async (progress, token) => {
+          if (token.isCancellationRequested) {
+            throw new Error('Scrcpy screen off launch cancelled by user');
           }
-        }
+          
+          progress.report({ message: 'Starting screen mirroring with screen off...' });
+          const success = await this.launchScrcpyScreenOff();
+          
+          if (success) {
+            progress.report({ message: 'Screen mirroring started with screen off', increment: 100 });
+            this.errorHandler.showSuccess('Scrcpy launched successfully with screen off');
+          }
+          
+          return success;
+        },
+        progressContext,
+        'launch-scrcpy-screen-off'
       );
 
     } catch (error) {
-      const errorMessage = 'Failed to execute Launch Scrcpy Screen Off command';
-      this.logger.error(errorMessage, error instanceof Error ? error : undefined);
-      this.logger.showError(errorMessage);
+      if (error instanceof Error && error.message.includes('cancelled')) {
+        this.logger.info('Launch Scrcpy Screen Off command cancelled by user');
+        return;
+      }
+      
+      this.errorHandler.handleProcessError(
+        error instanceof Error ? error : new Error('Unknown error'),
+        'scrcpy screen off',
+        'Launch Scrcpy Screen Off command'
+      );
     }
   }
 
@@ -297,26 +379,37 @@ export class CommandManager {
         return;
       }
 
-      // Show progress notification
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: '📱 Stopping scrcpy...',
-          cancellable: false
-        },
-        async () => {
-          const success = await this.stopScrcpy();
-          if (success) {
-            this.logger.showSuccess('✅ Scrcpy stopped successfully');
-          }
-        }
-      );
+      // Show progress notification with enhanced error handling
+      const progressContext: ProgressContext = {
+        title: '📱 Stopping scrcpy...',
+        cancellable: false,
+        location: vscode.ProgressLocation.Notification
+      };
 
+      await this.errorHandler.showProgress(
+        async (progress) => {
+          progress.report({ message: 'Stopping screen mirroring...' });
+          const success = await this.stopScrcpy();
+          
+          if (success) {
+            progress.report({ message: 'Screen mirroring stopped', increment: 100 });
+            this.errorHandler.showSuccess('Scrcpy stopped successfully');
+          }
+          
+          return success;
+        },
+        progressContext,
+        'stop-scrcpy'
+      );
     } catch (error) {
-      const errorMessage = 'Failed to execute Stop Scrcpy command';
-      this.logger.error(errorMessage, error instanceof Error ? error : undefined);
-      this.logger.showError(errorMessage);
+      this.errorHandler.handleProcessError(
+        error instanceof Error ? error : new Error('Unknown error'),
+        'scrcpy',
+        'Stop Scrcpy command'
+      );
     }
+
+
   }
 
   /**
@@ -328,9 +421,10 @@ export class CommandManager {
       this.logger.info('Show Logs command executed');
       this.logger.show();
     } catch (error) {
-      const errorMessage = 'Failed to execute Show Logs command';
-      this.logger.error(errorMessage, error instanceof Error ? error : undefined);
-      this.logger.showError(errorMessage);
+      this.errorHandler.handleSystemError(
+        error instanceof Error ? error : new Error('Unknown error'),
+        'Show Logs command'
+      );
     }
   }
 
@@ -339,11 +433,12 @@ export class CommandManager {
    * Internal method used by command and sidebar
    */
   async connectDevice(ip?: string, port?: string): Promise<boolean> {
+    // Use provided values or get from configuration
+    const config = this.configManager.getConfigWithDefaults();
+    const targetIp = ip || config.ip;
+    const targetPort = port || config.port;
+
     try {
-      // Use provided values or get from configuration
-      const config = this.configManager.getConfigWithDefaults();
-      const targetIp = ip || config.ip;
-      const targetPort = port || config.port;
 
       // Validate inputs
       const validation = this.configManager.validateConnection(targetIp, targetPort);
@@ -358,17 +453,30 @@ export class CommandManager {
       
       if (!success) {
         const connectionState = this.processManager.getConnectionState();
-        const errorMessage = connectionState.connectionError || 'Failed to connect to device';
-        this.logger.showError(`❌ ${errorMessage}`);
+        const connectionError = new Error(connectionState.connectionError || 'Failed to connect to device');
+        
+        this.errorHandler.handleConnectionError(connectionError, { ip: targetIp, port: targetPort });
+        
+        // Update sidebar UI
+        if (this.sidebarProvider) {
+          this.sidebarProvider.updateConnectionStatus(false);
+        }
+        
         return false;
+      }
+
+      // Update sidebar UI on success
+      if (this.sidebarProvider) {
+        this.sidebarProvider.updateConnectionStatus(true, targetIp, targetPort);
       }
 
       return true;
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error('Connection failed', error instanceof Error ? error : undefined);
-      this.logger.showError(`❌ Connection failed: ${errorMessage}`);
+      this.errorHandler.handleConnectionError(
+        error instanceof Error ? error : new Error('Unknown connection error'),
+        { ip: targetIp, port: targetPort }
+      );
       return false;
     }
   }
@@ -383,17 +491,29 @@ export class CommandManager {
       
       if (!success) {
         const connectionState = this.processManager.getConnectionState();
-        const errorMessage = connectionState.connectionError || 'Failed to disconnect from device';
-        this.logger.showError(`❌ ${errorMessage}`);
+        const disconnectionError = new Error(connectionState.connectionError || 'Failed to disconnect from device');
+        
+        this.errorHandler.handleConnectionError(disconnectionError);
+        
+        // Update sidebar UI
+        if (this.sidebarProvider) {
+          this.sidebarProvider.updateConnectionStatus(false);
+        }
+        
         return false;
+      }
+
+      // Update sidebar UI on success
+      if (this.sidebarProvider) {
+        this.sidebarProvider.updateConnectionStatus(false);
       }
 
       return true;
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error('Disconnection failed', error instanceof Error ? error : undefined);
-      this.logger.showError(`❌ Disconnection failed: ${errorMessage}`);
+      this.errorHandler.handleConnectionError(
+        error instanceof Error ? error : new Error('Unknown disconnection error')
+      );
       return false;
     }
   }
@@ -404,32 +524,40 @@ export class CommandManager {
    */
   async launchScrcpy(): Promise<boolean> {
     try {
-      // Check for duplicate instances
+      // Check for duplicate instances with enhanced error handling
       if (this.processManager.isScrcpyRunning()) {
-        this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
+        const duplicateError = new Error('Scrcpy is already running');
+        this.errorHandler.handleProcessError(duplicateError, 'scrcpy');
         return false;
       }
 
       const process = await this.processManager.launchScrcpy();
       
-      if (!process) {
-        this.logger.showError('❌ Failed to launch scrcpy');
+      // If we get here, the process was launched successfully
+      if (!process || !process.pid) {
+        const processError = new Error('Failed to launch scrcpy - invalid process');
+        this.errorHandler.handleProcessError(processError, 'scrcpy');
+        
+        // Update sidebar UI
+        if (this.sidebarProvider) {
+          this.sidebarProvider.updateScrcpyStatus(false);
+        }
+        
         return false;
+      }
+
+      // Update sidebar UI on success
+      if (this.sidebarProvider) {
+        this.sidebarProvider.updateScrcpyStatus(true);
       }
 
       return true;
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error('Failed to launch scrcpy', error instanceof Error ? error : undefined);
-      
-      // Handle specific error cases
-      if (errorMessage.includes('already running')) {
-        this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
-      } else {
-        this.logger.showError(`❌ Failed to launch scrcpy: ${errorMessage}`);
-      }
-      
+      this.errorHandler.handleProcessError(
+        error instanceof Error ? error : new Error('Unknown scrcpy launch error'),
+        'scrcpy'
+      );
       return false;
     }
   }
@@ -440,32 +568,40 @@ export class CommandManager {
    */
   async launchScrcpyScreenOff(): Promise<boolean> {
     try {
-      // Check for duplicate instances
+      // Check for duplicate instances with enhanced error handling
       if (this.processManager.isScrcpyRunning()) {
-        this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
+        const duplicateError = new Error('Scrcpy is already running');
+        this.errorHandler.handleProcessError(duplicateError, 'scrcpy screen off');
         return false;
       }
 
       const process = await this.processManager.launchScrcpyScreenOff();
       
-      if (!process) {
-        this.logger.showError('❌ Failed to launch scrcpy with screen off');
+      // If we get here, the process was launched successfully
+      if (!process || !process.pid) {
+        const processError = new Error('Failed to launch scrcpy with screen off - invalid process');
+        this.errorHandler.handleProcessError(processError, 'scrcpy screen off');
+        
+        // Update sidebar UI
+        if (this.sidebarProvider) {
+          this.sidebarProvider.updateScrcpyStatus(false);
+        }
+        
         return false;
+      }
+
+      // Update sidebar UI on success
+      if (this.sidebarProvider) {
+        this.sidebarProvider.updateScrcpyStatus(true);
       }
 
       return true;
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error('Failed to launch scrcpy with screen off', error instanceof Error ? error : undefined);
-      
-      // Handle specific error cases
-      if (errorMessage.includes('already running')) {
-        this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
-      } else {
-        this.logger.showError(`❌ Failed to launch scrcpy with screen off: ${errorMessage}`);
-      }
-      
+      this.errorHandler.handleProcessError(
+        error instanceof Error ? error : new Error('Unknown scrcpy screen off launch error'),
+        'scrcpy screen off'
+      );
       return false;
     }
   }
@@ -479,16 +615,23 @@ export class CommandManager {
       const success = await this.processManager.stopScrcpy();
       
       if (!success) {
-        this.logger.showError('❌ Failed to stop scrcpy');
+        const stopError = new Error('Failed to stop scrcpy');
+        this.errorHandler.handleProcessError(stopError, 'scrcpy');
         return false;
+      }
+
+      // Update sidebar UI on success
+      if (this.sidebarProvider) {
+        this.sidebarProvider.updateScrcpyStatus(false);
       }
 
       return true;
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error('Failed to stop scrcpy', error instanceof Error ? error : undefined);
-      this.logger.showError(`❌ Failed to stop scrcpy: ${errorMessage}`);
+      this.errorHandler.handleProcessError(
+        error instanceof Error ? error : new Error('Unknown scrcpy stop error'),
+        'scrcpy'
+      );
       return false;
     }
   }
@@ -519,5 +662,79 @@ export class CommandManager {
    */
   getScrcpyState() {
     return this.processManager.getScrcpyState();
+  }
+
+  /**
+   * Set the sidebar provider for real-time updates
+   */
+  setSidebarProvider(sidebarProvider: any): void {
+    this.sidebarProvider = sidebarProvider;
+    
+    // Start status updates if not already running
+    if (!this.statusUpdateInterval) {
+      this.startStatusUpdates();
+    }
+    
+    // Immediately sync current state
+    this.updateSidebarState();
+  }
+
+  /**
+   * Start periodic status updates to keep sidebar in sync
+   */
+  private startStatusUpdates(): void {
+    if (this.statusUpdateInterval) {
+      return; // Already running
+    }
+
+    // Update sidebar state every 2 seconds
+    this.statusUpdateInterval = setInterval(() => {
+      this.updateSidebarState();
+    }, 2000);
+  }
+
+  /**
+   * Stop periodic status updates
+   */
+  private stopStatusUpdates(): void {
+    if (this.statusUpdateInterval) {
+      clearInterval(this.statusUpdateInterval);
+      this.statusUpdateInterval = undefined;
+    }
+  }
+
+  /**
+   * Update sidebar state with current process states
+   */
+  private updateSidebarState(): void {
+    if (!this.sidebarProvider) {
+      return;
+    }
+
+    try {
+      const connectionState = this.processManager.getConnectionState();
+      const scrcpyState = this.processManager.getScrcpyState();
+      
+      // Synchronize sidebar with actual process states
+      this.sidebarProvider.synchronizeState(connectionState, scrcpyState);
+    } catch (error) {
+      // Log error but don't throw to avoid breaking the interval
+      this.logger.error('Failed to update sidebar state', error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * Force immediate sidebar state update
+   */
+  refreshSidebarState(): void {
+    this.updateSidebarState();
+  }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    this.stopStatusUpdates();
+    this.errorHandler.dispose();
   }
 }

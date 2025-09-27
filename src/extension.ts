@@ -25,10 +25,15 @@ export function activate(context: vscode.ExtensionContext) {
     configManager = new ConfigManager();
     binaryManager = new BinaryManager(context.extensionPath, configManager);
     processManager = new ProcessManager(binaryManager, logger);
-    commandManager = new CommandManager(processManager, configManager, logger);
-
+    
     // Initialize sidebar provider
-    sidebarProvider = new DroidBridgeSidebarProvider();
+    sidebarProvider = new DroidBridgeSidebarProvider(vscode.Uri.file(context.extensionPath), context, configManager);
+    
+    // Initialize command manager with sidebar provider for UI updates
+    commandManager = new CommandManager(processManager, configManager, logger, sidebarProvider);
+    
+    // Set up bidirectional integration between sidebar and command manager
+    commandManager.setSidebarProvider(sidebarProvider);
 
     // Initialize extension state
     extensionState = {
@@ -42,8 +47,11 @@ export function activate(context: vscode.ExtensionContext) {
       binariesValidated: false
     };
 
-    // Register sidebar provider
-    vscode.window.registerTreeDataProvider('droidbridge-sidebar', sidebarProvider);
+    // Register webview provider
+    const sidebarDisposable = vscode.window.registerWebviewViewProvider(
+      DroidBridgeSidebarProvider.viewType, 
+      sidebarProvider
+    );
 
     // Register commands (implementation will be added in later tasks)
     commandManager.registerCommands(context);
@@ -56,6 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Add disposables to context
     context.subscriptions.push(
+      sidebarDisposable,
       configDisposable,
       logger
     );
@@ -79,6 +88,16 @@ export async function deactivate() {
   }
 
   try {
+    // Clean up command manager (stops status updates)
+    if (commandManager) {
+      commandManager.dispose();
+    }
+
+    // Clean up sidebar provider
+    if (sidebarProvider) {
+      sidebarProvider.dispose();
+    }
+
     // Clean up processes
     if (processManager) {
       await processManager.cleanup();
