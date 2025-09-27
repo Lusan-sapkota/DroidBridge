@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ConfigManager } from '../managers/configManager';
+import { ThemeManager, ThemeKind } from '../utils/themeManager';
 
 /**
  * Provides the webview content for the DroidBridge sidebar view
@@ -14,6 +15,8 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   private currentPort: string = '';
   private configManager: ConfigManager;
   private configChangeListener?: vscode.Disposable;
+  private themeManager: ThemeManager;
+  private themeChangeListener?: vscode.Disposable;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -21,12 +24,16 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     configManager: ConfigManager
   ) {
     this.configManager = configManager;
+    this.themeManager = ThemeManager.getInstance();
     
     // Load default values from configuration
     this.loadDefaultValues();
     
     // Listen for configuration changes
     this.setupConfigurationWatcher();
+    
+    // Listen for theme changes
+    this.setupThemeChangeListener();
   }
 
   /**
@@ -49,6 +56,31 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     
     // Add to context subscriptions for proper cleanup
     this._context.subscriptions.push(this.configChangeListener);
+  }
+
+  /**
+   * Set up theme change listener to refresh webview on theme changes
+   * Implements requirements 10.3: Theme change listeners and UI updates
+   */
+  private setupThemeChangeListener(): void {
+    this.themeChangeListener = this.themeManager.onThemeChanged((theme: ThemeKind) => {
+      // Refresh the webview when theme changes to update icons and styling
+      if (this._view) {
+        this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+        
+        // Also notify the webview about the theme change
+        this._view.webview.postMessage({
+          type: 'themeChanged',
+          theme: theme,
+          isDark: this.themeManager.isDarkTheme(),
+          isLight: this.themeManager.isLightTheme(),
+          themeCssClass: this.themeManager.getThemeCssClass()
+        });
+      }
+    });
+    
+    // Add to context subscriptions for proper cleanup
+    this._context.subscriptions.push(this.themeChangeListener);
   }
 
   /**
@@ -105,6 +137,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
 
   /**
    * Generate the HTML content for the webview
+   * Implements requirements 10.4: Theme-specific icon usage
    */
   private _getHtmlForWebview(webview: vscode.Webview) {
     // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
@@ -113,6 +146,14 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css'));
     const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
 
+    // Get theme-specific icons
+    const plugIconUri = this.themeManager.getWebviewIconUri('plug', this._extensionUri, webview);
+    const deviceIconUri = this.themeManager.getWebviewIconUri('device-mobile', this._extensionUri, webview);
+
+    // Get current theme information
+    const themeCssClass = this.themeManager.getThemeCssClass();
+    const themeVariables = this.themeManager.getThemeVariables();
+
     // Use a nonce to only allow a specific script to be run.
     const nonce = getNonce();
 
@@ -120,19 +161,22 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:;">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="${styleResetUri}" rel="stylesheet">
         <link href="${styleVSCodeUri}" rel="stylesheet">
         <link href="${styleMainUri}" rel="stylesheet">
+        <style>
+          ${themeVariables}
+        </style>
         <title>DroidBridge</title>
       </head>
-      <body>
-        <div class="container">
+      <body class="${themeCssClass}">
+        <div class="container ${themeCssClass}">
           <!-- Connect Section -->
           <div class="section">
             <div class="section-header">
-              <span class="codicon codicon-plug"></span>
+              <img src="${plugIconUri}" alt="Connect" width="16" height="16" class="section-icon" />
               <h3>Connect</h3>
             </div>
             <div class="section-content">
@@ -167,7 +211,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
           <!-- Scrcpy Section -->
           <div class="section">
             <div class="section-header">
-              <span class="codicon codicon-device-mobile"></span>
+              <img src="${deviceIconUri}" alt="Device" width="16" height="16" class="section-icon" />
               <h3>Scrcpy</h3>
             </div>
             <div class="section-content">
@@ -369,6 +413,9 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   dispose(): void {
     if (this.configChangeListener) {
       this.configChangeListener.dispose();
+    }
+    if (this.themeChangeListener) {
+      this.themeChangeListener.dispose();
     }
   }
 }

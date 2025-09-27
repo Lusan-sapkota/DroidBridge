@@ -37,7 +37,7 @@ __export(extension_exports, {
   isExtensionInitialized: () => isExtensionInitialized
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode6 = __toESM(require("vscode"));
+var vscode7 = __toESM(require("vscode"));
 
 // src/managers/commandManager.ts
 var vscode2 = __toESM(require("vscode"));
@@ -2386,14 +2386,210 @@ ${error.stack}`;
 };
 
 // src/providers/sidebarProvider.ts
+var vscode6 = __toESM(require("vscode"));
+
+// src/utils/themeManager.ts
 var vscode5 = __toESM(require("vscode"));
+var ThemeManager = class _ThemeManager {
+  static instance;
+  currentTheme;
+  themeChangeListeners = [];
+  disposables = [];
+  constructor() {
+    this.currentTheme = this.detectCurrentTheme();
+    this.setupThemeChangeListener();
+  }
+  /**
+   * Get the singleton instance of ThemeManager
+   */
+  static getInstance() {
+    if (!_ThemeManager.instance) {
+      _ThemeManager.instance = new _ThemeManager();
+    }
+    return _ThemeManager.instance;
+  }
+  /**
+   * Detect the current VSCode theme
+   * Implements requirement 10.1, 10.2: Automatic theme detection
+   */
+  detectCurrentTheme() {
+    const colorTheme = vscode5.window.activeColorTheme;
+    switch (colorTheme.kind) {
+      case vscode5.ColorThemeKind.Light:
+        return 1 /* Light */;
+      case vscode5.ColorThemeKind.Dark:
+        return 2 /* Dark */;
+      case vscode5.ColorThemeKind.HighContrast:
+        return 3 /* HighContrast */;
+      case vscode5.ColorThemeKind.HighContrastLight:
+        return 4 /* HighContrastLight */;
+      default:
+        return 2 /* Dark */;
+    }
+  }
+  /**
+   * Set up listener for theme changes
+   * Implements requirement 10.3: Theme change listeners
+   */
+  setupThemeChangeListener() {
+    const disposable = vscode5.window.onDidChangeActiveColorTheme((colorTheme) => {
+      const newTheme = this.mapColorThemeKindToThemeKind(colorTheme.kind);
+      if (newTheme !== this.currentTheme) {
+        const oldTheme = this.currentTheme;
+        this.currentTheme = newTheme;
+        this.themeChangeListeners.forEach((listener) => {
+          try {
+            listener(newTheme);
+          } catch (error) {
+            console.error("Error in theme change listener:", error);
+          }
+        });
+      }
+    });
+    this.disposables.push(disposable);
+  }
+  /**
+   * Map VSCode ColorThemeKind to our ThemeKind
+   */
+  mapColorThemeKindToThemeKind(kind) {
+    switch (kind) {
+      case vscode5.ColorThemeKind.Light:
+        return 1 /* Light */;
+      case vscode5.ColorThemeKind.Dark:
+        return 2 /* Dark */;
+      case vscode5.ColorThemeKind.HighContrast:
+        return 3 /* HighContrast */;
+      case vscode5.ColorThemeKind.HighContrastLight:
+        return 4 /* HighContrastLight */;
+      default:
+        return 2 /* Dark */;
+    }
+  }
+  /**
+   * Get the current theme
+   */
+  getCurrentTheme() {
+    return this.currentTheme;
+  }
+  /**
+   * Check if the current theme is dark
+   */
+  isDarkTheme() {
+    return this.currentTheme === 2 /* Dark */ || this.currentTheme === 3 /* HighContrast */;
+  }
+  /**
+   * Check if the current theme is light
+   */
+  isLightTheme() {
+    return this.currentTheme === 1 /* Light */ || this.currentTheme === 4 /* HighContrastLight */;
+  }
+  /**
+   * Get the appropriate icon path for the current theme
+   * Implements requirement 10.4: Automatic icon switching
+   */
+  getThemeSpecificIcon(iconName, extensionUri) {
+    const themeFolder = this.isDarkTheme() ? "dark" : "light";
+    return vscode5.Uri.joinPath(extensionUri, "media", "icons", themeFolder, `${iconName}.svg`);
+  }
+  /**
+   * Get the theme-specific icon URI for webview usage
+   */
+  getWebviewIconUri(iconName, extensionUri, webview) {
+    const iconPath = this.getThemeSpecificIcon(iconName, extensionUri);
+    return webview.asWebviewUri(iconPath);
+  }
+  /**
+   * Get CSS class name for current theme
+   */
+  getThemeCssClass() {
+    switch (this.currentTheme) {
+      case 1 /* Light */:
+        return "vscode-light";
+      case 2 /* Dark */:
+        return "vscode-dark";
+      case 3 /* HighContrast */:
+        return "vscode-high-contrast";
+      case 4 /* HighContrastLight */:
+        return "vscode-high-contrast-light";
+      default:
+        return "vscode-dark";
+    }
+  }
+  /**
+   * Register a listener for theme changes
+   * Implements requirement 10.3: Theme change listeners and UI updates
+   */
+  onThemeChanged(listener) {
+    this.themeChangeListeners.push(listener);
+    return {
+      dispose: () => {
+        const index = this.themeChangeListeners.indexOf(listener);
+        if (index >= 0) {
+          this.themeChangeListeners.splice(index, 1);
+        }
+      }
+    };
+  }
+  /**
+   * Get theme-specific CSS variables as a string
+   * Implements requirement 10.5: CSS variable usage for consistent theming
+   */
+  getThemeVariables() {
+    return `
+      :root {
+        --theme-kind: '${this.getThemeCssClass()}';
+        --is-dark-theme: ${this.isDarkTheme() ? "true" : "false"};
+        --is-light-theme: ${this.isLightTheme() ? "true" : "false"};
+      }
+    `;
+  }
+  /**
+   * Refresh the current theme detection
+   * Useful for manual theme refresh
+   */
+  refreshTheme() {
+    const newTheme = this.detectCurrentTheme();
+    if (newTheme !== this.currentTheme) {
+      const oldTheme = this.currentTheme;
+      this.currentTheme = newTheme;
+      this.themeChangeListeners.forEach((listener) => {
+        try {
+          listener(newTheme);
+        } catch (error) {
+          console.error("Error in theme change listener during refresh:", error);
+        }
+      });
+    }
+  }
+  /**
+   * Dispose of all resources
+   */
+  dispose() {
+    this.disposables.forEach((disposable) => disposable.dispose());
+    this.disposables = [];
+    this.themeChangeListeners = [];
+  }
+  /**
+   * Reset the singleton instance (for testing purposes)
+   */
+  static resetInstance() {
+    if (_ThemeManager.instance) {
+      _ThemeManager.instance.dispose();
+      _ThemeManager.instance = void 0;
+    }
+  }
+};
+
+// src/providers/sidebarProvider.ts
 var DroidBridgeSidebarProvider = class {
   constructor(_extensionUri, _context, configManager2) {
     this._extensionUri = _extensionUri;
     this._context = _context;
     this.configManager = configManager2;
+    this.themeManager = ThemeManager.getInstance();
     this.loadDefaultValues();
     this.setupConfigurationWatcher();
+    this.setupThemeChangeListener();
   }
   static viewType = "droidbridge.sidebar";
   _view;
@@ -2403,6 +2599,8 @@ var DroidBridgeSidebarProvider = class {
   currentPort = "";
   configManager;
   configChangeListener;
+  themeManager;
+  themeChangeListener;
   /**
    * Load default IP and port values from configuration
    */
@@ -2422,6 +2620,25 @@ var DroidBridgeSidebarProvider = class {
     this._context.subscriptions.push(this.configChangeListener);
   }
   /**
+   * Set up theme change listener to refresh webview on theme changes
+   * Implements requirements 10.3: Theme change listeners and UI updates
+   */
+  setupThemeChangeListener() {
+    this.themeChangeListener = this.themeManager.onThemeChanged((theme) => {
+      if (this._view) {
+        this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+        this._view.webview.postMessage({
+          type: "themeChanged",
+          theme,
+          isDark: this.themeManager.isDarkTheme(),
+          isLight: this.themeManager.isLightTheme(),
+          themeCssClass: this.themeManager.getThemeCssClass()
+        });
+      }
+    });
+    this._context.subscriptions.push(this.themeChangeListener);
+  }
+  /**
    * Resolves the webview view and sets up the content
    */
   resolveWebviewView(webviewView, context, _token) {
@@ -2435,22 +2652,22 @@ var DroidBridgeSidebarProvider = class {
       (message) => {
         switch (message.type) {
           case "connectDevice":
-            vscode5.commands.executeCommand("droidbridge.connectDevice", message.ip, message.port);
+            vscode6.commands.executeCommand("droidbridge.connectDevice", message.ip, message.port);
             break;
           case "disconnectDevice":
-            vscode5.commands.executeCommand("droidbridge.disconnectDevice");
+            vscode6.commands.executeCommand("droidbridge.disconnectDevice");
             break;
           case "launchScrcpy":
-            vscode5.commands.executeCommand("droidbridge.launchScrcpy");
+            vscode6.commands.executeCommand("droidbridge.launchScrcpy");
             break;
           case "launchScrcpyScreenOff":
-            vscode5.commands.executeCommand("droidbridge.launchScrcpyScreenOff");
+            vscode6.commands.executeCommand("droidbridge.launchScrcpyScreenOff");
             break;
           case "stopScrcpy":
-            vscode5.commands.executeCommand("droidbridge.stopScrcpy");
+            vscode6.commands.executeCommand("droidbridge.stopScrcpy");
             break;
           case "showLogs":
-            vscode5.commands.executeCommand("droidbridge.showLogs");
+            vscode6.commands.executeCommand("droidbridge.showLogs");
             break;
           case "ipChanged":
             this.currentIp = message.value;
@@ -2466,30 +2683,38 @@ var DroidBridgeSidebarProvider = class {
   }
   /**
    * Generate the HTML content for the webview
+   * Implements requirements 10.4: Theme-specific icon usage
    */
   _getHtmlForWebview(webview) {
-    const scriptUri = webview.asWebviewUri(vscode5.Uri.joinPath(this._extensionUri, "media", "main.js"));
-    const styleResetUri = webview.asWebviewUri(vscode5.Uri.joinPath(this._extensionUri, "media", "reset.css"));
-    const styleVSCodeUri = webview.asWebviewUri(vscode5.Uri.joinPath(this._extensionUri, "media", "vscode.css"));
-    const styleMainUri = webview.asWebviewUri(vscode5.Uri.joinPath(this._extensionUri, "media", "main.css"));
+    const scriptUri = webview.asWebviewUri(vscode6.Uri.joinPath(this._extensionUri, "media", "main.js"));
+    const styleResetUri = webview.asWebviewUri(vscode6.Uri.joinPath(this._extensionUri, "media", "reset.css"));
+    const styleVSCodeUri = webview.asWebviewUri(vscode6.Uri.joinPath(this._extensionUri, "media", "vscode.css"));
+    const styleMainUri = webview.asWebviewUri(vscode6.Uri.joinPath(this._extensionUri, "media", "main.css"));
+    const plugIconUri = this.themeManager.getWebviewIconUri("plug", this._extensionUri, webview);
+    const deviceIconUri = this.themeManager.getWebviewIconUri("device-mobile", this._extensionUri, webview);
+    const themeCssClass = this.themeManager.getThemeCssClass();
+    const themeVariables = this.themeManager.getThemeVariables();
     const nonce = getNonce();
     return `<!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:;">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="${styleResetUri}" rel="stylesheet">
         <link href="${styleVSCodeUri}" rel="stylesheet">
         <link href="${styleMainUri}" rel="stylesheet">
+        <style>
+          ${themeVariables}
+        </style>
         <title>DroidBridge</title>
       </head>
-      <body>
-        <div class="container">
+      <body class="${themeCssClass}">
+        <div class="container ${themeCssClass}">
           <!-- Connect Section -->
           <div class="section">
             <div class="section-header">
-              <span class="codicon codicon-plug"></span>
+              <img src="${plugIconUri}" alt="Connect" width="16" height="16" class="section-icon" />
               <h3>Connect</h3>
             </div>
             <div class="section-content">
@@ -2524,7 +2749,7 @@ var DroidBridgeSidebarProvider = class {
           <!-- Scrcpy Section -->
           <div class="section">
             <div class="section-header">
-              <span class="codicon codicon-device-mobile"></span>
+              <img src="${deviceIconUri}" alt="Device" width="16" height="16" class="section-icon" />
               <h3>Scrcpy</h3>
             </div>
             <div class="section-content">
@@ -2704,6 +2929,9 @@ var DroidBridgeSidebarProvider = class {
     if (this.configChangeListener) {
       this.configChangeListener.dispose();
     }
+    if (this.themeChangeListener) {
+      this.themeChangeListener.dispose();
+    }
   }
 };
 function getNonce() {
@@ -2723,6 +2951,7 @@ var processManager;
 var configManager;
 var binaryManager;
 var sidebarProvider;
+var themeManager;
 function activate(context) {
   logger = new Logger();
   logger.info("DroidBridge extension is activating...");
@@ -2736,7 +2965,7 @@ function activate(context) {
     logger.info("DroidBridge extension activated successfully");
   } catch (error) {
     logger.error("Failed to activate DroidBridge extension", error);
-    vscode6.window.showErrorMessage("Failed to activate DroidBridge extension. Check the logs for details.");
+    vscode7.window.showErrorMessage("Failed to activate DroidBridge extension. Check the logs for details.");
     throw error;
   }
 }
@@ -2744,12 +2973,14 @@ function initializeManagers(context) {
   logger.info("Initializing manager classes...");
   configManager = new ConfigManager();
   logger.debug("ConfigManager initialized");
+  themeManager = ThemeManager.getInstance();
+  logger.debug("ThemeManager initialized");
   binaryManager = new BinaryManager(context.extensionPath, configManager);
   logger.debug("BinaryManager initialized");
   processManager = new ProcessManager(binaryManager, logger);
   logger.debug("ProcessManager initialized");
   sidebarProvider = new DroidBridgeSidebarProvider(
-    vscode6.Uri.file(context.extensionPath),
+    vscode7.Uri.file(context.extensionPath),
     context,
     configManager
   );
@@ -2774,7 +3005,7 @@ function initializeExtensionState() {
 }
 function registerVSCodeComponents(context) {
   logger.info("Registering VSCode components...");
-  const sidebarDisposable = vscode6.window.registerWebviewViewProvider(
+  const sidebarDisposable = vscode7.window.registerWebviewViewProvider(
     "droidbridge-sidebar",
     // Must match the view ID in package.json
     sidebarProvider
@@ -2802,7 +3033,7 @@ function validateBinariesAsync() {
       logger.info("All binaries validated successfully");
     } else {
       logger.error("Binary validation failed", new Error(result.errors.join(", ")));
-      vscode6.window.showWarningMessage(
+      vscode7.window.showWarningMessage(
         "Some DroidBridge binaries are not available. Check the logs for details.",
         "Show Logs"
       ).then((selection) => {
@@ -2835,6 +3066,10 @@ async function deactivate() {
       cleanupTasks.push(processManager.cleanup());
     }
     await Promise.all(cleanupTasks);
+    if (themeManager) {
+      logger.debug("Disposing theme manager...");
+      themeManager.dispose();
+    }
     if (extensionState) {
       extensionState.initialized = false;
       extensionState.binariesValidated = false;
@@ -2863,6 +3098,7 @@ async function deactivate() {
     configManager = void 0;
     binaryManager = void 0;
     sidebarProvider = void 0;
+    themeManager = void 0;
   }
 }
 function getExtensionState() {

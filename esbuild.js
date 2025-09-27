@@ -1,4 +1,6 @@
 const esbuild = require("esbuild");
+const fs = require("fs");
+const path = require("path");
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -23,6 +25,54 @@ const esbuildProblemMatcherPlugin = {
 	},
 };
 
+/**
+ * Plugin to copy static assets to dist folder
+ * @type {import('esbuild').Plugin}
+ */
+const copyAssetsPlugin = {
+	name: 'copy-assets',
+	setup(build) {
+		build.onEnd(() => {
+			// Ensure dist directory exists
+			if (!fs.existsSync('dist')) {
+				fs.mkdirSync('dist', { recursive: true });
+			}
+
+			// Copy media folder for webview assets
+			if (fs.existsSync('media')) {
+				copyRecursive('media', 'dist/media');
+			}
+
+			// Copy binaries folder if it exists
+			if (fs.existsSync('binaries')) {
+				copyRecursive('binaries', 'dist/binaries');
+			}
+		});
+	},
+};
+
+/**
+ * Recursively copy directory
+ */
+function copyRecursive(src, dest) {
+	if (!fs.existsSync(dest)) {
+		fs.mkdirSync(dest, { recursive: true });
+	}
+
+	const entries = fs.readdirSync(src, { withFileTypes: true });
+	
+	for (const entry of entries) {
+		const srcPath = path.join(src, entry.name);
+		const destPath = path.join(dest, entry.name);
+		
+		if (entry.isDirectory()) {
+			copyRecursive(srcPath, destPath);
+		} else {
+			fs.copyFileSync(srcPath, destPath);
+		}
+	}
+}
+
 async function main() {
 	const ctx = await esbuild.context({
 		entryPoints: [
@@ -37,15 +87,33 @@ async function main() {
 		outfile: 'dist/extension.js',
 		external: ['vscode'],
 		logLevel: 'silent',
+		target: 'node16',
+		keepNames: true,
+		metafile: production,
+		treeShaking: true,
 		plugins: [
-			/* add to the end of plugins array */
+			copyAssetsPlugin,
 			esbuildProblemMatcherPlugin,
 		],
+		define: {
+			'process.env.NODE_ENV': production ? '"production"' : '"development"'
+		}
 	});
+
 	if (watch) {
 		await ctx.watch();
 	} else {
 		await ctx.rebuild();
+		
+		if (production) {
+			// Generate bundle analysis in production
+			const result = await ctx.rebuild();
+			if (result.metafile) {
+				fs.writeFileSync('dist/meta.json', JSON.stringify(result.metafile, null, 2));
+				console.log('Bundle analysis written to dist/meta.json');
+			}
+		}
+		
 		await ctx.dispose();
 	}
 }

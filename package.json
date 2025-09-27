@@ -2,16 +2,43 @@
   "name": "droidbridge",
   "displayName": "DroidBridge",
   "description": "Seamlessly connect, control, and mirror Android devices inside VS Code using ADB + scrcpy.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.104.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Debuggers",
+    "Testing"
   ],
-  "activationEvents": [
-    "onView:droidbridge-sidebar"
+  "keywords": [
+    "android",
+    "adb",
+    "scrcpy",
+    "device",
+    "debugging",
+    "mobile",
+    "screen-mirror",
+    "wireless"
   ],
+  "author": {
+    "name": "DroidBridge Team"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/droidbridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/droidbridge/issues"
+  },
+  "homepage": "https://github.com/your-username/droidbridge#readme",
+  "publisher": "droidbridge-team",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -102,9 +129,20 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "lint:fix": "eslint src --fix",
+    "test": "vscode-test",
+    "test:unit": "npm run compile-tests && vscode-test --run --grep \"Unit Tests\"",
+    "test:integration": "npm run compile-tests && vscode-test --run --grep \"Integration Tests\"",
+    "test:e2e": "npm run compile-tests && vscode-test --run --grep \"End-to-End\"",
+    "test:coverage": "npm run compile-tests && c8 vscode-test --run",
+    "test:watch": "npm run compile-tests && vscode-test --run --watch",
+    "clean": "rimraf dist out *.vsix",
+    "package:vsix": "npm run package && vsce package",
+    "publish": "npm run package && vsce publish",
+    "publish:pre": "npm run package && vsce publish --pre-release"
   },
   "devDependencies": {
+    "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/sinon": "^17.0.4",
@@ -113,9 +151,14 @@
     "@typescript-eslint/parser": "^8.42.0",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.2.1",
+    "c8": "^10.1.2",
     "esbuild": "^0.25.9",
     "eslint": "^9.34.0",
+    "glob": "^11.0.0",
+    "mocha": "^10.8.2",
     "npm-run-all": "^4.1.5",
+    "rimraf": "^6.0.1",
     "sinon": "^21.0.0",
     "typescript": "^5.9.2"
   }

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CommandManager, ConfigManager, ProcessManager, BinaryManager, Logger } from './managers';
 import { DroidBridgeSidebarProvider } from './providers';
 import { ExtensionState } from './types';
+import { ThemeManager } from './utils/themeManager';
 
 // Global extension state
 let extensionState: ExtensionState;
@@ -11,6 +12,7 @@ let processManager: ProcessManager;
 let configManager: ConfigManager;
 let binaryManager: BinaryManager;
 let sidebarProvider: DroidBridgeSidebarProvider;
+let themeManager: ThemeManager;
 
 /**
  * This method is called when the extension is activated
@@ -57,6 +59,10 @@ function initializeManagers(context: vscode.ExtensionContext): void {
   // Initialize configuration manager first (no dependencies)
   configManager = new ConfigManager();
   logger.debug('ConfigManager initialized');
+  
+  // Initialize theme manager (no dependencies)
+  themeManager = ThemeManager.getInstance();
+  logger.debug('ThemeManager initialized');
   
   // Initialize binary manager (depends on config manager)
   binaryManager = new BinaryManager(context.extensionPath, configManager);
@@ -203,6 +209,12 @@ export async function deactivate(): Promise<void> {
     // Wait for all cleanup tasks to complete
     await Promise.all(cleanupTasks);
 
+    // Clean up theme manager
+    if (themeManager) {
+      logger.debug('Disposing theme manager...');
+      themeManager.dispose();
+    }
+
     // Reset extension state
     if (extensionState) {
       extensionState.initialized = false;
@@ -240,6 +252,7 @@ export async function deactivate(): Promise<void> {
     configManager = undefined as any;
     binaryManager = undefined as any;
     sidebarProvider = undefined as any;
+    themeManager = undefined as any;
   }
 }
 

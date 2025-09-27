@@ -282,6 +282,12 @@ window.addEventListener('message', event => {
         updateUIState(currentState);
       }
       break;
+      
+    case 'themeChanged':
+      // Handle theme change from extension
+      updateThemeClass();
+      console.log('Theme changed to:', message.themeCssClass);
+      break;
   }
 });
 
@@ -289,7 +295,8 @@ window.addEventListener('message', event => {
 const observer = new MutationObserver(function(mutations) {
   mutations.forEach(function(mutation) {
     if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-      // Theme changed, UI will automatically update via CSS variables
+      // Theme changed, update theme class on container
+      updateThemeClass();
       console.log('Theme changed, UI updated automatically');
     }
   });
@@ -299,4 +306,34 @@ const observer = new MutationObserver(function(mutations) {
 observer.observe(document.body, {
   attributes: true,
   attributeFilter: ['class']
+});
+
+/**
+ * Update theme class on the container based on VSCode theme
+ */
+function updateThemeClass() {
+  const container = document.querySelector('.container');
+  if (!container) return;
+  
+  // Remove existing theme classes
+  container.classList.remove('vscode-light', 'vscode-dark', 'vscode-high-contrast', 'vscode-high-contrast-light');
+  
+  // Detect current theme from body classes
+  const bodyClasses = document.body.className;
+  
+  if (bodyClasses.includes('vscode-light')) {
+    container.classList.add('vscode-light');
+  } else if (bodyClasses.includes('vscode-high-contrast-light')) {
+    container.classList.add('vscode-high-contrast-light');
+  } else if (bodyClasses.includes('vscode-high-contrast')) {
+    container.classList.add('vscode-high-contrast');
+  } else {
+    // Default to dark theme
+    container.classList.add('vscode-dark');
+  }
+}
+
+// Initialize theme class on load
+document.addEventListener('DOMContentLoaded', function() {
+  updateThemeClass();
 });
