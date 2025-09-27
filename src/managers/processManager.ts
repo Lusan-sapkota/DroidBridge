@@ -3,6 +3,7 @@ import { ProcessResult, ScrcpyOptions, ConnectionState, ScrcpyState } from "../t
 import { BinaryManager } from "./binaryManager";
 import { Logger } from "./logger";
 import { ErrorHandler } from "../utils/errorHandler";
+import { PlatformUtils } from "../utils/platformUtils";
 
 /**
  * Manages external process execution for ADB and scrcpy operations
@@ -40,9 +41,11 @@ export class ProcessManager {
 
       this.logger.info(`Executing ADB command: ${adbPath} ${args.join(" ")}`);
 
-      const process = spawn(adbPath, args, {
+      const spawnOptions = PlatformUtils.getPlatformSpecificOptions({
         stdio: ["pipe", "pipe", "pipe"],
       });
+
+      const process = spawn(adbPath, args, spawnOptions);
 
       this.managedProcesses.add(process);
 
@@ -305,7 +308,8 @@ export class ProcessManager {
       const timeout = setTimeout(() => {
         if (process && !process.killed) {
           this.logger.info("Force killing scrcpy process");
-          process.kill("SIGKILL");
+          const forceKillSignal = PlatformUtils.getForceKillSignal();
+          process.kill(forceKillSignal);
         }
         cleanup();
       }, 3000);
@@ -317,7 +321,8 @@ export class ProcessManager {
 
       // Try graceful termination first
       if (process && !process.killed) {
-        process.kill("SIGTERM");
+        const terminationSignal = PlatformUtils.getTerminationSignal();
+        process.kill(terminationSignal);
       } else {
         clearTimeout(timeout);
         cleanup();
@@ -404,12 +409,14 @@ export class ProcessManager {
         cleanupPromises.push(
           new Promise((resolve) => {
             process.on("close", () => resolve());
-            process.kill("SIGTERM");
+            const terminationSignal = PlatformUtils.getTerminationSignal();
+            process.kill(terminationSignal);
 
             // Force kill after timeout
             setTimeout(() => {
               if (!process.killed) {
-                process.kill("SIGKILL");
+                const forceKillSignal = PlatformUtils.getForceKillSignal();
+                process.kill(forceKillSignal);
               }
               resolve();
             }, 2000);
@@ -567,10 +574,12 @@ export class ProcessManager {
     };
 
     return new Promise((resolve, reject) => {
-      const process = spawn(scrcpyPath, args, {
+      const spawnOptions = PlatformUtils.getPlatformSpecificOptions({
         stdio: ["pipe", "pipe", "pipe"],
         detached: false,
       });
+
+      const process = spawn(scrcpyPath, args, spawnOptions);
 
       this.scrcpyProcess = process;
       this.managedProcesses.add(process);

@@ -76,19 +76,46 @@ export class BinaryManager {
   }
 
   /**
-   * Extract bundled binaries if needed (placeholder for future implementation)
+   * Extract bundled binaries if needed and ensure they are executable
    */
   async extractBinaries(): Promise<void> {
-    // This method is a placeholder for future implementation
-    // where binaries might be extracted from archives or downloaded
     const platform = PlatformUtils.getCurrentPlatform();
     const binariesDir = path.join(this.extensionPath, 'binaries', platform);
     
     try {
-      await fs.access(binariesDir);
-    } catch {
-      // Create binaries directory if it doesn't exist
+      // Ensure binaries directory exists
       await fs.mkdir(binariesDir, { recursive: true });
+      
+      // Get paths to expected binaries
+      const adbPath = this.getBundledBinaryPath('adb');
+      const scrcpyPath = this.getBundledBinaryPath('scrcpy');
+      
+      // Check if binaries exist and make them executable if needed
+      const binariesToProcess = [
+        { name: 'adb', path: adbPath },
+        { name: 'scrcpy', path: scrcpyPath }
+      ];
+      
+      for (const binary of binariesToProcess) {
+        try {
+          // Check if binary exists
+          await fs.access(binary.path);
+          
+          // Make executable on Unix systems
+          if (PlatformUtils.supportsFeature('executable-permissions')) {
+            const isExecutable = await PlatformUtils.isExecutable(binary.path);
+            if (!isExecutable) {
+              await PlatformUtils.makeExecutable(binary.path);
+            }
+          }
+        } catch (error) {
+          // Binary doesn't exist - this is expected for development/testing
+          // In a real deployment, binaries would be bundled with the extension
+          console.warn(`Binary ${binary.name} not found at ${binary.path}. This is expected during development.`);
+        }
+      }
+    } catch (error) {
+      throw new Error(`Failed to extract binaries: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -129,6 +156,59 @@ export class BinaryManager {
   }
 
   /**
+   * Check binary integrity and platform compatibility
+   */
+  async checkBinaryIntegrity(): Promise<{ adb: boolean; scrcpy: boolean; errors: string[] }> {
+    const errors: string[] = [];
+    let adbIntegrity = false;
+    let scrcpyIntegrity = false;
+
+    try {
+      // Check if platform is supported
+      if (!PlatformUtils.isSupportedPlatform()) {
+        errors.push(`Unsupported platform: ${PlatformUtils.getCurrentPlatform()}`);
+        return { adb: false, scrcpy: false, errors };
+      }
+
+      // Check ADB binary integrity
+      const adbPath = this.getAdbPath();
+      adbIntegrity = await this.checkSingleBinaryIntegrity(adbPath, 'adb');
+      if (!adbIntegrity) {
+        errors.push(`ADB binary integrity check failed: ${adbPath}`);
+      }
+
+      // Check scrcpy binary integrity
+      const scrcpyPath = this.getScrcpyPath();
+      scrcpyIntegrity = await this.checkSingleBinaryIntegrity(scrcpyPath, 'scrcpy');
+      if (!scrcpyIntegrity) {
+        errors.push(`Scrcpy binary integrity check failed: ${scrcpyPath}`);
+      }
+
+    } catch (error) {
+      errors.push(`Binary integrity check failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    return { adb: adbIntegrity, scrcpy: scrcpyIntegrity, errors };
+  }
+
+  /**
+   * Get platform-specific binary information
+   */
+  getPlatformInfo(): {
+    platform: string;
+    architecture: string;
+    binaryExtension: string;
+    supportsExecutablePermissions: boolean;
+  } {
+    return {
+      platform: PlatformUtils.getCurrentPlatform(),
+      architecture: PlatformUtils.getCurrentArchitecture(),
+      binaryExtension: PlatformUtils.getBinaryExtension(),
+      supportsExecutablePermissions: PlatformUtils.supportsFeature('executable-permissions')
+    };
+  }
+
+  /**
    * Get the path to a bundled binary
    */
   private getBundledBinaryPath(binaryName: string): string {
@@ -154,13 +234,58 @@ export class BinaryManager {
       }
 
       // On Unix systems, check if file is executable
-      if (PlatformUtils.getCurrentPlatform() !== 'win32') {
-        try {
-          await fs.access(binaryPath, fs.constants.X_OK);
-        } catch {
+      if (PlatformUtils.supportsFeature('executable-permissions')) {
+        const isExecutable = await PlatformUtils.isExecutable(binaryPath);
+        if (!isExecutable) {
           // Try to make it executable
           try {
             await PlatformUtils.makeExecutable(binaryPath);
+          } catch {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check integrity of a single binary file
+   */
+  private async checkSingleBinaryIntegrity(binaryPath: string, binaryName: string): Promise<boolean> {
+    try {
+      // Basic file existence and type check
+      const stats = await fs.stat(binaryPath);
+      if (!stats.isFile()) {
+        return false;
+      }
+
+      // Check file size (binaries should not be empty)
+      if (stats.size === 0) {
+        return false;
+      }
+
+      // Platform-specific checks
+      const platform = PlatformUtils.getCurrentPlatform();
+      
+      if (platform === 'win32') {
+        // On Windows, check if it has .exe extension for executables
+        const expectedExtension = PlatformUtils.getBinaryExtension();
+        if (expectedExtension && !binaryPath.endsWith(expectedExtension)) {
+          return false;
+        }
+      } else {
+        // On Unix systems, check executable permissions
+        const isExecutable = await PlatformUtils.isExecutable(binaryPath);
+        if (!isExecutable) {
+          // Try to make it executable
+          try {
+            await PlatformUtils.makeExecutable(binaryPath);
+            // Verify it's now executable
+            return await PlatformUtils.isExecutable(binaryPath);
           } catch {
             return false;
           }

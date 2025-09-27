@@ -177,6 +177,108 @@ suite('BinaryManager Test Suite', () => {
     });
   });
 
+  suite('extractBinaries', () => {
+    test('should create binaries directory if it does not exist', async () => {
+      (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('linux');
+      (PlatformUtils.getBinaryExtension as sinon.SinonStub).returns('');
+      (PlatformUtils.supportsFeature as sinon.SinonStub).returns(true);
+      (PlatformUtils.isExecutable as sinon.SinonStub).resolves(true);
+      
+      fsStub.mkdir.resolves();
+      fsStub.access.resolves();
+
+      await binaryManager.extractBinaries();
+
+      assert.ok(fsStub.mkdir.calledWith(path.join(mockExtensionPath, 'binaries', 'linux'), { recursive: true }));
+    });
+
+    test('should make binaries executable on Unix systems', async () => {
+      (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('linux');
+      (PlatformUtils.getBinaryExtension as sinon.SinonStub).returns('');
+      (PlatformUtils.supportsFeature as sinon.SinonStub).returns(true);
+      (PlatformUtils.isExecutable as sinon.SinonStub).resolves(false);
+      (PlatformUtils.makeExecutable as sinon.SinonStub).resolves();
+      
+      fsStub.mkdir.resolves();
+      fsStub.access.resolves();
+
+      await binaryManager.extractBinaries();
+
+      assert.ok((PlatformUtils.makeExecutable as sinon.SinonStub).calledTwice);
+    });
+
+    test('should handle missing binaries gracefully', async () => {
+      (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('win32');
+      (PlatformUtils.getBinaryExtension as sinon.SinonStub).returns('.exe');
+      (PlatformUtils.supportsFeature as sinon.SinonStub).returns(false);
+      
+      fsStub.mkdir.resolves();
+      fsStub.access.rejects(new Error('File not found'));
+
+      // Should not throw
+      await binaryManager.extractBinaries();
+
+      assert.ok(fsStub.mkdir.calledOnce);
+    });
+  });
+
+  suite('checkBinaryIntegrity', () => {
+    setup(() => {
+      (PlatformUtils.isSupportedPlatform as sinon.SinonStub).returns(true);
+      (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('linux');
+      mockConfigManager.getCustomAdbPath.returns(undefined);
+      mockConfigManager.getCustomScrcpyPath.returns(undefined);
+    });
+
+    test('should return success when both binaries pass integrity check', async () => {
+      const mockStats = { isFile: () => true, size: 1000 };
+      fsStub.stat.resolves(mockStats);
+      (PlatformUtils.isExecutable as sinon.SinonStub).resolves(true);
+
+      const result = await binaryManager.checkBinaryIntegrity();
+
+      assert.strictEqual(result.adb, true);
+      assert.strictEqual(result.scrcpy, true);
+      assert.strictEqual(result.errors.length, 0);
+    });
+
+    test('should return failure for unsupported platform', async () => {
+      (PlatformUtils.isSupportedPlatform as sinon.SinonStub).returns(false);
+
+      const result = await binaryManager.checkBinaryIntegrity();
+
+      assert.strictEqual(result.adb, false);
+      assert.strictEqual(result.scrcpy, false);
+      assert.ok(result.errors.some(error => error.includes('Unsupported platform')));
+    });
+
+    test('should handle binary integrity check failures', async () => {
+      fsStub.stat.rejects(new Error('File not found'));
+
+      const result = await binaryManager.checkBinaryIntegrity();
+
+      assert.strictEqual(result.adb, false);
+      assert.strictEqual(result.scrcpy, false);
+      assert.ok(result.errors.length > 0);
+    });
+  });
+
+  suite('getPlatformInfo', () => {
+    test('should return correct platform information', () => {
+      (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('win32');
+      (PlatformUtils.getCurrentArchitecture as sinon.SinonStub).returns('x64');
+      (PlatformUtils.getBinaryExtension as sinon.SinonStub).returns('.exe');
+      (PlatformUtils.supportsFeature as sinon.SinonStub).returns(false);
+
+      const result = binaryManager.getPlatformInfo();
+
+      assert.strictEqual(result.platform, 'win32');
+      assert.strictEqual(result.architecture, 'x64');
+      assert.strictEqual(result.binaryExtension, '.exe');
+      assert.strictEqual(result.supportsExecutablePermissions, false);
+    });
+  });
+
   suite('platform detection', () => {
     test('should handle all supported platforms', () => {
       const platforms = ['win32', 'darwin', 'linux'];

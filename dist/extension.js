@@ -31,7 +31,10 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var extension_exports = {};
 __export(extension_exports, {
   activate: () => activate,
-  deactivate: () => deactivate
+  deactivate: () => deactivate,
+  getExtensionState: () => getExtensionState,
+  getLogger: () => getLogger,
+  isExtensionInitialized: () => isExtensionInitialized
 });
 module.exports = __toCommonJS(extension_exports);
 var vscode6 = __toESM(require("vscode"));
@@ -914,8 +917,8 @@ var CommandManager = class {
         this.errorHandler.handleProcessError(duplicateError, "scrcpy");
         return false;
       }
-      const process = await this.processManager.launchScrcpy();
-      if (!process || !process.pid) {
+      const process2 = await this.processManager.launchScrcpy();
+      if (!process2 || !process2.pid) {
         const processError = new Error("Failed to launch scrcpy - invalid process");
         this.errorHandler.handleProcessError(processError, "scrcpy");
         if (this.sidebarProvider) {
@@ -946,8 +949,8 @@ var CommandManager = class {
         this.errorHandler.handleProcessError(duplicateError, "scrcpy screen off");
         return false;
       }
-      const process = await this.processManager.launchScrcpyScreenOff();
-      if (!process || !process.pid) {
+      const process2 = await this.processManager.launchScrcpyScreenOff();
+      if (!process2 || !process2.pid) {
         const processError = new Error("Failed to launch scrcpy with screen off - invalid process");
         this.errorHandler.handleProcessError(processError, "scrcpy screen off");
         if (this.sidebarProvider) {
@@ -1077,6 +1080,201 @@ var CommandManager = class {
 
 // src/managers/processManager.ts
 var import_child_process = require("child_process");
+
+// src/utils/platformUtils.ts
+var os = __toESM(require("os"));
+var path = __toESM(require("path"));
+var PlatformUtils = class {
+  /**
+   * Get the binary file extension for the current platform
+   */
+  static getBinaryExtension() {
+    return os.platform() === "win32" ? ".exe" : "";
+  }
+  /**
+   * Get the binary path with platform-appropriate extension
+   */
+  static getBinaryPath(name) {
+    return `${name}${this.getBinaryExtension()}`;
+  }
+  /**
+   * Make a file executable (Unix systems only)
+   */
+  static async makeExecutable(filePath) {
+    if (os.platform() !== "win32") {
+      const fs2 = await import("fs/promises");
+      try {
+        const stats = await fs2.stat(filePath);
+        const currentMode = stats.mode;
+        const executableMode = currentMode | 73;
+        if (currentMode !== executableMode) {
+          await fs2.chmod(filePath, executableMode);
+        }
+      } catch (error) {
+        throw new Error(`Failed to make ${filePath} executable: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+  /**
+   * Check if a file has executable permissions (Unix systems only)
+   */
+  static async isExecutable(filePath) {
+    if (os.platform() === "win32") {
+      const fs3 = await import("fs/promises");
+      try {
+        await fs3.access(filePath);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    const fs2 = await import("fs/promises");
+    try {
+      await fs2.access(filePath, fs2.constants.F_OK | fs2.constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Get platform-specific spawn options for process execution
+   */
+  static getPlatformSpecificOptions(options = {}) {
+    const baseOptions = {
+      stdio: ["pipe", "pipe", "pipe"],
+      ...options
+    };
+    const platform2 = os.platform();
+    switch (platform2) {
+      case "win32":
+        return {
+          ...baseOptions,
+          shell: true,
+          windowsHide: true,
+          // Ensure proper handling of Windows paths
+          env: {
+            ...process.env,
+            ...baseOptions.env
+          }
+        };
+      case "darwin":
+        return {
+          ...baseOptions,
+          // macOS specific options
+          env: {
+            ...process.env,
+            ...baseOptions.env
+          }
+        };
+      case "linux":
+        return {
+          ...baseOptions,
+          // Linux specific options
+          env: {
+            ...process.env,
+            ...baseOptions.env
+          }
+        };
+      default:
+        return baseOptions;
+    }
+  }
+  /**
+   * Get the current platform identifier
+   */
+  static getCurrentPlatform() {
+    const platform2 = os.platform();
+    switch (platform2) {
+      case "win32":
+        return "win32";
+      case "darwin":
+        return "darwin";
+      case "linux":
+        return "linux";
+      default:
+        throw new Error(`Unsupported platform: ${platform2}`);
+    }
+  }
+  /**
+   * Get platform-specific architecture identifier
+   */
+  static getCurrentArchitecture() {
+    const arch2 = os.arch();
+    switch (arch2) {
+      case "x64":
+        return "x64";
+      case "arm64":
+        return "arm64";
+      case "ia32":
+        return "x86";
+      default:
+        return arch2;
+    }
+  }
+  /**
+   * Get platform-specific binary directory name
+   */
+  static getPlatformBinaryDir() {
+    const platform2 = this.getCurrentPlatform();
+    const arch2 = this.getCurrentArchitecture();
+    return platform2;
+  }
+  /**
+   * Normalize file paths for the current platform
+   */
+  static normalizePath(filePath) {
+    return path.normalize(filePath);
+  }
+  /**
+   * Check if the current platform supports a specific feature
+   */
+  static supportsFeature(feature) {
+    const platform2 = os.platform();
+    switch (feature) {
+      case "executable-permissions":
+        return platform2 !== "win32";
+      case "shell-execution":
+        return true;
+      // All platforms support shell execution
+      case "process-signals":
+        return platform2 !== "win32";
+      // Windows has limited signal support
+      default:
+        return false;
+    }
+  }
+  /**
+   * Get platform-specific process termination signal
+   */
+  static getTerminationSignal() {
+    return os.platform() === "win32" ? "SIGTERM" : "SIGTERM";
+  }
+  /**
+   * Get platform-specific force kill signal
+   */
+  static getForceKillSignal() {
+    return os.platform() === "win32" ? "SIGKILL" : "SIGKILL";
+  }
+  /**
+   * Get platform-specific temporary directory
+   */
+  static getTempDir() {
+    return os.tmpdir();
+  }
+  /**
+   * Check if running on a supported platform
+   */
+  static isSupportedPlatform() {
+    try {
+      this.getCurrentPlatform();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+
+// src/managers/processManager.ts
 var ProcessManager = class {
   scrcpyProcess = null;
   managedProcesses = /* @__PURE__ */ new Set();
@@ -1105,22 +1303,23 @@ var ProcessManager = class {
       let stdout = "";
       let stderr = "";
       this.logger.info(`Executing ADB command: ${adbPath} ${args.join(" ")}`);
-      const process = (0, import_child_process.spawn)(adbPath, args, {
+      const spawnOptions = PlatformUtils.getPlatformSpecificOptions({
         stdio: ["pipe", "pipe", "pipe"]
       });
-      this.managedProcesses.add(process);
-      process.stdout?.on("data", (data) => {
+      const process2 = (0, import_child_process.spawn)(adbPath, args, spawnOptions);
+      this.managedProcesses.add(process2);
+      process2.stdout?.on("data", (data) => {
         const output = data.toString();
         stdout += output;
         this.logger.logProcessOutput("adb", output);
       });
-      process.stderr?.on("data", (data) => {
+      process2.stderr?.on("data", (data) => {
         const output = data.toString();
         stderr += output;
         this.logger.logProcessOutput("adb", output);
       });
-      process.on("close", (code) => {
-        this.managedProcesses.delete(process);
+      process2.on("close", (code) => {
+        this.managedProcesses.delete(process2);
         const exitCode = code ?? -1;
         const success = exitCode === 0;
         const result = {
@@ -1132,8 +1331,8 @@ var ProcessManager = class {
         this.logger.info(`ADB command completed with exit code: ${exitCode}`);
         resolve(result);
       });
-      process.on("error", (error) => {
-        this.managedProcesses.delete(process);
+      process2.on("error", (error) => {
+        this.managedProcesses.delete(process2);
         this.logger.error(`ADB process error: ${error.message}`, error);
         resolve({
           success: false,
@@ -1312,10 +1511,10 @@ var ProcessManager = class {
       return true;
     }
     return new Promise((resolve) => {
-      const process = this.scrcpyProcess;
+      const process2 = this.scrcpyProcess;
       this.logger.info("Stopping scrcpy process");
       const cleanup = () => {
-        this.managedProcesses.delete(process);
+        this.managedProcesses.delete(process2);
         this.scrcpyProcess = null;
         this.scrcpyState = {
           running: false
@@ -1324,18 +1523,20 @@ var ProcessManager = class {
         resolve(true);
       };
       const timeout = setTimeout(() => {
-        if (process && !process.killed) {
+        if (process2 && !process2.killed) {
           this.logger.info("Force killing scrcpy process");
-          process.kill("SIGKILL");
+          const forceKillSignal = PlatformUtils.getForceKillSignal();
+          process2.kill(forceKillSignal);
         }
         cleanup();
       }, 3e3);
-      process.on("close", () => {
+      process2.on("close", () => {
         clearTimeout(timeout);
         cleanup();
       });
-      if (process && !process.killed) {
-        process.kill("SIGTERM");
+      if (process2 && !process2.killed) {
+        const terminationSignal = PlatformUtils.getTerminationSignal();
+        process2.kill(terminationSignal);
       } else {
         clearTimeout(timeout);
         cleanup();
@@ -1378,10 +1579,10 @@ var ProcessManager = class {
     if (!this.scrcpyProcess) {
       return;
     }
-    const process = this.scrcpyProcess;
-    if (process.killed || process.exitCode !== null) {
+    const process2 = this.scrcpyProcess;
+    if (process2.killed || process2.exitCode !== null) {
       this.logger.info("Detected scrcpy process termination during monitoring");
-      this.managedProcesses.delete(process);
+      this.managedProcesses.delete(process2);
       this.scrcpyProcess = null;
       this.scrcpyState = {
         running: false
@@ -1398,15 +1599,17 @@ var ProcessManager = class {
       cleanupPromises.push(this.stopScrcpy().then(() => {
       }));
     }
-    for (const process of this.managedProcesses) {
-      if (!process.killed) {
+    for (const process2 of this.managedProcesses) {
+      if (!process2.killed) {
         cleanupPromises.push(
           new Promise((resolve) => {
-            process.on("close", () => resolve());
-            process.kill("SIGTERM");
+            process2.on("close", () => resolve());
+            const terminationSignal = PlatformUtils.getTerminationSignal();
+            process2.kill(terminationSignal);
             setTimeout(() => {
-              if (!process.killed) {
-                process.kill("SIGKILL");
+              if (!process2.killed) {
+                const forceKillSignal = PlatformUtils.getForceKillSignal();
+                process2.kill(forceKillSignal);
               }
               resolve();
             }, 2e3);
@@ -1523,12 +1726,13 @@ var ProcessManager = class {
       options: options ? { ...options } : void 0
     };
     return new Promise((resolve, reject) => {
-      const process = (0, import_child_process.spawn)(scrcpyPath, args, {
+      const spawnOptions = PlatformUtils.getPlatformSpecificOptions({
         stdio: ["pipe", "pipe", "pipe"],
         detached: false
       });
-      this.scrcpyProcess = process;
-      this.managedProcesses.add(process);
+      const process2 = (0, import_child_process.spawn)(scrcpyPath, args, spawnOptions);
+      this.scrcpyProcess = process2;
+      this.managedProcesses.add(process2);
       let hasResolved = false;
       const onData = (data) => {
         const output = data.toString();
@@ -1537,19 +1741,19 @@ var ProcessManager = class {
           hasResolved = true;
           this.scrcpyState = {
             running: true,
-            process,
+            process: process2,
             startTime: this.scrcpyState.startTime,
             options: this.scrcpyState.options
           };
           this.logger.info("Scrcpy process started successfully");
-          resolve(process);
+          resolve(process2);
         }
       };
-      process.stdout?.on("data", onData);
-      process.stderr?.on("data", onData);
-      process.on("close", (code) => {
-        this.managedProcesses.delete(process);
-        if (this.scrcpyProcess === process) {
+      process2.stdout?.on("data", onData);
+      process2.stderr?.on("data", onData);
+      process2.on("close", (code) => {
+        this.managedProcesses.delete(process2);
+        if (this.scrcpyProcess === process2) {
           this.scrcpyProcess = null;
           this.scrcpyState = {
             running: false
@@ -1557,9 +1761,9 @@ var ProcessManager = class {
         }
         this.logger.info(`Scrcpy process closed with exit code: ${code}`);
       });
-      process.on("error", (error) => {
-        this.managedProcesses.delete(process);
-        if (this.scrcpyProcess === process) {
+      process2.on("error", (error) => {
+        this.managedProcesses.delete(process2);
+        if (this.scrcpyProcess === process2) {
           this.scrcpyProcess = null;
           this.scrcpyState = {
             running: false
@@ -1630,16 +1834,16 @@ var ConfigManager = class _ConfigManager {
    */
   getCustomAdbPath() {
     const config = vscode3.workspace.getConfiguration(_ConfigManager.CONFIG_SECTION);
-    const path2 = config.get("adbPath", "");
-    return path2.trim() || void 0;
+    const path3 = config.get("adbPath", "");
+    return path3.trim() || void 0;
   }
   /**
    * Get custom scrcpy binary path if configured
    */
   getCustomScrcpyPath() {
     const config = vscode3.workspace.getConfiguration(_ConfigManager.CONFIG_SECTION);
-    const path2 = config.get("scrcpyPath", "");
-    return path2.trim() || void 0;
+    const path3 = config.get("scrcpyPath", "");
+    return path3.trim() || void 0;
   }
   /**
    * Get all configuration values with validation
@@ -1778,68 +1982,8 @@ var ConfigManager = class _ConfigManager {
 };
 
 // src/managers/binaryManager.ts
-var path = __toESM(require("path"));
+var path2 = __toESM(require("path"));
 var fs = __toESM(require("fs/promises"));
-
-// src/utils/platformUtils.ts
-var os = __toESM(require("os"));
-var PlatformUtils = class {
-  /**
-   * Get the binary file extension for the current platform
-   */
-  static getBinaryExtension() {
-    return os.platform() === "win32" ? ".exe" : "";
-  }
-  /**
-   * Get the binary path with platform-appropriate extension
-   */
-  static getBinaryPath(name) {
-    return `${name}${this.getBinaryExtension()}`;
-  }
-  /**
-   * Make a file executable (Unix systems only)
-   */
-  static async makeExecutable(path2) {
-    if (os.platform() !== "win32") {
-      const fs2 = await import("fs/promises");
-      try {
-        await fs2.chmod(path2, 493);
-      } catch (error) {
-        throw new Error(`Failed to make ${path2} executable: ${error}`);
-      }
-    }
-  }
-  /**
-   * Get platform-specific spawn options
-   */
-  static getPlatformSpecificOptions() {
-    const options = {
-      stdio: ["pipe", "pipe", "pipe"]
-    };
-    if (os.platform() === "win32") {
-      options.shell = true;
-    }
-    return options;
-  }
-  /**
-   * Get the current platform identifier
-   */
-  static getCurrentPlatform() {
-    const platform2 = os.platform();
-    switch (platform2) {
-      case "win32":
-        return "win32";
-      case "darwin":
-        return "darwin";
-      case "linux":
-        return "linux";
-      default:
-        throw new Error(`Unsupported platform: ${platform2}`);
-    }
-  }
-};
-
-// src/managers/binaryManager.ts
 var BinaryManager = class {
   extensionPath;
   configManager;
@@ -1899,15 +2043,34 @@ var BinaryManager = class {
     };
   }
   /**
-   * Extract bundled binaries if needed (placeholder for future implementation)
+   * Extract bundled binaries if needed and ensure they are executable
    */
   async extractBinaries() {
     const platform2 = PlatformUtils.getCurrentPlatform();
-    const binariesDir = path.join(this.extensionPath, "binaries", platform2);
+    const binariesDir = path2.join(this.extensionPath, "binaries", platform2);
     try {
-      await fs.access(binariesDir);
-    } catch {
       await fs.mkdir(binariesDir, { recursive: true });
+      const adbPath = this.getBundledBinaryPath("adb");
+      const scrcpyPath = this.getBundledBinaryPath("scrcpy");
+      const binariesToProcess = [
+        { name: "adb", path: adbPath },
+        { name: "scrcpy", path: scrcpyPath }
+      ];
+      for (const binary of binariesToProcess) {
+        try {
+          await fs.access(binary.path);
+          if (PlatformUtils.supportsFeature("executable-permissions")) {
+            const isExecutable = await PlatformUtils.isExecutable(binary.path);
+            if (!isExecutable) {
+              await PlatformUtils.makeExecutable(binary.path);
+            }
+          }
+        } catch (error) {
+          console.warn(`Binary ${binary.name} not found at ${binary.path}. This is expected during development.`);
+        }
+      }
+    } catch (error) {
+      throw new Error(`Failed to extract binaries: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   /**
@@ -1934,7 +2097,7 @@ var BinaryManager = class {
    */
   async hasBundledBinaries() {
     const platform2 = PlatformUtils.getCurrentPlatform();
-    const binariesDir = path.join(this.extensionPath, "binaries", platform2);
+    const binariesDir = path2.join(this.extensionPath, "binaries", platform2);
     try {
       const stats = await fs.stat(binariesDir);
       return stats.isDirectory();
@@ -1943,12 +2106,50 @@ var BinaryManager = class {
     }
   }
   /**
+   * Check binary integrity and platform compatibility
+   */
+  async checkBinaryIntegrity() {
+    const errors = [];
+    let adbIntegrity = false;
+    let scrcpyIntegrity = false;
+    try {
+      if (!PlatformUtils.isSupportedPlatform()) {
+        errors.push(`Unsupported platform: ${PlatformUtils.getCurrentPlatform()}`);
+        return { adb: false, scrcpy: false, errors };
+      }
+      const adbPath = this.getAdbPath();
+      adbIntegrity = await this.checkSingleBinaryIntegrity(adbPath, "adb");
+      if (!adbIntegrity) {
+        errors.push(`ADB binary integrity check failed: ${adbPath}`);
+      }
+      const scrcpyPath = this.getScrcpyPath();
+      scrcpyIntegrity = await this.checkSingleBinaryIntegrity(scrcpyPath, "scrcpy");
+      if (!scrcpyIntegrity) {
+        errors.push(`Scrcpy binary integrity check failed: ${scrcpyPath}`);
+      }
+    } catch (error) {
+      errors.push(`Binary integrity check failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return { adb: adbIntegrity, scrcpy: scrcpyIntegrity, errors };
+  }
+  /**
+   * Get platform-specific binary information
+   */
+  getPlatformInfo() {
+    return {
+      platform: PlatformUtils.getCurrentPlatform(),
+      architecture: PlatformUtils.getCurrentArchitecture(),
+      binaryExtension: PlatformUtils.getBinaryExtension(),
+      supportsExecutablePermissions: PlatformUtils.supportsFeature("executable-permissions")
+    };
+  }
+  /**
    * Get the path to a bundled binary
    */
   getBundledBinaryPath(binaryName) {
     const platform2 = PlatformUtils.getCurrentPlatform();
     const extension = PlatformUtils.getBinaryExtension();
-    return path.join(
+    return path2.join(
       this.extensionPath,
       "binaries",
       platform2,
@@ -1964,12 +2165,45 @@ var BinaryManager = class {
       if (!stats.isFile()) {
         return false;
       }
-      if (PlatformUtils.getCurrentPlatform() !== "win32") {
-        try {
-          await fs.access(binaryPath, fs.constants.X_OK);
-        } catch {
+      if (PlatformUtils.supportsFeature("executable-permissions")) {
+        const isExecutable = await PlatformUtils.isExecutable(binaryPath);
+        if (!isExecutable) {
           try {
             await PlatformUtils.makeExecutable(binaryPath);
+          } catch {
+            return false;
+          }
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Check integrity of a single binary file
+   */
+  async checkSingleBinaryIntegrity(binaryPath, binaryName) {
+    try {
+      const stats = await fs.stat(binaryPath);
+      if (!stats.isFile()) {
+        return false;
+      }
+      if (stats.size === 0) {
+        return false;
+      }
+      const platform2 = PlatformUtils.getCurrentPlatform();
+      if (platform2 === "win32") {
+        const expectedExtension = PlatformUtils.getBinaryExtension();
+        if (expectedExtension && !binaryPath.endsWith(expectedExtension)) {
+          return false;
+        }
+      } else {
+        const isExecutable = await PlatformUtils.isExecutable(binaryPath);
+        if (!isExecutable) {
+          try {
+            await PlatformUtils.makeExecutable(binaryPath);
+            return await PlatformUtils.isExecutable(binaryPath);
           } catch {
             return false;
           }
@@ -2493,68 +2727,159 @@ function activate(context) {
   logger = new Logger();
   logger.info("DroidBridge extension is activating...");
   try {
-    configManager = new ConfigManager();
-    binaryManager = new BinaryManager(context.extensionPath, configManager);
-    processManager = new ProcessManager(binaryManager, logger);
-    sidebarProvider = new DroidBridgeSidebarProvider(vscode6.Uri.file(context.extensionPath), context, configManager);
-    commandManager = new CommandManager(processManager, configManager, logger, sidebarProvider);
-    commandManager.setSidebarProvider(sidebarProvider);
-    extensionState = {
-      connection: {
-        connected: false
-      },
-      scrcpy: {
-        running: false
-      },
-      initialized: false,
-      binariesValidated: false
-    };
-    const sidebarDisposable = vscode6.window.registerWebviewViewProvider(
-      DroidBridgeSidebarProvider.viewType,
-      sidebarProvider
-    );
-    commandManager.registerCommands(context);
-    const configDisposable = configManager.onConfigurationChanged(() => {
-      logger.info("Configuration changed, refreshing extension state");
-      sidebarProvider.refresh();
-    });
-    context.subscriptions.push(
-      sidebarDisposable,
-      configDisposable,
-      logger
-    );
+    initializeManagers(context);
+    initializeExtensionState();
+    registerVSCodeComponents(context);
+    setupConfigurationWatchers(context);
+    validateBinariesAsync();
     extensionState.initialized = true;
     logger.info("DroidBridge extension activated successfully");
   } catch (error) {
     logger.error("Failed to activate DroidBridge extension", error);
     vscode6.window.showErrorMessage("Failed to activate DroidBridge extension. Check the logs for details.");
+    throw error;
   }
+}
+function initializeManagers(context) {
+  logger.info("Initializing manager classes...");
+  configManager = new ConfigManager();
+  logger.debug("ConfigManager initialized");
+  binaryManager = new BinaryManager(context.extensionPath, configManager);
+  logger.debug("BinaryManager initialized");
+  processManager = new ProcessManager(binaryManager, logger);
+  logger.debug("ProcessManager initialized");
+  sidebarProvider = new DroidBridgeSidebarProvider(
+    vscode6.Uri.file(context.extensionPath),
+    context,
+    configManager
+  );
+  logger.debug("DroidBridgeSidebarProvider initialized");
+  commandManager = new CommandManager(processManager, configManager, logger, sidebarProvider);
+  logger.debug("CommandManager initialized");
+  commandManager.setSidebarProvider(sidebarProvider);
+  logger.debug("Manager cross-references established");
+}
+function initializeExtensionState() {
+  extensionState = {
+    connection: {
+      connected: false
+    },
+    scrcpy: {
+      running: false
+    },
+    initialized: false,
+    binariesValidated: false
+  };
+  logger.debug("Extension state initialized");
+}
+function registerVSCodeComponents(context) {
+  logger.info("Registering VSCode components...");
+  const sidebarDisposable = vscode6.window.registerWebviewViewProvider(
+    "droidbridge-sidebar",
+    // Must match the view ID in package.json
+    sidebarProvider
+  );
+  context.subscriptions.push(sidebarDisposable);
+  logger.debug("Sidebar webview provider registered");
+  commandManager.registerCommands(context);
+  logger.debug("All commands registered");
+  logger.info("All VSCode components registered successfully");
+}
+function setupConfigurationWatchers(context) {
+  logger.info("Setting up configuration watchers...");
+  const configDisposable = configManager.onConfigurationChanged(() => {
+    logger.info("Configuration changed, refreshing extension state");
+    sidebarProvider.refresh();
+    validateBinariesAsync();
+  });
+  context.subscriptions.push(configDisposable);
+  logger.debug("Configuration watchers set up");
+}
+function validateBinariesAsync() {
+  binaryManager.validateBinaries().then((result) => {
+    extensionState.binariesValidated = result.adbValid && result.scrcpyValid;
+    if (extensionState.binariesValidated) {
+      logger.info("All binaries validated successfully");
+    } else {
+      logger.error("Binary validation failed", new Error(result.errors.join(", ")));
+      vscode6.window.showWarningMessage(
+        "Some DroidBridge binaries are not available. Check the logs for details.",
+        "Show Logs"
+      ).then((selection) => {
+        if (selection === "Show Logs") {
+          logger.show();
+        }
+      });
+    }
+  }).catch((error) => {
+    logger.error("Failed to validate binaries", error);
+    extensionState.binariesValidated = false;
+  });
 }
 async function deactivate() {
   if (logger) {
     logger.info("DroidBridge extension is deactivating...");
   }
+  const cleanupTasks = [];
   try {
     if (commandManager) {
+      logger.debug("Disposing command manager...");
       commandManager.dispose();
     }
     if (sidebarProvider) {
+      logger.debug("Disposing sidebar provider...");
       sidebarProvider.dispose();
     }
     if (processManager) {
-      await processManager.cleanup();
+      logger.debug("Cleaning up process manager...");
+      cleanupTasks.push(processManager.cleanup());
+    }
+    await Promise.all(cleanupTasks);
+    if (extensionState) {
+      extensionState.initialized = false;
+      extensionState.binariesValidated = false;
+      extensionState.connection.connected = false;
+      extensionState.scrcpy.running = false;
     }
     if (logger) {
       logger.info("DroidBridge extension deactivated successfully");
       logger.dispose();
     }
   } catch (error) {
-    console.error("Error during extension deactivation:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error during extension deactivation:", errorMessage);
+    if (logger) {
+      try {
+        logger.error("Error during extension deactivation", error instanceof Error ? error : void 0);
+      } catch (logError) {
+        console.error("Failed to log deactivation error:", logError);
+      }
+    }
+  } finally {
+    extensionState = void 0;
+    logger = void 0;
+    commandManager = void 0;
+    processManager = void 0;
+    configManager = void 0;
+    binaryManager = void 0;
+    sidebarProvider = void 0;
   }
+}
+function getExtensionState() {
+  return extensionState;
+}
+function getLogger() {
+  return logger;
+}
+function isExtensionInitialized() {
+  return extensionState?.initialized === true;
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   activate,
-  deactivate
+  deactivate,
+  getExtensionState,
+  getLogger,
+  isExtensionInitialized
 });
 //# sourceMappingURL=extension.js.map
