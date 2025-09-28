@@ -3,39 +3,101 @@ import * as fs from 'fs/promises';
 import { ValidationResult, BinaryInfo } from '../types';
 import { PlatformUtils } from '../utils/platformUtils';
 import { ConfigManager } from './configManager';
+import { BinaryDetector, BinaryDetectionResult } from './binaryDetector';
+import { BinaryDownloader, DownloadResult, DownloadProgress } from './binaryDownloader';
 
 /**
- * Manages bundled binaries and platform-specific binary resolution
+ * Manages smart binary detection, downloading, and platform-specific binary resolution
  */
 export class BinaryManager {
   private extensionPath: string;
   private configManager: ConfigManager;
+  private binaryDetector: BinaryDetector;
+  private binaryDownloader: BinaryDownloader;
+  private detectionCache: Map<string, BinaryDetectionResult> = new Map();
+  private downloadProgressCallback?: (progress: DownloadProgress) => void;
 
   constructor(extensionPath: string, configManager: ConfigManager) {
     this.extensionPath = extensionPath;
     this.configManager = configManager;
+    this.binaryDetector = new BinaryDetector(extensionPath);
+    this.binaryDownloader = new BinaryDownloader(this.binaryDetector.getDownloadDir());
   }
 
   /**
-   * Get the path to the ADB binary (bundled or custom)
+   * Set download progress callback
    */
-  getAdbPath(): string {
+  setDownloadProgressCallback(callback: (progress: DownloadProgress) => void): void {
+    this.downloadProgressCallback = callback;
+    this.binaryDownloader.setProgressCallback(callback);
+  }
+
+  /**
+   * Get the path to the ADB binary (custom, system, or downloaded)
+   */
+  async getAdbPath(): Promise<string> {
     const customPath = this.configManager.getCustomAdbPath();
     if (customPath) {
       return customPath;
     }
-    return this.getBundledBinaryPath('adb');
+    
+    const detection = await this.getOrDetectBinary('adb');
+    if (detection.found && detection.path) {
+      return detection.path;
+    }
+    
+    throw new Error('ADB binary not found. Please install ADB or set a custom path in settings.');
   }
 
   /**
-   * Get the path to the scrcpy binary (bundled or custom)
+   * Get the path to the scrcpy binary (custom, system, or downloaded)
    */
-  getScrcpyPath(): string {
+  async getScrcpyPath(): Promise<string> {
     const customPath = this.configManager.getCustomScrcpyPath();
     if (customPath) {
       return customPath;
     }
-    return this.getBundledBinaryPath('scrcpy');
+    
+    const detection = await this.getOrDetectBinary('scrcpy');
+    if (detection.found && detection.path) {
+      return detection.path;
+    }
+    
+    throw new Error('Scrcpy binary not found. Please install scrcpy or set a custom path in settings.');
+  }
+
+  /**
+   * Ensure all required binaries are available, downloading if necessary
+   */
+  async ensureBinariesAvailable(): Promise<{ success: boolean; errors: string[] }> {
+    const errors: string[] = [];
+    
+    try {
+      // Check what binaries are missing
+      const missingBinaries = await this.binaryDetector.getMissingBinaries();
+      
+      if (missingBinaries.length === 0) {
+        return { success: true, errors: [] };
+      }
+
+      // Download missing binaries
+      const downloadResults = await this.binaryDownloader.downloadBinaries(missingBinaries);
+      
+      // Check results
+      for (const result of downloadResults) {
+        if (!result.success) {
+          errors.push(`Failed to download ${result.binary}: ${result.error}`);
+        }
+      }
+
+      // Clear detection cache to force re-detection
+      this.detectionCache.clear();
+
+      return { success: errors.length === 0, errors };
+    } catch (error) {
+      errors.push(`Binary management error: ${error instanceof Error ? error.message : String(error)}`);
+      return { success: false, errors };
+    }
   }
 
   /**
@@ -47,25 +109,35 @@ export class BinaryManager {
     let scrcpyValid = false;
 
     try {
-      // Validate ADB binary
-      const adbPath = this.getAdbPath();
-      adbValid = await this.validateBinary(adbPath, 'adb');
-      if (!adbValid) {
-        errors.push(`ADB binary not found or not executable: ${adbPath}`);
+      // First ensure binaries are available (download if needed)
+      const ensureResult = await this.ensureBinariesAvailable();
+      if (!ensureResult.success) {
+        errors.push(...ensureResult.errors);
       }
-    } catch (error) {
-      errors.push(`Error validating ADB binary: ${error instanceof Error ? error.message : String(error)}`);
-    }
 
-    try {
+      // Validate ADB binary
+      try {
+        const adbPath = await this.getAdbPath();
+        adbValid = await this.validateBinary(adbPath, 'adb');
+        if (!adbValid) {
+          errors.push(`ADB binary not found or not executable: ${adbPath}`);
+        }
+      } catch (error) {
+        errors.push(`Error validating ADB binary: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
       // Validate scrcpy binary
-      const scrcpyPath = this.getScrcpyPath();
-      scrcpyValid = await this.validateBinary(scrcpyPath, 'scrcpy');
-      if (!scrcpyValid) {
-        errors.push(`Scrcpy binary not found or not executable: ${scrcpyPath}`);
+      try {
+        const scrcpyPath = await this.getScrcpyPath();
+        scrcpyValid = await this.validateBinary(scrcpyPath, 'scrcpy');
+        if (!scrcpyValid) {
+          errors.push(`Scrcpy binary not found or not executable: ${scrcpyPath}`);
+        }
+      } catch (error) {
+        errors.push(`Error validating scrcpy binary: ${error instanceof Error ? error.message : String(error)}`);
       }
     } catch (error) {
-      errors.push(`Error validating scrcpy binary: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(`Binary validation error: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     return {
@@ -122,21 +194,53 @@ export class BinaryManager {
   /**
    * Get information about binary paths and their sources
    */
-  getBinaryInfo(): { adb: BinaryInfo; scrcpy: BinaryInfo } {
+  async getBinaryInfo(): Promise<{ adb: BinaryInfo & { source: string; version?: string }; scrcpy: BinaryInfo & { source: string; version?: string } }> {
     const customAdbPath = this.configManager.getCustomAdbPath();
     const customScrcpyPath = this.configManager.getCustomScrcpyPath();
 
+    const adbDetection = await this.getOrDetectBinary('adb');
+    const scrcpyDetection = await this.getOrDetectBinary('scrcpy');
+
     return {
       adb: {
-        path: this.getAdbPath(),
+        path: customAdbPath || adbDetection.path || 'Not found',
         isCustom: !!customAdbPath,
-        bundledPath: this.getBundledBinaryPath('adb')
+        bundledPath: this.getBundledBinaryPath('adb'),
+        source: customAdbPath ? 'custom' : adbDetection.source,
+        version: adbDetection.version
       },
       scrcpy: {
-        path: this.getScrcpyPath(),
+        path: customScrcpyPath || scrcpyDetection.path || 'Not found',
         isCustom: !!customScrcpyPath,
-        bundledPath: this.getBundledBinaryPath('scrcpy')
+        bundledPath: this.getBundledBinaryPath('scrcpy'),
+        source: customScrcpyPath ? 'custom' : scrcpyDetection.source,
+        version: scrcpyDetection.version
       }
+    };
+  }
+
+  /**
+   * Get detection status for all binaries
+   */
+  async getDetectionStatus(): Promise<Map<string, BinaryDetectionResult>> {
+    return await this.binaryDetector.detectBinaries();
+  }
+
+  /**
+   * Force re-detection of binaries (clears cache)
+   */
+  async refreshDetection(): Promise<void> {
+    this.detectionCache.clear();
+  }
+
+  /**
+   * Check if binary downloads are needed
+   */
+  async needsDownload(): Promise<{ needed: boolean; binaries: string[] }> {
+    const missing = await this.binaryDetector.getMissingBinaries();
+    return {
+      needed: missing.length > 0,
+      binaries: missing.map(b => b.name)
     };
   }
 
@@ -209,7 +313,25 @@ export class BinaryManager {
   }
 
   /**
-   * Get the path to a bundled binary
+   * Get or detect a binary (with caching)
+   */
+  private async getOrDetectBinary(binaryName: 'adb' | 'scrcpy'): Promise<BinaryDetectionResult> {
+    // Check cache first
+    if (this.detectionCache.has(binaryName)) {
+      return this.detectionCache.get(binaryName)!;
+    }
+
+    // Detect binary
+    const detection = await this.binaryDetector.detectSingleBinary(binaryName);
+    
+    // Cache result
+    this.detectionCache.set(binaryName, detection);
+    
+    return detection;
+  }
+
+  /**
+   * Get the path to a bundled binary (legacy support)
    */
   private getBundledBinaryPath(binaryName: string): string {
     const platform = PlatformUtils.getCurrentPlatform();

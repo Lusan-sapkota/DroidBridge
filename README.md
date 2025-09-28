@@ -9,7 +9,7 @@ DroidBridge is a VSCode extension that seamlessly integrates Android device mana
 - **Integrated Sidebar**: Dedicated sidebar view for device management and status monitoring
 - **Command Palette Integration**: Access all features through VSCode's command palette
 - **Cross-Platform Support**: Works on Windows, macOS, and Linux
-- **Bundled Binaries**: Includes ADB and scrcpy binaries - no separate installation required
+- **Smart Binary Management**: Automatically detects installed ADB/scrcpy or downloads only what's needed
 - **Theme Integration**: Automatically adapts to VSCode's light and dark themes
 - **Comprehensive Logging**: Detailed logs for troubleshooting connection and mirroring issues
 
@@ -120,6 +120,44 @@ Configure DroidBridge through VSCode settings (`Ctrl+,` / `Cmd+,`):
 }
 ```
 
+## Binary Management
+
+DroidBridge uses a smart binary management system that automatically handles ADB and scrcpy binaries:
+
+### Automatic Detection
+
+The extension automatically detects binaries in this order:
+1. **Custom paths** (if configured in settings)
+2. **System PATH** (if installed via package managers like Homebrew, apt, etc.)
+3. **Common installation directories** (platform-specific locations)
+4. **Downloaded binaries** (automatically downloaded when needed)
+
+### Manual Binary Management
+
+Use these commands from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+
+- `DroidBridge: Check Binary Status` - Shows current binary detection status
+- `DroidBridge: Download Missing Binaries` - Downloads any missing binaries
+- `DroidBridge: Refresh Binary Detection` - Re-scans for binaries
+
+### Custom Binary Paths
+
+If you have ADB or scrcpy installed in custom locations, configure them in settings:
+
+```json
+{
+  "droidbridge.adbPath": "/custom/path/to/adb",
+  "droidbridge.scrcpyPath": "/custom/path/to/scrcpy"
+}
+```
+
+### No Internet Connection
+
+If you can't download binaries automatically:
+1. Install ADB and scrcpy manually on your system
+2. Ensure they're in your system PATH, or
+3. Configure custom paths in DroidBridge settings
+
 ## Troubleshooting
 
 ### Connection Issues
@@ -149,6 +187,22 @@ Configure DroidBridge through VSCode settings (`Ctrl+,` / `Cmd+,`):
 2. Lower bitrate: use `--bit-rate` parameter
 3. Close other applications using the device
 4. Check network bandwidth
+
+### Binary Issues
+
+**"Binary not found" errors:**
+1. Run `DroidBridge: Check Binary Status` to see what's missing
+2. Use `DroidBridge: Download Missing Binaries` to download automatically
+3. If download fails, install ADB/scrcpy manually:
+   - **Windows**: Download from Android SDK or use Chocolatey
+   - **macOS**: Use Homebrew: `brew install android-platform-tools scrcpy`
+   - **Linux**: Use package manager: `sudo apt install adb scrcpy` (Ubuntu/Debian)
+
+**Download failures:**
+1. Check internet connection
+2. Verify firewall/proxy settings
+3. Try `DroidBridge: Refresh Binary Detection` after manual installation
+4. Configure custom paths if binaries are installed in non-standard locations
 
 ### General Issues
 

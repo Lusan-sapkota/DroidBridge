@@ -4,3 +4,5 @@ export { ProcessManager } from './processManager';
 export { ConfigManager } from './configManager';
 export { BinaryManager } from './binaryManager';
 export { Logger } from './logger';
+export { BinaryDetector } from './binaryDetector';
+export { BinaryDownloader } from './binaryDownloader';

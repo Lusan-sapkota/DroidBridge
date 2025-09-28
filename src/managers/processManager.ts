@@ -33,7 +33,7 @@ export class ProcessManager {
    * Execute an ADB command with the given arguments
    */
   async executeAdbCommand(args: string[]): Promise<ProcessResult> {
-    const adbPath = this.binaryManager.getAdbPath();
+    const adbPath = await this.binaryManager.getAdbPath();
 
     return new Promise((resolve) => {
       let stdout = "";
@@ -561,7 +561,7 @@ export class ProcessManager {
       );
     }
 
-    const scrcpyPath = this.binaryManager.getScrcpyPath();
+    const scrcpyPath = await this.binaryManager.getScrcpyPath();
     const args = [...this.buildScrcpyArgs(options), ...additionalArgs];
 
     this.logger.info(`Launching scrcpy: ${scrcpyPath} ${args.join(" ")}`);

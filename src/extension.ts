@@ -81,7 +81,7 @@ function initializeManagers(context: vscode.ExtensionContext): void {
   logger.debug('DroidBridgeSidebarProvider initialized');
   
   // Initialize command manager last (depends on all other managers)
-  commandManager = new CommandManager(processManager, configManager, logger, sidebarProvider);
+  commandManager = new CommandManager(processManager, configManager, logger, binaryManager, sidebarProvider);
   logger.debug('CommandManager initialized');
   
   // Set up bidirectional integration between sidebar and command manager
@@ -151,6 +151,11 @@ function setupConfigurationWatchers(context: vscode.ExtensionContext): void {
  * Validate binaries asynchronously without blocking activation
  */
 function validateBinariesAsync(): void {
+  // Set up download progress callback
+  binaryManager.setDownloadProgressCallback((progress) => {
+    logger.info(`Downloading ${progress.binary}: ${progress.percentage}% (${progress.downloaded}/${progress.total} bytes)`);
+  });
+
   // Run binary validation in background
   binaryManager.validateBinaries()
     .then((result: any) => {
@@ -158,14 +163,35 @@ function validateBinariesAsync(): void {
       
       if (extensionState.binariesValidated) {
         logger.info('All binaries validated successfully');
+        
+        // Show binary info
+        binaryManager.getBinaryInfo().then((info) => {
+          logger.info(`ADB: ${info.adb.path} (${info.adb.source}${info.adb.version ? `, v${info.adb.version}` : ''})`);
+          logger.info(`Scrcpy: ${info.scrcpy.path} (${info.scrcpy.source}${info.scrcpy.version ? `, v${info.scrcpy.version}` : ''})`);
+        });
       } else {
         logger.error('Binary validation failed', new Error(result.errors.join(', ')));
-        vscode.window.showWarningMessage(
-          'Some DroidBridge binaries are not available. Check the logs for details.',
-          'Show Logs'
-        ).then(selection => {
-          if (selection === 'Show Logs') {
-            logger.show();
+        
+        // Check if downloads are needed
+        binaryManager.needsDownload().then((downloadInfo) => {
+          if (downloadInfo.needed) {
+            vscode.window.showWarningMessage(
+              `DroidBridge needs to download missing binaries: ${downloadInfo.binaries.join(', ')}. This will happen automatically when needed.`,
+              'Show Logs'
+            ).then(selection => {
+              if (selection === 'Show Logs') {
+                logger.show();
+              }
+            });
+          } else {
+            vscode.window.showWarningMessage(
+              'Some DroidBridge binaries are not available. Check the logs for details.',
+              'Show Logs'
+            ).then(selection => {
+              if (selection === 'Show Logs') {
+                logger.show();
+              }
+            });
           }
         });
       }

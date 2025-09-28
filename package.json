@@ -71,6 +71,21 @@
         "command": "droidbridge.showLogs",
         "title": "Show Logs",
         "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.checkBinaries",
+        "title": "Check Binary Status",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.downloadBinaries",
+        "title": "Download Missing Binaries",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.refreshBinaries",
+        "title": "Refresh Binary Detection",
+        "category": "DroidBridge"
       }
     ],
     "views": {

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ProcessManager } from './processManager';
 import { ConfigManager } from './configManager';
 import { Logger } from './logger';
+import { BinaryManager } from './binaryManager';
 import { ErrorHandler, ProgressContext } from '../utils/errorHandler';
 
 /**
@@ -12,14 +13,16 @@ export class CommandManager {
   private processManager: ProcessManager;
   private configManager: ConfigManager;
   private logger: Logger;
+  private binaryManager: BinaryManager;
   private errorHandler: ErrorHandler;
   private sidebarProvider?: any; // Will be properly typed when sidebar provider is available
   private statusUpdateInterval?: NodeJS.Timeout;
 
-  constructor(processManager: ProcessManager, configManager: ConfigManager, logger: Logger, sidebarProvider?: any) {
+  constructor(processManager: ProcessManager, configManager: ConfigManager, logger: Logger, binaryManager: BinaryManager, sidebarProvider?: any) {
     this.processManager = processManager;
     this.configManager = configManager;
     this.logger = logger;
+    this.binaryManager = binaryManager;
     this.errorHandler = new ErrorHandler(logger);
     this.sidebarProvider = sidebarProvider;
     
@@ -51,7 +54,12 @@ export class CommandManager {
       vscode.commands.registerCommand('droidbridge.stopScrcpy', () => this.stopScrcpyCommand()),
       
       // Requirement 4.5: Show Logs command
-      vscode.commands.registerCommand('droidbridge.showLogs', () => this.showLogsCommand())
+      vscode.commands.registerCommand('droidbridge.showLogs', () => this.showLogsCommand()),
+      
+      // Binary management commands
+      vscode.commands.registerCommand('droidbridge.checkBinaries', () => this.checkBinariesCommand()),
+      vscode.commands.registerCommand('droidbridge.downloadBinaries', () => this.downloadBinariesCommand()),
+      vscode.commands.registerCommand('droidbridge.refreshBinaries', () => this.refreshBinariesCommand())
     ];
 
     // Add all command disposables to the extension context
@@ -728,6 +736,197 @@ export class CommandManager {
    */
   refreshSidebarState(): void {
     this.updateSidebarState();
+  }
+
+  /**
+   * Check binary status and show information
+   */
+  async checkBinariesCommand(): Promise<void> {
+    try {
+      this.logger.info('Check Binaries command executed');
+
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Checking binary status...',
+        cancellable: false
+      }, async (progress) => {
+        progress.report({ message: 'Detecting installed binaries...' });
+
+        const detectionStatus = await this.binaryManager.getDetectionStatus();
+        const binaryInfo = await this.binaryManager.getBinaryInfo();
+        const downloadInfo = await this.binaryManager.needsDownload();
+
+        progress.report({ message: 'Analysis complete', increment: 100 });
+
+        // Create status report
+        const statusLines: string[] = [];
+        statusLines.push('=== DroidBridge Binary Status ===\n');
+
+        // ADB Status
+        const adbStatus = detectionStatus.get('adb');
+        statusLines.push(`ADB: ${adbStatus?.found ? '✅ Found' : '❌ Not Found'}`);
+        if (adbStatus?.found) {
+          statusLines.push(`  Path: ${adbStatus.path}`);
+          statusLines.push(`  Source: ${adbStatus.source}`);
+          if (adbStatus.version) {
+            statusLines.push(`  Version: ${adbStatus.version}`);
+          }
+        }
+
+        // Scrcpy Status
+        const scrcpyStatus = detectionStatus.get('scrcpy');
+        statusLines.push(`\nScrcpy: ${scrcpyStatus?.found ? '✅ Found' : '❌ Not Found'}`);
+        if (scrcpyStatus?.found) {
+          statusLines.push(`  Path: ${scrcpyStatus.path}`);
+          statusLines.push(`  Source: ${scrcpyStatus.source}`);
+          if (scrcpyStatus.version) {
+            statusLines.push(`  Version: ${scrcpyStatus.version}`);
+          }
+        }
+
+        // Download status
+        if (downloadInfo.needed) {
+          statusLines.push(`\n⚠️  Missing binaries: ${downloadInfo.binaries.join(', ')}`);
+          statusLines.push('Use "DroidBridge: Download Binaries" to download missing binaries.');
+        } else {
+          statusLines.push('\n✅ All required binaries are available');
+        }
+
+        const statusReport = statusLines.join('\n');
+        this.logger.info('Binary status check completed');
+        this.logger.info(statusReport);
+
+        // Show status in information message
+        const action = downloadInfo.needed ? 'Download Missing' : 'Show Logs';
+        const selection = await vscode.window.showInformationMessage(
+          downloadInfo.needed 
+            ? `Missing binaries: ${downloadInfo.binaries.join(', ')}. Download them now?`
+            : 'All binaries are available. Check logs for details.',
+          action,
+          'Show Logs'
+        );
+
+        if (selection === 'Download Missing') {
+          await this.downloadBinariesCommand();
+        } else if (selection === 'Show Logs') {
+          this.logger.show();
+        }
+      });
+
+    } catch (error) {
+      this.errorHandler.handleSystemError(
+        error instanceof Error ? error : new Error('Unknown binary check error'),
+        'Check Binaries command'
+      );
+    }
+  }
+
+  /**
+   * Download missing binaries
+   */
+  async downloadBinariesCommand(): Promise<void> {
+    try {
+      this.logger.info('Download Binaries command executed');
+
+      const downloadInfo = await this.binaryManager.needsDownload();
+      
+      if (!downloadInfo.needed) {
+        vscode.window.showInformationMessage('All required binaries are already available.');
+        return;
+      }
+
+      const proceed = await vscode.window.showWarningMessage(
+        `This will download missing binaries: ${downloadInfo.binaries.join(', ')}. Continue?`,
+        { modal: true },
+        'Download',
+        'Cancel'
+      );
+
+      if (proceed !== 'Download') {
+        this.logger.info('Download Binaries command cancelled by user');
+        return;
+      }
+
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Downloading binaries...',
+        cancellable: false
+      }, async (progress) => {
+        // Set up progress callback
+        this.binaryManager.setDownloadProgressCallback((downloadProgress) => {
+          progress.report({ 
+            message: `Downloading ${downloadProgress.binary}: ${downloadProgress.percentage}%`,
+            increment: downloadProgress.percentage / downloadInfo.binaries.length
+          });
+        });
+
+        const result = await this.binaryManager.ensureBinariesAvailable();
+
+        if (result.success) {
+          progress.report({ message: 'Download completed successfully', increment: 100 });
+          this.errorHandler.showSuccess('All binaries downloaded successfully');
+          
+          // Refresh sidebar state
+          if (this.sidebarProvider) {
+            this.sidebarProvider.refresh();
+          }
+        } else {
+          throw new Error(`Download failed: ${result.errors.join(', ')}`);
+        }
+      });
+
+    } catch (error) {
+      this.errorHandler.handleSystemError(
+        error instanceof Error ? error : new Error('Unknown download error'),
+        'Download Binaries command'
+      );
+    }
+  }
+
+  /**
+   * Refresh binary detection (clear cache and re-detect)
+   */
+  async refreshBinariesCommand(): Promise<void> {
+    try {
+      this.logger.info('Refresh Binaries command executed');
+
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Refreshing binary detection...',
+        cancellable: false
+      }, async (progress) => {
+        progress.report({ message: 'Clearing detection cache...' });
+        
+        await this.binaryManager.refreshDetection();
+        
+        progress.report({ message: 'Re-detecting binaries...', increment: 50 });
+        
+        const detectionStatus = await this.binaryManager.getDetectionStatus();
+        
+        progress.report({ message: 'Detection refreshed', increment: 100 });
+
+        const foundBinaries = Array.from(detectionStatus.entries())
+          .filter(([_, status]) => status.found)
+          .map(([name, _]) => name);
+
+        this.errorHandler.showSuccess(
+          foundBinaries.length > 0 
+            ? `Binary detection refreshed. Found: ${foundBinaries.join(', ')}`
+            : 'Binary detection refreshed. No binaries found.'
+        );
+
+        // Refresh sidebar state
+        if (this.sidebarProvider) {
+          this.sidebarProvider.refresh();
+        }
+      });
+
+    } catch (error) {
+      this.errorHandler.handleSystemError(
+        error instanceof Error ? error : new Error('Unknown refresh error'),
+        'Refresh Binaries command'
+      );
+    }
   }
 
   /**
