@@ -3,6 +3,8 @@ import { CommandManager, ConfigManager, ProcessManager, BinaryManager, Logger } 
 import { DroidBridgeSidebarProvider } from './providers';
 import { ExtensionState } from './types';
 import { ThemeManager } from './utils/themeManager';
+// Explicit side-effect import to keep provider in bundle
+import './providers/sidebarProvider';
 
 // Global extension state
 let extensionState: ExtensionState;
@@ -118,6 +120,7 @@ function registerVSCodeComponents(context: vscode.ExtensionContext): void {
     DroidBridgeSidebarProvider.viewType, // Keep in sync with package.json
     sidebarProvider
   );
+  logger.debug(`Registered webview view provider for id: ${DroidBridgeSidebarProvider.viewType}`);
   context.subscriptions.push(sidebarDisposable);
   logger.debug('Sidebar webview provider registered');
   

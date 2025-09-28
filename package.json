@@ -22,7 +22,7 @@
     "wireless"
   ],
   "author": {
-    "name": "DroidBridge Team"
+    "name": "Lusan Sapkota"
   },
   "license": "MIT",
   "icon": "media/icons/droidbridge-icon.png",
@@ -96,7 +96,8 @@
         {
           "id": "droidbridge-sidebar",
           "name": "Device Manager",
-          "when": "true"
+          "when": "true",
+          "icon": "media/icons/droidbridge-icon.png"
         }
       ]
     },

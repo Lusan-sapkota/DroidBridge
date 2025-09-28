@@ -48,7 +48,7 @@ suite("DroidBridgeSidebarProvider Test Suite", () => {
     test("should have correct viewType", () => {
       assert.strictEqual(
         DroidBridgeSidebarProvider.viewType,
-        "droidbridge.sidebar"
+        "droidbridge-sidebar"
       );
     });
 
