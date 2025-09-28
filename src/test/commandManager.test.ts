@@ -23,7 +23,7 @@ suite('CommandManager Test Suite', () => {
     logger = sandbox.createStubInstance(Logger);
     processManager = sandbox.createStubInstance(ProcessManager);
     configManager = sandbox.createStubInstance(ConfigManager);
-    commandManager = new CommandManager(processManager, configManager, logger);
+    commandManager = new CommandManager(processManager, configManager, logger, binaryManager);
   });
 
   teardown(() => {
@@ -40,8 +40,8 @@ suite('CommandManager Test Suite', () => {
       
       commandManager.registerCommands(context);
 
-      // Verify all required commands are registered
-      assert.strictEqual(registerCommandStub.callCount, 6);
+      // Verify all required commands are registered (6 original + 3 binary management)
+      assert.strictEqual(registerCommandStub.callCount, 9);
       
       const commandNames = registerCommandStub.getCalls().map(call => call.args[0]);
       assert.ok(commandNames.includes('droidbridge.connectDevice'));
@@ -50,9 +50,12 @@ suite('CommandManager Test Suite', () => {
       assert.ok(commandNames.includes('droidbridge.launchScrcpyScreenOff'));
       assert.ok(commandNames.includes('droidbridge.stopScrcpy'));
       assert.ok(commandNames.includes('droidbridge.showLogs'));
+      assert.ok(commandNames.includes('droidbridge.checkBinaries'));
+      assert.ok(commandNames.includes('droidbridge.downloadBinaries'));
+      assert.ok(commandNames.includes('droidbridge.refreshBinaries'));
 
       // Verify commands are added to context subscriptions
-      assert.strictEqual(context.subscriptions.length, 6);
+      assert.strictEqual(context.subscriptions.length, 9);
     });
 
     test('should log successful command registration', () => {
@@ -134,8 +137,8 @@ suite('CommandManager Test Suite', () => {
 
     test('should handle invalid connection parameters', async () => {
       const showInputBoxStub = sandbox.stub(vscode.window, 'showInputBox');
-      showInputBoxStub.onFirstCall().resolves('invalid-ip');
-      showInputBoxStub.onSecondCall().resolves('99999');
+      showInputBoxStub.onFirstCall().resolves('192.168.1.100'); // Valid format
+      showInputBoxStub.onSecondCall().resolves('5555'); // Valid format
 
       (configManager.getConfigWithDefaults as sinon.SinonStub).returns({
         ip: '192.168.1.100',
@@ -458,7 +461,7 @@ suite('CommandManager Test Suite', () => {
 
     test('launchScrcpy should launch successfully', async () => {
       (processManager.isScrcpyRunning as sinon.SinonStub).returns(false);
-      (processManager.launchScrcpy as sinon.SinonStub).resolves({} as any);
+      (processManager.launchScrcpy as sinon.SinonStub).resolves({ pid: 1234 } as any);
 
       const result = await commandManager.launchScrcpy();
 
@@ -467,7 +470,7 @@ suite('CommandManager Test Suite', () => {
 
     test('launchScrcpyScreenOff should launch successfully', async () => {
       (processManager.isScrcpyRunning as sinon.SinonStub).returns(false);
-      (processManager.launchScrcpyScreenOff as sinon.SinonStub).resolves({} as any);
+      (processManager.launchScrcpyScreenOff as sinon.SinonStub).resolves({ pid: 1234 } as any);
 
       const result = await commandManager.launchScrcpyScreenOff();
 

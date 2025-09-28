@@ -39,8 +39,8 @@ suite("ProcessManager Tests", () => {
     mockLogger = sinon.createStubInstance(Logger);
 
     // Set up default binary paths
-    mockBinaryManager.getAdbPath.returns("/path/to/adb");
-    mockBinaryManager.getScrcpyPath.returns("/path/to/scrcpy");
+    mockBinaryManager.getAdbPath.resolves("/path/to/adb");
+    mockBinaryManager.getScrcpyPath.resolves("/path/to/scrcpy");
 
     // Mock spawn function
     spawnStub = sinon.stub();

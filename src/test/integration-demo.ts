@@ -88,11 +88,23 @@ export function demonstrateIntegration(): void {
   const processManager = new ProcessManager(binaryManager, logger);
   const sidebarProvider = new DemoSidebarProvider();
   
+  // Create mock binary manager for demo
+  const mockBinaryManager = {
+    getAdbPath: () => Promise.resolve('/demo/adb'),
+    getScrcpyPath: () => Promise.resolve('/demo/scrcpy'),
+    validateBinaries: () => Promise.resolve({ adbValid: true, scrcpyValid: true, errors: [] }),
+    getBinaryInfo: () => Promise.resolve({
+      adb: { path: '/demo/adb', isCustom: false, bundledPath: '/demo/adb', source: 'demo', version: '1.0' },
+      scrcpy: { path: '/demo/scrcpy', isCustom: false, bundledPath: '/demo/scrcpy', source: 'demo', version: '1.0' }
+    })
+  } as any;
+
   // Create command manager with sidebar integration
   const commandManager = new CommandManager(
     processManager,
     configManager,
     logger,
+    mockBinaryManager,
     sidebarProvider
   );
   

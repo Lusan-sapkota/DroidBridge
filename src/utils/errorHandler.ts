@@ -10,7 +10,8 @@ export enum ErrorCategory {
   PROCESS = 'process',
   SYSTEM = 'system',
   VALIDATION = 'validation',
-  BINARY = 'binary'
+  BINARY = 'binary',
+  UNKNOWN = 'unknown'
 }
 
 /**
@@ -52,9 +53,21 @@ export interface ProgressContext {
 export class ErrorHandler {
   private logger: Logger;
   private activeProgressOperations: Map<string, vscode.CancellationTokenSource> = new Map();
+  private errorStats: Map<ErrorCategory, number> = new Map();
+  private config: {
+    showNotifications: boolean;
+    logLevel: string;
+  } = {
+    showNotifications: true,
+    logLevel: 'info'
+  };
 
   constructor(logger: Logger) {
     this.logger = logger;
+    // Initialize error statistics
+    Object.values(ErrorCategory).forEach(category => {
+      this.errorStats.set(category, 0);
+    });
   }
 
   /**
@@ -211,8 +224,6 @@ export class ErrorHandler {
         'Check device authorization'
       ];
     } else if (processName.toLowerCase().includes('scrcpy')) {
-      errorInfo.userMessage = 'Screen mirroring failed';
-      
       if (error.message.includes('already running')) {
         errorInfo.severity = ErrorSeverity.MEDIUM;
         errorInfo.userMessage = 'Screen mirroring already active';
@@ -221,7 +232,7 @@ export class ErrorHandler {
           'Check for existing scrcpy windows',
           'Wait a moment and try again'
         ];
-      } else if (error.message.includes('device not found')) {
+      } else if (error.message.toLowerCase().includes('device not found')) {
         errorInfo.severity = ErrorSeverity.HIGH;
         errorInfo.userMessage = 'No device found for screen mirroring';
         errorInfo.suggestedActions = [
@@ -231,6 +242,7 @@ export class ErrorHandler {
           'Try reconnecting the device'
         ];
       } else {
+        errorInfo.userMessage = 'Screen mirroring failed';
         errorInfo.suggestedActions = [
           'Check if scrcpy is properly installed',
           'Verify device supports screen mirroring',
@@ -264,7 +276,7 @@ export class ErrorHandler {
     };
 
     // Specific handling for system errors
-    if (error.message.includes('permission')) {
+    if (error.message.toLowerCase().includes('permission')) {
       errorInfo.category = ErrorCategory.BINARY;
       errorInfo.severity = ErrorSeverity.HIGH;
       errorInfo.userMessage = 'Permission denied';
@@ -512,12 +524,12 @@ export class ErrorHandler {
       let errorInfo: ErrorInfo;
 
       // Categorize error based on message content
-      if (error.message.includes('connect') || error.message.includes('network')) {
+      if (error.message.includes('Connection failed') || error.message.includes('network')) {
         errorInfo = this.handleConnectionError(error);
-      } else if (error.message.includes('config') || error.message.includes('setting')) {
+      } else if (error.message.includes('Invalid configuration') || error.message.includes('config')) {
         errorInfo = this.handleConfigurationError(error);
-      } else if (error.message.includes('process') || error.message.includes('spawn')) {
-        errorInfo = this.handleProcessError(error, context);
+      } else if (error.message.includes('Process spawn error') || error.message.includes('spawn')) {
+        errorInfo = this.handleSystemError(error, context);
       } else {
         errorInfo = this.handleSystemError(error, context);
       }
@@ -534,20 +546,235 @@ export class ErrorHandler {
     return errorInfos;
   }
 
+
+
+  /**
+   * Categorize error based on its message and type
+   */
+  categorizeError(error: Error): ErrorCategory {
+    const message = error.message.toLowerCase();
+    
+    // Connection errors - highest priority for network-related issues
+    if (message.includes('connection') || message.includes('network') || 
+        message.includes('timeout') || message.includes('refused') ||
+        message.includes('unreachable') || message.includes('offline') ||
+        message.includes('no route to host') || message.includes('timed out')) {
+      return ErrorCategory.CONNECTION;
+    }
+    
+    // System errors - for file system and permission issues (check first for specific system errors)
+    if (message.includes('permission') || message.includes('enoent') ||
+        message.includes('eacces') || message.includes('binary') ||
+        message.includes('not found') || message.includes('exec format error') ||
+        message.includes('operation not permitted')) {
+      return ErrorCategory.SYSTEM;
+    }
+    
+    // Process errors - for execution and runtime issues
+    if (message.includes('spawn') || message.includes('process') || 
+        message.includes('exited') || message.includes('emfile') ||
+        message.includes('crashed') || message.includes('memory')) {
+      return ErrorCategory.PROCESS;
+    }
+    
+    // Configuration errors - for settings and validation issues
+    if (message.includes('invalid') || message.includes('format') ||
+        message.includes('port out of range') || message.includes('config') ||
+        message.includes('setting')) {
+      return ErrorCategory.CONFIGURATION;
+    }
+    
+    return ErrorCategory.UNKNOWN; // Default fallback
+  }
+
+  /**
+   * Assess error severity based on its impact
+   */
+  assessSeverity(error: Error): ErrorSeverity {
+    const message = error.message.toLowerCase();
+    
+    // Critical errors that prevent core functionality
+    if (message.includes('spawn enoent') || message.includes('corrupted') ||
+        message.includes('memory') || message.includes('exec format error')) {
+      return ErrorSeverity.CRITICAL;
+    }
+    
+    // High severity errors that break main features
+    if (message.includes('process exited') || message.includes('device not found') ||
+        message.includes('unauthorized') || message.includes('enoent') ||
+        message.includes('no such file') || message.includes('eacces') ||
+        message.includes('permission denied')) {
+      return ErrorSeverity.HIGH;
+    }
+    
+    // Medium severity errors that cause inconvenience
+    if (message.includes('timeout') || message.includes('timed out') ||
+        message.includes('already running') || message.includes('invalid format') || 
+        message.includes('network unreachable')) {
+      return ErrorSeverity.MEDIUM;
+    }
+    
+    // Low severity errors that are minor issues
+    return ErrorSeverity.LOW;
+  }
+
+  /**
+   * Generate user-friendly error message
+   */
+  getUserFriendlyMessage(error: Error): string {
+    const category = this.categorizeError(error);
+    const message = error.message.toLowerCase();
+    
+    switch (category) {
+      case ErrorCategory.CONNECTION:
+        if (message.includes('refused')) {return 'Device refused the connection. Check if wireless debugging is enabled.';}
+        if (message.includes('timeout')) {return 'Connection timed out. Check your network connection.';}
+        if (message.includes('unreachable')) {return 'Device is not reachable. Verify the IP address.';}
+        if (message.includes('offline')) {return 'Device appears to be offline. Check device connection.';}
+        return 'Failed to connect to device. Check network and device settings.';
+        
+      case ErrorCategory.PROCESS:
+        if (message.includes('spawn enoent')) {return 'Required program not found. Check binary installation.';}
+        if (message.includes('exited')) {return 'Process stopped unexpectedly. Check device connection.';}
+        if (message.includes('emfile')) {return 'Too many files open. Close some applications and try again.';}
+        if (message.includes('memory')) {return 'Not enough memory available. Close some applications.';}
+        return 'Process execution failed. Check system resources.';
+        
+      case ErrorCategory.CONFIGURATION:
+        if (message.includes('ip') || message.includes('address')) {return 'Invalid IP address format. Use format like 192.168.1.100.';}
+        if (message.includes('port')) {return 'Invalid port number. Use a number between 1 and 65535.';}
+        return 'Configuration error. Check your settings.';
+        
+      case ErrorCategory.SYSTEM:
+        if (message.includes('permission')) {return 'Permission denied. Check file permissions or run as administrator.';}
+        if (message.includes('not found')) {return 'Required file not found. Reinstall the extension.';}
+        return 'System error occurred. Try restarting the application.';
+        
+      default:
+        return 'An unexpected error occurred. Check the logs for details.';
+    }
+  }
+
+  /**
+   * Get recovery suggestions for an error
+   */
+  getRecoverySuggestions(error: Error): string[] {
+    const category = this.categorizeError(error);
+    const message = error.message.toLowerCase();
+    
+    switch (category) {
+      case ErrorCategory.CONNECTION:
+        if (message.includes('refused')) {
+          return [
+            'Enable wireless debugging on your Android device',
+            'Check if the port number is correct',
+            'Try pairing the device first',
+            'Restart ADB on your device'
+          ];
+        }
+        if (message.includes('timeout')) {
+          return [
+            'Check your network connection',
+            'Move device closer to the router',
+            'Try a different network',
+            'Restart wireless debugging'
+          ];
+        }
+        return [
+          'Verify device IP address and port',
+          'Check network connectivity',
+          'Enable wireless debugging',
+          'Try USB connection first'
+        ];
+        
+      case ErrorCategory.PROCESS:
+        return [
+          'Check if required binaries are installed',
+          'Verify file permissions',
+          'Restart the application',
+          'Check system resources'
+        ];
+        
+      case ErrorCategory.CONFIGURATION:
+        return [
+          'Check extension settings',
+          'Verify input format',
+          'Reset to default values',
+          'Refer to documentation'
+        ];
+        
+      case ErrorCategory.SYSTEM:
+        return [
+          'Restart the application',
+          'Check file permissions',
+          'Reinstall the extension',
+          'Contact support if issue persists'
+        ];
+        
+      default:
+        return [
+          'Check the logs for more details',
+          'Restart the application',
+          'Report the issue'
+        ];
+    }
+  }
+
+  /**
+   * Handle error with full context and categorization
+   */
+  handleError(error: Error, context?: string): ErrorInfo {
+    const category = this.categorizeError(error);
+    const severity = this.assessSeverity(error);
+    const userMessage = this.getUserFriendlyMessage(error);
+    const suggestedActions = this.getRecoverySuggestions(error);
+    
+    const errorInfo: ErrorInfo = {
+      category,
+      severity,
+      message: context ? `${context}: ${error.message}` : error.message,
+      userMessage,
+      suggestedActions,
+      technicalDetails: error.stack || error.message,
+      originalError: error
+    };
+    
+    this.trackError(error);
+    this.logAndNotifyError(errorInfo);
+    
+    return errorInfo;
+  }
+
+  /**
+   * Track error for statistics and pattern analysis
+   */
+  trackError(error: Error): void {
+    const category = this.categorizeError(error);
+    const currentCount = this.errorStats.get(category) || 0;
+    this.errorStats.set(category, currentCount + 1);
+  }
+
+  /**
+   * Configure error handler behavior
+   */
+  configure(options: { showNotifications?: boolean; logLevel?: string }): void {
+    if (options.showNotifications !== undefined) {
+      this.config.showNotifications = options.showNotifications;
+    }
+    if (options.logLevel !== undefined) {
+      this.config.logLevel = options.logLevel;
+    }
+  }
+
   /**
    * Get error statistics for monitoring
    */
   getErrorStatistics(): { [key in ErrorCategory]: number } {
-    // This would be implemented with actual error tracking
-    // For now, return empty statistics
-    return {
-      [ErrorCategory.CONFIGURATION]: 0,
-      [ErrorCategory.CONNECTION]: 0,
-      [ErrorCategory.PROCESS]: 0,
-      [ErrorCategory.SYSTEM]: 0,
-      [ErrorCategory.VALIDATION]: 0,
-      [ErrorCategory.BINARY]: 0
-    };
+    const stats: { [key in ErrorCategory]: number } = {} as any;
+    Object.values(ErrorCategory).forEach(category => {
+      stats[category] = this.errorStats.get(category) || 0;
+    });
+    return stats;
   }
 
   /**
@@ -560,7 +787,11 @@ export class ErrorHandler {
       errorInfo.originalError
     );
 
-    // Show user-friendly notification based on severity
+    // Show user-friendly notification based on severity and configuration
+    if (!this.config.showNotifications) {
+      return;
+    }
+
     switch (errorInfo.severity) {
       case ErrorSeverity.CRITICAL:
         this.showError(errorInfo.userMessage, errorInfo.suggestedActions);
@@ -575,6 +806,45 @@ export class ErrorHandler {
         this.showInfo(errorInfo.userMessage);
         break;
     }
+  }
+
+  /**
+   * Get error statistics (alias for getErrorStatistics)
+   */
+  getErrorStats(): { [key in ErrorCategory]: number } {
+    return this.getErrorStatistics();
+  }
+
+  /**
+   * Get recurring error patterns
+   */
+  getRecurringPatterns(): { pattern: string; count: number; category: ErrorCategory }[] {
+    const patterns: { pattern: string; count: number; category: ErrorCategory }[] = [];
+    
+    // This would analyze error patterns in a real implementation
+    // For now, return empty array
+    return patterns;
+  }
+
+  /**
+   * Get error summary for debugging
+   */
+  getErrorSummary(): { totalErrors: number; byCategory: { [key in ErrorCategory]: number }; recentErrors: string[] } {
+    const stats = this.getErrorStatistics();
+    const totalErrors = Object.values(stats).reduce((sum, count) => sum + count, 0);
+    
+    return {
+      totalErrors,
+      byCategory: stats,
+      recentErrors: [] // Would contain recent error messages in real implementation
+    };
+  }
+
+  /**
+   * Get current configuration
+   */
+  getConfiguration(): { showNotifications: boolean; logLevel: string } {
+    return { ...this.config };
   }
 
   /**

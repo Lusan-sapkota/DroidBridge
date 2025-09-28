@@ -9,7 +9,7 @@ DroidBridge is a VSCode extension that seamlessly integrates Android device mana
 - **Integrated Sidebar**: Dedicated sidebar view for device management and status monitoring
 - **Command Palette Integration**: Access all features through VSCode's command palette
 - **Cross-Platform Support**: Works on Windows, macOS, and Linux
-- **Smart Binary Management**: Automatically detects installed ADB/scrcpy or downloads only what's needed
+- **Automatic Binary Downloads**: Detects installed ADB/scrcpy or automatically downloads the latest binaries when needed
 - **Theme Integration**: Automatically adapts to VSCode's light and dark themes
 - **Comprehensive Logging**: Detailed logs for troubleshooting connection and mirroring issues
 
@@ -130,7 +130,8 @@ The extension automatically detects binaries in this order:
 1. **Custom paths** (if configured in settings)
 2. **System PATH** (if installed via package managers like Homebrew, apt, etc.)
 3. **Common installation directories** (platform-specific locations)
-4. **Downloaded binaries** (automatically downloaded when needed)
+4. **Bundled binaries** (included with the extension as fallback)
+5. **Downloaded binaries** (automatically downloaded when needed)
 
 ### Manual Binary Management
 

@@ -25,20 +25,23 @@
     "name": "DroidBridge Team"
   },
   "license": "MIT",
+  "icon": "media/icons/droidbridge-icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/droidbridge.git"
+    "url": "https://github.com/Lusan-sapkota/DroidBridge"
   },
   "bugs": {
-    "url": "https://github.com/your-username/droidbridge/issues"
+    "url": "https://github.com/Lusan-sapkota/DroidBridge/issues"
   },
-  "homepage": "https://github.com/your-username/droidbridge#readme",
-  "publisher": "droidbridge-team",
+  "homepage": "https://github.com/Lusan-sapkota/DroidBridge#readme",
+  "publisher": "Lusan Sapkota",
   "galleryBanner": {
     "color": "#1e1e1e",
     "theme": "dark"
   },
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -102,7 +105,7 @@
         {
           "id": "droidbridge",
           "title": "DroidBridge",
-          "icon": "$(device-mobile)"
+          "icon": "media/icons/droidbridge-icon.png"
         }
       ]
     },

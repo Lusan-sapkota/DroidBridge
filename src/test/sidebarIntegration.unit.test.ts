@@ -3,6 +3,7 @@ import * as sinon from 'sinon';
 import { CommandManager } from '../managers/commandManager';
 import { ProcessManager } from '../managers/processManager';
 import { ConfigManager } from '../managers/configManager';
+import { BinaryManager } from '../managers/binaryManager';
 import { Logger } from '../managers/logger';
 
 /**
@@ -62,6 +63,7 @@ suite('Sidebar Integration Unit Tests', () => {
   let mockProcessManager: sinon.SinonStubbedInstance<ProcessManager>;
   let mockConfigManager: sinon.SinonStubbedInstance<ConfigManager>;
   let mockLogger: sinon.SinonStubbedInstance<Logger>;
+  let mockBinaryManager: sinon.SinonStubbedInstance<BinaryManager>;
   let mockSidebarProvider: MockSidebarProvider;
 
   setup(() => {
@@ -69,6 +71,7 @@ suite('Sidebar Integration Unit Tests', () => {
     mockProcessManager = sinon.createStubInstance(ProcessManager);
     mockConfigManager = sinon.createStubInstance(ConfigManager);
     mockLogger = sinon.createStubInstance(Logger);
+    mockBinaryManager = sinon.createStubInstance(BinaryManager);
     mockSidebarProvider = new MockSidebarProvider();
 
     // Setup default behavior
@@ -88,12 +91,7 @@ suite('Sidebar Integration Unit Tests', () => {
     });
 
     // Create command manager with mock sidebar
-    commandManager = new CommandManager(
-      mockProcessManager as any,
-      mockConfigManager as any,
-      mockLogger as any,
-      mockSidebarProvider as any
-    );
+    commandManager = new CommandManager(mockProcessManager as any, mockConfigManager as any, mockLogger as any, mockBinaryManager as any, mockSidebarProvider as any);
   });
 
   teardown(() => {
@@ -300,12 +298,7 @@ suite('Sidebar Integration Unit Tests', () => {
         synchronizeState: sinon.stub().throws(new Error('Sidebar error'))
       };
 
-      const errorCommandManager = new CommandManager(
-        mockProcessManager as any,
-        mockConfigManager as any,
-        mockLogger as any,
-        errorSidebar
-      );
+      const errorCommandManager = new CommandManager(mockProcessManager as any, mockConfigManager as any, mockLogger as any, mockBinaryManager as any, errorSidebar);
 
       // Should not throw when updating sidebar state
       assert.doesNotThrow(() => {
@@ -321,11 +314,7 @@ suite('Sidebar Integration Unit Tests', () => {
 
   suite('Command Manager Lifecycle', () => {
     test('should start status updates when sidebar provider is set', () => {
-      const newCommandManager = new CommandManager(
-        mockProcessManager as any,
-        mockConfigManager as any,
-        mockLogger as any
-      );
+      const newCommandManager = new CommandManager(mockProcessManager as any, mockConfigManager as any, mockLogger as any, mockBinaryManager as any);
 
       // Initially no status updates
       assert.ok(mockProcessManager.getConnectionState.notCalled);

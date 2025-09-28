@@ -14,10 +14,26 @@ DroidBridge uses an intelligent binary management system that automatically dete
 1. **Custom Paths**: User-configured paths in VSCode settings
 2. **System PATH**: Binaries available in system PATH (e.g., installed via package managers)
 3. **Common Locations**: Standard installation directories for each platform
-4. **Downloaded Binaries**: Automatically downloaded when needed
+4. **Bundled Binaries**: Pre-packaged binaries included with the extension
+5. **Downloaded Binaries**: Automatically downloaded when needed (if bundled not available)
 
 ## Directory Structure
 
+### Bundled Binaries (Fallback)
+```
+binaries/
+├── win32/
+│   ├── adb.exe
+│   └── scrcpy.exe
+├── darwin/
+│   ├── adb
+│   └── scrcpy
+└── linux/
+    ├── adb
+    └── scrcpy
+```
+
+### Downloaded Binaries (On-Demand)
 ```
 downloaded-binaries/
 ├── win32/

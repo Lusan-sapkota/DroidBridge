@@ -20,6 +20,12 @@ out/
 .idea/
 .DS_Store
 Thumbs.db
-
-# Ignore build/test temp files
 .kiro/
+
+# Ignore binary folders (binaries are downloaded, not packaged)
+binaries/
+dist/binaries/
+**/binaries/
+
+# Ignore packaged extension files
+*.vsix

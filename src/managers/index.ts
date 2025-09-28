@@ -6,3 +6,4 @@ export { BinaryManager } from './binaryManager';
 export { Logger } from './logger';
 export { BinaryDetector } from './binaryDetector';
 export { BinaryDownloader } from './binaryDownloader';
+export { ConnectionHistoryManager } from './connectionHistory';

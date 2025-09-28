@@ -3,7 +3,7 @@ import * as fs from 'fs/promises';
 import { ValidationResult, BinaryInfo } from '../types';
 import { PlatformUtils } from '../utils/platformUtils';
 import { ConfigManager } from './configManager';
-import { BinaryDetector, BinaryDetectionResult } from './binaryDetector';
+import { BinaryDetector, BinaryDetectionResult, BinaryRequirement } from './binaryDetector';
 import { BinaryDownloader, DownloadResult, DownloadProgress } from './binaryDownloader';
 
 /**
@@ -67,20 +67,53 @@ export class BinaryManager {
   }
 
   /**
+   * Get the path to the ADB binary (synchronous version for backward compatibility)
+   * @deprecated Use getAdbPath() instead
+   */
+  getAdbPathSync(): string {
+    const customPath = this.configManager.getCustomAdbPath();
+    if (customPath) {
+      return customPath;
+    }
+    return this.getBundledBinaryPath('adb');
+  }
+
+  /**
+   * Get the path to the scrcpy binary (synchronous version for backward compatibility)
+   * @deprecated Use getScrcpyPath() instead
+   */
+  getScrcpyPathSync(): string {
+    const customPath = this.configManager.getCustomScrcpyPath();
+    if (customPath) {
+      return customPath;
+    }
+    return this.getBundledBinaryPath('scrcpy');
+  }
+
+  /**
    * Ensure all required binaries are available, downloading if necessary
    */
   async ensureBinariesAvailable(): Promise<{ success: boolean; errors: string[] }> {
     const errors: string[] = [];
     
     try {
-      // Check what binaries are missing
-      const missingBinaries = await this.binaryDetector.getMissingBinaries();
+      // Check current detection status (includes bundled binaries)
+      const detectionStatus = await this.getDetectionStatus();
+      
+      // Find truly missing binaries (not found in system, bundled, or downloaded)
+      const missingBinaries: BinaryRequirement[] = [];
+      for (const requirement of BinaryDetector.getBinaryRequirements()) {
+        const detection = detectionStatus.get(requirement.name);
+        if (!detection?.found) {
+          missingBinaries.push(requirement);
+        }
+      }
       
       if (missingBinaries.length === 0) {
         return { success: true, errors: [] };
       }
 
-      // Download missing binaries
+      // Download missing binaries (only if not bundled)
       const downloadResults = await this.binaryDownloader.downloadBinaries(missingBinaries);
       
       // Check results
@@ -147,49 +180,7 @@ export class BinaryManager {
     };
   }
 
-  /**
-   * Extract bundled binaries if needed and ensure they are executable
-   */
-  async extractBinaries(): Promise<void> {
-    const platform = PlatformUtils.getCurrentPlatform();
-    const binariesDir = path.join(this.extensionPath, 'binaries', platform);
-    
-    try {
-      // Ensure binaries directory exists
-      await fs.mkdir(binariesDir, { recursive: true });
-      
-      // Get paths to expected binaries
-      const adbPath = this.getBundledBinaryPath('adb');
-      const scrcpyPath = this.getBundledBinaryPath('scrcpy');
-      
-      // Check if binaries exist and make them executable if needed
-      const binariesToProcess = [
-        { name: 'adb', path: adbPath },
-        { name: 'scrcpy', path: scrcpyPath }
-      ];
-      
-      for (const binary of binariesToProcess) {
-        try {
-          // Check if binary exists
-          await fs.access(binary.path);
-          
-          // Make executable on Unix systems
-          if (PlatformUtils.supportsFeature('executable-permissions')) {
-            const isExecutable = await PlatformUtils.isExecutable(binary.path);
-            if (!isExecutable) {
-              await PlatformUtils.makeExecutable(binary.path);
-            }
-          }
-        } catch (error) {
-          // Binary doesn't exist - this is expected for development/testing
-          // In a real deployment, binaries would be bundled with the extension
-          console.warn(`Binary ${binary.name} not found at ${binary.path}. This is expected during development.`);
-        }
-      }
-    } catch (error) {
-      throw new Error(`Failed to extract binaries: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+
 
   /**
    * Get information about binary paths and their sources
@@ -220,10 +211,18 @@ export class BinaryManager {
   }
 
   /**
-   * Get detection status for all binaries
+   * Get detection status for all binaries (includes bundled fallback)
    */
   async getDetectionStatus(): Promise<Map<string, BinaryDetectionResult>> {
-    return await this.binaryDetector.detectBinaries();
+    const results = new Map<string, BinaryDetectionResult>();
+    
+    // Check each binary with our enhanced detection (includes bundled)
+    for (const requirement of BinaryDetector.getBinaryRequirements()) {
+      const detection = await this.getOrDetectBinary(requirement.name);
+      results.set(requirement.name, detection);
+    }
+    
+    return results;
   }
 
   /**
@@ -234,30 +233,26 @@ export class BinaryManager {
   }
 
   /**
-   * Check if binary downloads are needed
+   * Check if binary downloads are needed (considers bundled binaries)
    */
   async needsDownload(): Promise<{ needed: boolean; binaries: string[] }> {
-    const missing = await this.binaryDetector.getMissingBinaries();
+    const detectionStatus = await this.getDetectionStatus();
+    const missingBinaries: string[] = [];
+    
+    for (const requirement of BinaryDetector.getBinaryRequirements()) {
+      const detection = detectionStatus.get(requirement.name);
+      if (!detection?.found) {
+        missingBinaries.push(requirement.name);
+      }
+    }
+    
     return {
-      needed: missing.length > 0,
-      binaries: missing.map(b => b.name)
+      needed: missingBinaries.length > 0,
+      binaries: missingBinaries
     };
   }
 
-  /**
-   * Check if bundled binaries directory exists for current platform
-   */
-  async hasBundledBinaries(): Promise<boolean> {
-    const platform = PlatformUtils.getCurrentPlatform();
-    const binariesDir = path.join(this.extensionPath, 'binaries', platform);
-    
-    try {
-      const stats = await fs.stat(binariesDir);
-      return stats.isDirectory();
-    } catch {
-      return false;
-    }
-  }
+
 
   /**
    * Check binary integrity and platform compatibility
@@ -275,14 +270,14 @@ export class BinaryManager {
       }
 
       // Check ADB binary integrity
-      const adbPath = this.getAdbPath();
+      const adbPath = await this.getAdbPath();
       adbIntegrity = await this.checkSingleBinaryIntegrity(adbPath, 'adb');
       if (!adbIntegrity) {
         errors.push(`ADB binary integrity check failed: ${adbPath}`);
       }
 
       // Check scrcpy binary integrity
-      const scrcpyPath = this.getScrcpyPath();
+      const scrcpyPath = await this.getScrcpyPath();
       scrcpyIntegrity = await this.checkSingleBinaryIntegrity(scrcpyPath, 'scrcpy');
       if (!scrcpyIntegrity) {
         errors.push(`Scrcpy binary integrity check failed: ${scrcpyPath}`);
@@ -321,8 +316,11 @@ export class BinaryManager {
       return this.detectionCache.get(binaryName)!;
     }
 
-    // Detect binary
-    const detection = await this.binaryDetector.detectSingleBinary(binaryName);
+    // First try system detection (PATH, common locations, downloaded)
+    let detection = await this.binaryDetector.detectSingleBinary(binaryName);
+    
+    // If not found, we'll rely on the download system
+    // No bundled binaries - all binaries are downloaded on demand
     
     // Cache result
     this.detectionCache.set(binaryName, detection);
@@ -331,9 +329,10 @@ export class BinaryManager {
   }
 
   /**
-   * Get the path to a bundled binary (legacy support)
+   * Get the path where a binary would be if it were bundled (for compatibility)
+   * Note: We no longer bundle binaries - this is kept for interface compatibility
    */
-  private getBundledBinaryPath(binaryName: string): string {
+  getBundledBinaryPath(binaryName: string): string {
     const platform = PlatformUtils.getCurrentPlatform();
     const extension = PlatformUtils.getBinaryExtension();
     return path.join(

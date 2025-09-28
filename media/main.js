@@ -14,7 +14,7 @@ const vscode = acquireVsCodeApi();
 // DOM elements
 let ipInput, portInput, connectBtn, disconnectBtn;
 let launchScrcpyBtn, launchScrcpyScreenOffBtn, stopScrcpyBtn, showLogsBtn;
-let connectionStatus, scrcpyStatus;
+let connectionStatus, scrcpyStatus, connectionHistoryContainer;
 
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", function () {
@@ -49,6 +49,9 @@ function initializeElements() {
   // Status elements
   connectionStatus = document.getElementById("connection-status");
   scrcpyStatus = document.getElementById("scrcpy-status");
+  
+  // History elements
+  connectionHistoryContainer = document.getElementById("connection-history");
 }
 
 /**
@@ -135,6 +138,78 @@ function setupEventListeners() {
       });
     });
   }
+
+  // Set up history event delegation
+  setupHistoryEventListeners();
+}
+
+/**
+ * Set up event listeners for connection history
+ */
+function setupHistoryEventListeners() {
+  if (connectionHistoryContainer) {
+    connectionHistoryContainer.addEventListener("click", function (e) {
+      const target = e.target.closest("button");
+      if (!target) return;
+
+      if (target.classList.contains("history-connect-btn")) {
+        const ip = target.getAttribute("data-ip");
+        const port = target.getAttribute("data-port");
+        if (ip && port) {
+          vscode.postMessage({
+            type: "connectFromHistory",
+            ip: ip,
+            port: port,
+          });
+        }
+      } else if (target.classList.contains("history-remove-btn")) {
+        const id = target.getAttribute("data-id");
+        if (id) {
+          vscode.postMessage({
+            type: "removeFromHistory",
+            id: id,
+          });
+        }
+      }
+    });
+  }
+}
+
+/**
+ * Update connection history display
+ */
+function updateConnectionHistory(history) {
+  if (!connectionHistoryContainer || !history) return;
+
+  if (history.length === 0) {
+    connectionHistoryContainer.innerHTML = '<div class="history-empty">No recent connections</div>';
+    return;
+  }
+
+  const historyHtml = history.map(entry => {
+    const displayName = entry.name || `${entry.ip}:${entry.port}`;
+    const lastConnected = new Date(entry.lastConnected).toLocaleDateString();
+    
+    return `
+      <div class="history-item" data-id="${entry.id}">
+        <div class="history-info">
+          <div class="history-name">${displayName}</div>
+          <div class="history-details">${entry.ip}:${entry.port}</div>
+          <div class="history-meta">Last: ${lastConnected} (${entry.connectionCount}x)</div>
+        </div>
+        <div class="history-actions">
+          <button class="history-connect-btn" data-ip="${entry.ip}" data-port="${entry.port}" title="Connect">
+            <span class="codicon codicon-plug"></span>
+          </button>
+          <button class="history-remove-btn" data-id="${entry.id}" title="Remove">
+            <span class="codicon codicon-trash"></span>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  connectionHistoryContainer.innerHTML = historyHtml;
 }
 
 /**
@@ -253,6 +328,11 @@ function updateUIState(state) {
     }
   }
 
+  // Update connection history
+  if (state.connectionHistory) {
+    updateConnectionHistory(state.connectionHistory);
+  }
+
   // Update button states
   updateButtonStates();
 }
@@ -281,6 +361,7 @@ window.addEventListener("message", (event) => {
         scrcpyStatus: message.scrcpyStatus,
         currentIp: message.currentIp,
         currentPort: message.currentPort,
+        connectionHistory: message.connectionHistory,
       };
       vscode.setState(newState);
       updateUIState(newState);

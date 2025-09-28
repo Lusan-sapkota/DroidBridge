@@ -75,12 +75,7 @@ suite("Sidebar-Command Integration Tests", () => {
       mockConfigManager as any
     );
 
-    commandManager = new CommandManager(
-      mockProcessManager as any,
-      mockConfigManager as any,
-      mockLogger as any,
-      sidebarProvider
-    );
+    commandManager = new CommandManager(mockProcessManager as any, mockConfigManager as any, mockLogger as any, mockBinaryManager as any, sidebarProvider);
   });
 
   teardown(() => {
@@ -175,11 +170,7 @@ suite("Sidebar-Command Integration Tests", () => {
 
   suite("Command Manager Integration", () => {
     test("should set sidebar provider and start status updates", () => {
-      const newCommandManager = new CommandManager(
-        mockProcessManager as any,
-        mockConfigManager as any,
-        mockLogger as any
-      );
+      const newCommandManager = new CommandManager(mockProcessManager as any, mockConfigManager as any, mockLogger as any, mockBinaryManager as any);
 
       newCommandManager.setSidebarProvider(sidebarProvider);
 
@@ -530,12 +521,7 @@ suite("Sidebar-Command Integration Tests", () => {
         synchronizeState: sinon.stub().throws(new Error("Sidebar error")),
       };
 
-      const errorCommandManager = new CommandManager(
-        mockProcessManager as any,
-        mockConfigManager as any,
-        mockLogger as any,
-        errorSidebar
-      );
+      const errorCommandManager = new CommandManager(mockProcessManager as any, mockConfigManager as any, mockLogger as any, mockBinaryManager as any, errorSidebar);
 
       // Should not throw when updating sidebar state
       assert.doesNotThrow(() => {

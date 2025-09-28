@@ -68,7 +68,7 @@ suite('Error Scenarios Integration Tests', () => {
     processManager = new ProcessManager(binaryManager, logger);
 
     // Create command manager
-    commandManager = new CommandManager(processManager, configManager, logger);
+    commandManager = new CommandManager(processManager, configManager, logger, binaryManager);
   });
 
   teardown(() => {

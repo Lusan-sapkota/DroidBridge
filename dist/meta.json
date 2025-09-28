@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/utils/errorHandler.ts": {
-      "bytes": 19013,
+      "bytes": 28758,
       "imports": [
         {
           "path": "vscode",
@@ -22,7 +22,7 @@
       "format": "esm"
     },
     "src/managers/commandManager.ts": {
-      "bytes": 23267,
+      "bytes": 30789,
       "imports": [
         {
           "path": "vscode",
@@ -41,6 +41,11 @@
         },
         {
           "path": "./logger",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "./binaryManager",
           "kind": "import-statement",
           "external": true
         },
@@ -99,7 +104,7 @@
       "format": "esm"
     },
     "src/managers/processManager.ts": {
-      "bytes": 20546,
+      "bytes": 21066,
       "imports": [
         {
           "path": "child_process",
@@ -155,8 +160,111 @@
       ],
       "format": "esm"
     },
+    "src/config/binaryConfig.ts": {
+      "bytes": 2765,
+      "imports": [
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/managers/binaryDetector.ts": {
+      "bytes": 7555,
+      "imports": [
+        {
+          "path": "child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "util",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/utils/platformUtils.ts",
+          "kind": "import-statement",
+          "original": "../utils/platformUtils"
+        },
+        {
+          "path": "src/config/binaryConfig.ts",
+          "kind": "import-statement",
+          "original": "../config/binaryConfig"
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/managers/binaryDownloader.ts": {
+      "bytes": 7052,
+      "imports": [
+        {
+          "path": "https",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/utils/platformUtils.ts",
+          "kind": "import-statement",
+          "original": "../utils/platformUtils"
+        },
+        {
+          "path": "./binaryDetector",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/config/binaryConfig.ts",
+          "kind": "import-statement",
+          "original": "../config/binaryConfig"
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
     "src/managers/binaryManager.ts": {
-      "bytes": 9119,
+      "bytes": 13513,
       "imports": [
         {
           "path": "path",
@@ -184,6 +292,16 @@
           "external": true
         },
         {
+          "path": "src/managers/binaryDetector.ts",
+          "kind": "import-statement",
+          "original": "./binaryDetector"
+        },
+        {
+          "path": "src/managers/binaryDownloader.ts",
+          "kind": "import-statement",
+          "original": "./binaryDownloader"
+        },
+        {
           "path": "<runtime>",
           "kind": "import-statement",
           "external": true
@@ -207,8 +325,24 @@
       ],
       "format": "esm"
     },
+    "src/managers/connectionHistory.ts": {
+      "bytes": 3381,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
     "src/managers/index.ts": {
-      "bytes": 276,
+      "bytes": 446,
       "imports": [
         {
           "path": "src/managers/commandManager.ts",
@@ -234,6 +368,21 @@
           "path": "src/managers/logger.ts",
           "kind": "import-statement",
           "original": "./logger"
+        },
+        {
+          "path": "src/managers/binaryDetector.ts",
+          "kind": "import-statement",
+          "original": "./binaryDetector"
+        },
+        {
+          "path": "src/managers/binaryDownloader.ts",
+          "kind": "import-statement",
+          "original": "./binaryDownloader"
+        },
+        {
+          "path": "src/managers/connectionHistory.ts",
+          "kind": "import-statement",
+          "original": "./connectionHistory"
         }
       ],
       "format": "esm"
@@ -255,7 +404,7 @@
       "format": "esm"
     },
     "src/providers/sidebarProvider.ts": {
-      "bytes": 14117,
+      "bytes": 25731,
       "imports": [
         {
           "path": "vscode",
@@ -271,6 +420,11 @@
           "path": "src/utils/themeManager.ts",
           "kind": "import-statement",
           "original": "../utils/themeManager"
+        },
+        {
+          "path": "src/managers/connectionHistory.ts",
+          "kind": "import-statement",
+          "original": "../managers/connectionHistory"
         },
         {
           "path": "<runtime>",
@@ -292,7 +446,7 @@
       "format": "esm"
     },
     "src/extension.ts": {
-      "bytes": 8795,
+      "bytes": 9987,
       "imports": [
         {
           "path": "vscode",
@@ -392,6 +546,51 @@
           "external": true
         },
         {
+          "path": "child_process",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "util",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "https",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
           "path": "vscode",
           "kind": "require-call",
           "external": true
@@ -411,34 +610,46 @@
       "entryPoint": "src/extension.ts",
       "inputs": {
         "src/extension.ts": {
-          "bytesInOutput": 3402
+          "bytesInOutput": 3990
         },
         "src/managers/commandManager.ts": {
-          "bytesInOutput": 11234
+          "bytesInOutput": 15789
         },
         "src/utils/errorHandler.ts": {
-          "bytesInOutput": 9065
+          "bytesInOutput": 14150
         },
         "src/managers/index.ts": {
           "bytesInOutput": 0
         },
         "src/managers/processManager.ts": {
-          "bytesInOutput": 9648
+          "bytesInOutput": 10043
         },
         "src/utils/platformUtils.ts": {
-          "bytesInOutput": 1992
+          "bytesInOutput": 1996
         },
         "src/managers/configManager.ts": {
           "bytesInOutput": 2593
         },
         "src/managers/binaryManager.ts": {
-          "bytesInOutput": 3421
+          "bytesInOutput": 4955
+        },
+        "src/managers/binaryDetector.ts": {
+          "bytesInOutput": 2810
+        },
+        "src/config/binaryConfig.ts": {
+          "bytesInOutput": 984
+        },
+        "src/managers/binaryDownloader.ts": {
+          "bytesInOutput": 2542
         },
         "src/managers/logger.ts": {
           "bytesInOutput": 1796
         },
+        "src/managers/connectionHistory.ts": {
+          "bytesInOutput": 1323
+        },
         "src/providers/sidebarProvider.ts": {
-          "bytesInOutput": 8408
+          "bytesInOutput": 18718
         },
         "src/utils/themeManager.ts": {
           "bytesInOutput": 2519
@@ -447,7 +658,7 @@
           "bytesInOutput": 0
         }
       },
-      "bytes": 54946
+      "bytes": 85076
     }
   }
 }

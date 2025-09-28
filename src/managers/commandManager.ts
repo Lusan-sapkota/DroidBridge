@@ -157,7 +157,7 @@ export class CommandManager {
           
           if (success) {
             progress.report({ message: 'Connected successfully', increment: 100 });
-            this.errorHandler.showSuccess(`Device connected to ${ip}:${port}`);
+            this.logger.showSuccess(`✅ Device connected to ${ip}:${port}`);
           }
           
           return success;
@@ -172,10 +172,8 @@ export class CommandManager {
         return;
       }
       
-      this.errorHandler.handleSystemError(
-        error instanceof Error ? error : new Error('Unknown error'),
-        'Connect Device command'
-      );
+      this.logger.error('Failed to execute Connect Device command', error instanceof Error ? error : undefined);
+      this.logger.showError('Failed to execute Connect Device command');
     }
   }
 
@@ -212,7 +210,7 @@ export class CommandManager {
           
           if (success) {
             progress.report({ message: 'Disconnected successfully', increment: 100 });
-            this.errorHandler.showSuccess(`Device disconnected from ${target}`);
+            this.logger.showSuccess(`✅ Device disconnected from ${target}`);
           }
           
           return success;
@@ -222,10 +220,8 @@ export class CommandManager {
       );
 
     } catch (error) {
-      this.errorHandler.handleSystemError(
-        error instanceof Error ? error : new Error('Unknown error'),
-        'Disconnect Device command'
-      );
+      this.logger.error('Failed to execute Disconnect Device command', error instanceof Error ? error : undefined);
+      this.logger.showError('Failed to execute Disconnect Device command');
     }
   }
 
@@ -278,7 +274,7 @@ export class CommandManager {
           
           if (success) {
             progress.report({ message: 'Screen mirroring started', increment: 100 });
-            this.errorHandler.showSuccess('Scrcpy launched successfully');
+            this.logger.showSuccess('✅ Scrcpy launched successfully');
           }
           
           return success;
@@ -293,11 +289,8 @@ export class CommandManager {
         return;
       }
       
-      this.errorHandler.handleProcessError(
-        error instanceof Error ? error : new Error('Unknown error'),
-        'scrcpy',
-        'Launch Scrcpy command'
-      );
+      this.logger.error('Failed to execute Launch Scrcpy command', error instanceof Error ? error : undefined);
+      this.logger.showError('Failed to execute Launch Scrcpy command');
     }
   }
 
@@ -350,7 +343,7 @@ export class CommandManager {
           
           if (success) {
             progress.report({ message: 'Screen mirroring started with screen off', increment: 100 });
-            this.errorHandler.showSuccess('Scrcpy launched successfully with screen off');
+            this.logger.showSuccess('✅ Scrcpy launched successfully with screen off');
           }
           
           return success;
@@ -365,11 +358,8 @@ export class CommandManager {
         return;
       }
       
-      this.errorHandler.handleProcessError(
-        error instanceof Error ? error : new Error('Unknown error'),
-        'scrcpy screen off',
-        'Launch Scrcpy Screen Off command'
-      );
+      this.logger.error('Failed to execute Launch Scrcpy Screen Off command', error instanceof Error ? error : undefined);
+      this.logger.showError('Failed to execute Launch Scrcpy Screen Off command');
     }
   }
 
@@ -401,7 +391,7 @@ export class CommandManager {
           
           if (success) {
             progress.report({ message: 'Screen mirroring stopped', increment: 100 });
-            this.errorHandler.showSuccess('Scrcpy stopped successfully');
+            this.logger.showSuccess('✅ Scrcpy stopped successfully');
           }
           
           return success;
@@ -410,11 +400,8 @@ export class CommandManager {
         'stop-scrcpy'
       );
     } catch (error) {
-      this.errorHandler.handleProcessError(
-        error instanceof Error ? error : new Error('Unknown error'),
-        'scrcpy',
-        'Stop Scrcpy command'
-      );
+      this.logger.error('Failed to execute Stop Scrcpy command', error instanceof Error ? error : undefined);
+      this.logger.showError('Failed to execute Stop Scrcpy command');
     }
 
 
@@ -429,10 +416,8 @@ export class CommandManager {
       this.logger.info('Show Logs command executed');
       this.logger.show();
     } catch (error) {
-      this.errorHandler.handleSystemError(
-        error instanceof Error ? error : new Error('Unknown error'),
-        'Show Logs command'
-      );
+      this.logger.error('Failed to execute Show Logs command', error instanceof Error ? error : undefined);
+      this.logger.showError('Failed to execute Show Logs command');
     }
   }
 
@@ -461,9 +446,8 @@ export class CommandManager {
       
       if (!success) {
         const connectionState = this.processManager.getConnectionState();
-        const connectionError = new Error(connectionState.connectionError || 'Failed to connect to device');
-        
-        this.errorHandler.handleConnectionError(connectionError, { ip: targetIp, port: targetPort });
+        const errorMessage = connectionState.connectionError || 'Failed to connect to device';
+        this.logger.showError(`❌ ${errorMessage}`);
         
         // Update sidebar UI
         if (this.sidebarProvider) {
@@ -499,9 +483,8 @@ export class CommandManager {
       
       if (!success) {
         const connectionState = this.processManager.getConnectionState();
-        const disconnectionError = new Error(connectionState.connectionError || 'Failed to disconnect from device');
-        
-        this.errorHandler.handleConnectionError(disconnectionError);
+        const errorMessage = connectionState.connectionError || 'Failed to disconnect from device';
+        this.logger.showError(`❌ ${errorMessage}`);
         
         // Update sidebar UI
         if (this.sidebarProvider) {
@@ -534,8 +517,7 @@ export class CommandManager {
     try {
       // Check for duplicate instances with enhanced error handling
       if (this.processManager.isScrcpyRunning()) {
-        const duplicateError = new Error('Scrcpy is already running');
-        this.errorHandler.handleProcessError(duplicateError, 'scrcpy');
+        this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
         return false;
       }
 
@@ -578,8 +560,7 @@ export class CommandManager {
     try {
       // Check for duplicate instances with enhanced error handling
       if (this.processManager.isScrcpyRunning()) {
-        const duplicateError = new Error('Scrcpy is already running');
-        this.errorHandler.handleProcessError(duplicateError, 'scrcpy screen off');
+        this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
         return false;
       }
 
@@ -623,8 +604,7 @@ export class CommandManager {
       const success = await this.processManager.stopScrcpy();
       
       if (!success) {
-        const stopError = new Error('Failed to stop scrcpy');
-        this.errorHandler.handleProcessError(stopError, 'scrcpy');
+        this.logger.showError('❌ Failed to stop scrcpy');
         return false;
       }
 
@@ -767,7 +747,7 @@ export class CommandManager {
         statusLines.push(`ADB: ${adbStatus?.found ? '✅ Found' : '❌ Not Found'}`);
         if (adbStatus?.found) {
           statusLines.push(`  Path: ${adbStatus.path}`);
-          statusLines.push(`  Source: ${adbStatus.source}`);
+          statusLines.push(`  Source: ${this.getSourceDescription(adbStatus.source)}`);
           if (adbStatus.version) {
             statusLines.push(`  Version: ${adbStatus.version}`);
           }
@@ -778,7 +758,7 @@ export class CommandManager {
         statusLines.push(`\nScrcpy: ${scrcpyStatus?.found ? '✅ Found' : '❌ Not Found'}`);
         if (scrcpyStatus?.found) {
           statusLines.push(`  Path: ${scrcpyStatus.path}`);
-          statusLines.push(`  Source: ${scrcpyStatus.source}`);
+          statusLines.push(`  Source: ${this.getSourceDescription(scrcpyStatus.source)}`);
           if (scrcpyStatus.version) {
             statusLines.push(`  Version: ${scrcpyStatus.version}`);
           }
@@ -926,6 +906,20 @@ export class CommandManager {
         error instanceof Error ? error : new Error('Unknown refresh error'),
         'Refresh Binaries command'
       );
+    }
+  }
+
+  /**
+   * Get user-friendly description for binary source
+   */
+  private getSourceDescription(source: string): string {
+    switch (source) {
+      case 'system': return 'System PATH';
+      case 'bundled': return 'Bundled with extension';
+      case 'downloaded': return 'Downloaded by extension';
+      case 'custom': return 'Custom path (user configured)';
+      case 'not-found': return 'Not found';
+      default: return source;
     }
   }
 

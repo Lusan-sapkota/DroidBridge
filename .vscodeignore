@@ -56,3 +56,7 @@ pids
 
 # Optional eslint cache
 .eslintcache
+
+# Binary folders (binaries are downloaded at runtime)
+binaries/**
+**/binaries/**

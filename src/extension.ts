@@ -115,7 +115,7 @@ function registerVSCodeComponents(context: vscode.ExtensionContext): void {
   
   // Register webview provider for sidebar - Requirement 1.1: Display DroidBridge sidebar
   const sidebarDisposable = vscode.window.registerWebviewViewProvider(
-    'droidbridge-sidebar', // Must match the view ID in package.json
+    DroidBridgeSidebarProvider.viewType, // Keep in sync with package.json
     sidebarProvider
   );
   context.subscriptions.push(sidebarDisposable);

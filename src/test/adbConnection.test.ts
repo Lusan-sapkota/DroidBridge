@@ -23,7 +23,7 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
     spawnStub = sinon.stub(require('child_process'), 'spawn');
 
     // Setup default mock implementations
-    mockBinaryManager.getAdbPath.returns('/path/to/adb');
+    mockBinaryManager.getAdbPath.resolves('/path/to/adb');
 
     processManager = new ProcessManager(mockBinaryManager as any, mockLogger as any);
   });

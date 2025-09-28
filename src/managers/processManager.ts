@@ -33,7 +33,13 @@ export class ProcessManager {
    * Execute an ADB command with the given arguments
    */
   async executeAdbCommand(args: string[]): Promise<ProcessResult> {
-    const adbPath = await this.binaryManager.getAdbPath();
+    let adbPath: string;
+    try {
+      adbPath = await this.binaryManager.getAdbPath();
+    } catch (error) {
+      // Fallback to sync method for backward compatibility
+      adbPath = (this.binaryManager as any).getAdbPathSync?.() || this.binaryManager.getBundledBinaryPath?.('adb') || 'adb';
+    }
 
     return new Promise((resolve) => {
       let stdout = "";
@@ -561,7 +567,14 @@ export class ProcessManager {
       );
     }
 
-    const scrcpyPath = await this.binaryManager.getScrcpyPath();
+    let scrcpyPath: string;
+    try {
+      scrcpyPath = await this.binaryManager.getScrcpyPath();
+    } catch (error) {
+      // Fallback to sync method for backward compatibility
+      scrcpyPath = (this.binaryManager as any).getScrcpyPathSync?.() || this.binaryManager.getBundledBinaryPath?.('scrcpy') || 'scrcpy';
+    }
+    
     const args = [...this.buildScrcpyArgs(options), ...additionalArgs];
 
     this.logger.info(`Launching scrcpy: ${scrcpyPath} ${args.join(" ")}`);

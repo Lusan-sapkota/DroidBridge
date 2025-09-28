@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import { ConfigManager } from '../managers/configManager';
 import { ThemeManager, ThemeKind } from '../utils/themeManager';
+import { ConnectionHistoryManager, ConnectionHistoryEntry } from '../managers/connectionHistory';
 
 /**
  * Provides the webview content for the DroidBridge sidebar view
  */
 export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'droidbridge.sidebar';
+  // Must match the view id in package.json (contributes.views["droidbridge"][0].id)
+  public static readonly viewType = 'droidbridge-sidebar';
 
   private _view?: vscode.WebviewView;
   private connectionStatus: boolean = false;
@@ -17,6 +19,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   private configChangeListener?: vscode.Disposable;
   private themeManager: ThemeManager;
   private themeChangeListener?: vscode.Disposable;
+  private connectionHistory: ConnectionHistoryManager;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -25,6 +28,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   ) {
     this.configManager = configManager;
     this.themeManager = ThemeManager.getInstance();
+    this.connectionHistory = new ConnectionHistoryManager(_context);
     
     // Load default values from configuration
     this.loadDefaultValues();
@@ -91,6 +95,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ) {
+    console.log('DroidBridge: Resolving webview view');
     this._view = webviewView;
 
     webviewView.webview.options = {
@@ -98,7 +103,14 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [this._extensionUri]
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    try {
+      webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+      console.log('DroidBridge: Webview HTML set successfully');
+    } catch (error) {
+      console.error('DroidBridge: Error setting webview HTML:', error);
+      // Fallback to simple HTML
+      webviewView.webview.html = this._getSimpleHtmlForWebview(webviewView.webview);
+    }
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(
@@ -128,6 +140,17 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
           case 'portChanged':
             this.currentPort = message.value;
             break;
+          case 'connectFromHistory':
+            vscode.commands.executeCommand('droidbridge.connectDevice', message.ip, message.port);
+            break;
+          case 'removeFromHistory':
+            this.connectionHistory.removeConnection(message.id);
+            this._updateWebviewState();
+            break;
+          case 'clearHistory':
+            this.connectionHistory.clearHistory();
+            this._updateWebviewState();
+            break;
         }
       },
       undefined,
@@ -146,13 +169,28 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css'));
     const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
 
-    // Get theme-specific icons
-    const plugIconUri = this.themeManager.getWebviewIconUri('plug', this._extensionUri, webview);
-    const deviceIconUri = this.themeManager.getWebviewIconUri('device-mobile', this._extensionUri, webview);
+    // Get theme-specific icons (with fallback)
+    let plugIconUri, deviceIconUri;
+    try {
+      plugIconUri = this.themeManager.getWebviewIconUri('plug', this._extensionUri, webview);
+      deviceIconUri = this.themeManager.getWebviewIconUri('device-mobile', this._extensionUri, webview);
+    } catch (error) {
+      console.error('DroidBridge: Error getting theme icons:', error);
+      // Fallback to simple data URIs or codicons
+      plugIconUri = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTggMkM2LjkgMiA2IDIuOSA2IDRWNkg0VjhIMTJWNkgxMFY0QzEwIDIuOSA5LjEgMiA4IDJaTTggNEM4LjYgNCA5IDQuNCA5IDVWNkg3VjVDNyA0LjQgNy40IDQgOCA0WiIgZmlsbD0iY3VycmVudENvbG9yIi8+Cjwvc3ZnPgo=';
+      deviceIconUri = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQgMkMzLjQ0NzcyIDIgMyAyLjQ0NzcyIDMgM1YxM0MzIDEzLjU1MjMgMy40NDc3MiAxNCA0IDE0SDEyQzEyLjU1MjMgMTQgMTMgMTMuNTUyMyAxMyAxM1YzQzEzIDIuNDQ3NzIgMTIuNTUyMyAyIDEyIDJINFpNNSA0SDExVjEwSDVWNFoiIGZpbGw9ImN1cnJlbnRDb2xvciIvPgo8L3N2Zz4K';
+    }
 
-    // Get current theme information
-    const themeCssClass = this.themeManager.getThemeCssClass();
-    const themeVariables = this.themeManager.getThemeVariables();
+    // Get current theme information (with fallback)
+    let themeCssClass, themeVariables;
+    try {
+      themeCssClass = this.themeManager.getThemeCssClass();
+      themeVariables = this.themeManager.getThemeVariables();
+    } catch (error) {
+      console.error('DroidBridge: Error getting theme info:', error);
+      themeCssClass = 'vscode-dark'; // Default fallback
+      themeVariables = ''; // Empty fallback
+    }
 
     // Use a nonce to only allow a specific script to be run.
     const nonce = getNonce();
@@ -237,6 +275,19 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             </div>
           </div>
 
+          <!-- Connection History Section -->
+          <div class="section">
+            <div class="section-header">
+              <span class="codicon codicon-history section-icon"></span>
+              <h3>Recent Connections</h3>
+            </div>
+            <div class="section-content">
+              <div id="connection-history">
+                ${this.generateHistoryHtml()}
+              </div>
+            </div>
+          </div>
+
           <!-- Logs Section -->
           <div class="section">
             <div class="section-content">
@@ -272,9 +323,239 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         connectionStatus: this.connectionStatus,
         scrcpyStatus: this.scrcpyStatus,
         currentIp: this.currentIp,
-        currentPort: this.currentPort
+        currentPort: this.currentPort,
+        connectionHistory: this.connectionHistory.getRecentConnections()
       });
     }
+  }
+
+  /**
+   * Generate simple HTML for webview (fallback)
+   */
+  private _getSimpleHtmlForWebview(webview: vscode.Webview) {
+    const nonce = getNonce();
+    
+    return `<!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>DroidBridge</title>
+        <style>
+          body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-sideBar-background);
+            padding: 16px;
+          }
+          .section {
+            margin-bottom: 20px;
+          }
+          .section h3 {
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 600;
+          }
+          input {
+            width: 100%;
+            padding: 6px 8px;
+            margin-bottom: 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+          }
+          button {
+            width: 100%;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+          }
+          button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+          }
+          button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+          .status {
+            padding: 8px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+          }
+          .status.connected {
+            background-color: var(--vscode-charts-green, #4CAF50);
+            color: white;
+          }
+          .status.disconnected {
+            background-color: var(--vscode-charts-red, #F44336);
+            color: white;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="section">
+          <h3>🔌 Connect</h3>
+          <div class="status disconnected" id="connection-status">Disconnected</div>
+          <input type="text" id="ip-input" placeholder="IP Address (e.g., 192.168.1.100)" value="${this.currentIp}">
+          <input type="text" id="port-input" placeholder="Port (e.g., 5555)" value="${this.currentPort}">
+          <button id="connect-btn">Connect Device</button>
+          <button id="disconnect-btn" disabled>Disconnect</button>
+        </div>
+        
+        <div class="section">
+          <h3>📱 Scrcpy</h3>
+          <div class="status disconnected" id="scrcpy-status">Stopped</div>
+          <button id="launch-scrcpy-btn" disabled>Launch Scrcpy</button>
+          <button id="launch-scrcpy-screen-off-btn" disabled>Launch (Screen Off)</button>
+          <button id="stop-scrcpy-btn" disabled>Stop Scrcpy</button>
+        </div>
+        
+        <div class="section">
+          <button id="show-logs-btn">Show Logs</button>
+        </div>
+
+        <script nonce="${nonce}">
+          const vscode = acquireVsCodeApi();
+          
+          // Get elements
+          const ipInput = document.getElementById('ip-input');
+          const portInput = document.getElementById('port-input');
+          const connectBtn = document.getElementById('connect-btn');
+          const disconnectBtn = document.getElementById('disconnect-btn');
+          const launchScrcpyBtn = document.getElementById('launch-scrcpy-btn');
+          const launchScrcpyScreenOffBtn = document.getElementById('launch-scrcpy-screen-off-btn');
+          const stopScrcpyBtn = document.getElementById('stop-scrcpy-btn');
+          const showLogsBtn = document.getElementById('show-logs-btn');
+          const connectionStatus = document.getElementById('connection-status');
+          const scrcpyStatus = document.getElementById('scrcpy-status');
+          
+          // Event listeners
+          connectBtn.addEventListener('click', () => {
+            const ip = ipInput.value.trim();
+            const port = portInput.value.trim();
+            if (ip && port) {
+              vscode.postMessage({ type: 'connectDevice', ip, port });
+            }
+          });
+          
+          disconnectBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'disconnectDevice' });
+          });
+          
+          launchScrcpyBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'launchScrcpy' });
+          });
+          
+          launchScrcpyScreenOffBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'launchScrcpyScreenOff' });
+          });
+          
+          stopScrcpyBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'stopScrcpy' });
+          });
+          
+          showLogsBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'showLogs' });
+          });
+          
+          // Input change handlers
+          ipInput.addEventListener('input', (e) => {
+            vscode.postMessage({ type: 'ipChanged', value: e.target.value });
+          });
+          
+          portInput.addEventListener('input', (e) => {
+            vscode.postMessage({ type: 'portChanged', value: e.target.value });
+          });
+          
+          // Listen for state updates
+          window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.type === 'updateState') {
+              updateUI(message);
+            }
+          });
+          
+          function updateUI(state) {
+            // Update connection status
+            if (state.connectionStatus) {
+              connectionStatus.textContent = 'Connected';
+              connectionStatus.className = 'status connected';
+              connectBtn.disabled = true;
+              disconnectBtn.disabled = false;
+            } else {
+              connectionStatus.textContent = 'Disconnected';
+              connectionStatus.className = 'status disconnected';
+              connectBtn.disabled = false;
+              disconnectBtn.disabled = true;
+            }
+            
+            // Update scrcpy status
+            if (state.scrcpyStatus) {
+              scrcpyStatus.textContent = 'Running';
+              scrcpyStatus.className = 'status connected';
+              launchScrcpyBtn.disabled = true;
+              launchScrcpyScreenOffBtn.disabled = true;
+              stopScrcpyBtn.disabled = false;
+            } else {
+              scrcpyStatus.textContent = 'Stopped';
+              scrcpyStatus.className = 'status disconnected';
+              launchScrcpyBtn.disabled = !state.connectionStatus;
+              launchScrcpyScreenOffBtn.disabled = !state.connectionStatus;
+              stopScrcpyBtn.disabled = true;
+            }
+            
+            // Update input values
+            if (state.currentIp !== undefined) {
+              ipInput.value = state.currentIp;
+            }
+            if (state.currentPort !== undefined) {
+              portInput.value = state.currentPort;
+            }
+          }
+        </script>
+      </body>
+      </html>`;
+  }
+
+  /**
+   * Generate HTML for connection history
+   */
+  private generateHistoryHtml(): string {
+    const history = this.connectionHistory.getRecentConnections();
+    
+    if (history.length === 0) {
+      return '<div class="history-empty">No recent connections</div>';
+    }
+
+    return history.map(entry => {
+      const displayName = entry.name || `${entry.ip}:${entry.port}`;
+      const lastConnected = entry.lastConnected.toLocaleDateString();
+      
+      return `
+        <div class="history-item" data-id="${entry.id}">
+          <div class="history-info">
+            <div class="history-name">${displayName}</div>
+            <div class="history-details">${entry.ip}:${entry.port}</div>
+            <div class="history-meta">Last: ${lastConnected} (${entry.connectionCount}x)</div>
+          </div>
+          <div class="history-actions">
+            <button class="history-connect-btn" data-ip="${entry.ip}" data-port="${entry.port}" title="Connect">
+              <span class="codicon codicon-plug"></span>
+            </button>
+            <button class="history-remove-btn" data-id="${entry.id}" title="Remove">
+              <span class="codicon codicon-trash"></span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   /**
@@ -288,6 +569,12 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     if (port) {
       this.currentPort = port;
     }
+    
+    // Add to history if successfully connected
+    if (connected && ip && port) {
+      this.connectionHistory.addConnection(ip, port);
+    }
+    
     this._updateWebviewState();
   }
 

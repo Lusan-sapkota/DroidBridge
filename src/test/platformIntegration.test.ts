@@ -39,12 +39,12 @@ suite('Platform Integration Test Suite', () => {
       sinon.stub(os, 'arch').returns('x64');
     });
 
-    test('should use correct binary paths with .exe extension', () => {
+    test('should use correct binary paths with .exe extension', async () => {
       mockConfigManager.getCustomAdbPath.returns(undefined);
       mockConfigManager.getCustomScrcpyPath.returns(undefined);
 
-      const adbPath = binaryManager.getAdbPath();
-      const scrcpyPath = binaryManager.getScrcpyPath();
+      const adbPath = await binaryManager.getAdbPath();
+      const scrcpyPath = await binaryManager.getScrcpyPath();
 
       assert.ok(adbPath.endsWith('adb.exe'));
       assert.ok(scrcpyPath.endsWith('scrcpy.exe'));
@@ -80,12 +80,12 @@ suite('Platform Integration Test Suite', () => {
       sinon.stub(os, 'arch').returns('arm64');
     });
 
-    test('should use correct binary paths without extension', () => {
+    test('should use correct binary paths without extension', async () => {
       mockConfigManager.getCustomAdbPath.returns(undefined);
       mockConfigManager.getCustomScrcpyPath.returns(undefined);
 
-      const adbPath = binaryManager.getAdbPath();
-      const scrcpyPath = binaryManager.getScrcpyPath();
+      const adbPath = await binaryManager.getAdbPath();
+      const scrcpyPath = await binaryManager.getScrcpyPath();
 
       assert.ok(!adbPath.endsWith('.exe'));
       assert.ok(!scrcpyPath.endsWith('.exe'));
@@ -122,12 +122,12 @@ suite('Platform Integration Test Suite', () => {
       sinon.stub(os, 'arch').returns('x64');
     });
 
-    test('should use correct binary paths without extension', () => {
+    test('should use correct binary paths without extension', async () => {
       mockConfigManager.getCustomAdbPath.returns(undefined);
       mockConfigManager.getCustomScrcpyPath.returns(undefined);
 
-      const adbPath = binaryManager.getAdbPath();
-      const scrcpyPath = binaryManager.getScrcpyPath();
+      const adbPath = await binaryManager.getAdbPath();
+      const scrcpyPath = await binaryManager.getScrcpyPath();
 
       assert.ok(!adbPath.endsWith('.exe'));
       assert.ok(!scrcpyPath.endsWith('.exe'));
@@ -216,20 +216,20 @@ suite('Platform Integration Test Suite', () => {
   });
 
   suite('Binary Directory Structure', () => {
-    test('should create correct directory structure for each platform', () => {
+    test('should create correct directory structure for each platform', async () => {
       const platforms = ['win32', 'darwin', 'linux'];
 
-      platforms.forEach(platform => {
+      for (const platform of platforms) {
         sinon.restore();
         sinon.stub(os, 'platform').returns(platform as NodeJS.Platform);
         
         mockConfigManager.getCustomAdbPath.returns(undefined);
         
-        const adbPath = binaryManager.getAdbPath();
+        const adbPath = await binaryManager.getAdbPath();
         const expectedPath = path.join(mockExtensionPath, 'binaries', platform);
         
         assert.ok(adbPath.startsWith(expectedPath), `ADB path should start with ${expectedPath} for platform ${platform}`);
-      });
+      }
     });
   });
 
