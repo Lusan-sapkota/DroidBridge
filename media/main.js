@@ -11,10 +11,32 @@
 // @ts-ignore - acquireVsCodeApi is provided by VSCode webview runtime
 const vscode = acquireVsCodeApi();
 
-// DOM elements
-let ipInput, portInput, connectBtn, disconnectBtn;
-let launchScrcpyBtn, launchScrcpyScreenOffBtn, stopScrcpyBtn, showLogsBtn;
-let connectionStatus, scrcpyStatus, connectionHistoryContainer;
+// DOM elements (annotated for @ts-check)
+/** @type {HTMLInputElement | null} */ let ipInput = null;
+/** @type {HTMLInputElement | null} */ let portInput = null;
+/** @type {HTMLButtonElement | null} */ let connectBtn = null;
+/** @type {HTMLButtonElement | null} */ let disconnectBtn = null;
+/** @type {HTMLButtonElement | null} */ let launchScrcpyBtn = null;
+/** @type {HTMLButtonElement | null} */ let launchScrcpyScreenOffBtn = null;
+/** @type {HTMLButtonElement | null} */ let stopScrcpyBtn = null;
+/** @type {HTMLButtonElement | null} */ let showLogsBtn = null;
+/** @type {HTMLElement | null} */ let connectionStatus = null;
+/** @type {HTMLElement | null} */ let scrcpyStatus = null;
+/** @type {HTMLElement | null} */ let connectionHistoryContainer = null;
+/** @type {HTMLInputElement | null} */ let pairHostInput = null;
+/** @type {HTMLInputElement | null} */ let pairPortInput = null;
+/** @type {HTMLInputElement | null} */ let pairCodeInput = null;
+/** @type {HTMLButtonElement | null} */ let pairManualBtn = null;
+/** @type {HTMLInputElement | null} */ let pairQrInput = null;
+/** @type {HTMLButtonElement | null} */ let pairQrBtn = null;
+/** @type {HTMLButtonElement | null} */ let generateQrBtn = null;
+/** @type {HTMLButtonElement | null} */ let cancelQrBtn = null;
+/** @type {HTMLElement | null} */ let qrDisplay = null;
+/** @type {HTMLElement | null} */ let qrStatus = null;
+/** @type {HTMLElement | null} */ let qrImageWrapper = null;
+/** @type {HTMLImageElement | null} */ let qrImage = null;
+/** @type {HTMLElement | null} */ let qrMeta = null;
+/** @type {HTMLElement | null} */ let qrPayload = null;
 
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", function () {
@@ -33,18 +55,18 @@ document.addEventListener("DOMContentLoaded", function () {
  */
 function initializeElements() {
   // Input elements
-  ipInput = document.getElementById("ip-input");
-  portInput = document.getElementById("port-input");
+    ipInput = /** @type {HTMLInputElement | null} */ (document.getElementById("ip-input"));
+    portInput = /** @type {HTMLInputElement | null} */ (document.getElementById("port-input"));
 
   // Button elements
-  connectBtn = document.getElementById("connect-btn");
-  disconnectBtn = document.getElementById("disconnect-btn");
-  launchScrcpyBtn = document.getElementById("launch-scrcpy-btn");
-  launchScrcpyScreenOffBtn = document.getElementById(
-    "launch-scrcpy-screen-off-btn"
-  );
-  stopScrcpyBtn = document.getElementById("stop-scrcpy-btn");
-  showLogsBtn = document.getElementById("show-logs-btn");
+    connectBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("connect-btn"));
+    disconnectBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("disconnect-btn"));
+    launchScrcpyBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("launch-scrcpy-btn"));
+    launchScrcpyScreenOffBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById(
+      "launch-scrcpy-screen-off-btn"
+    ));
+    stopScrcpyBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("stop-scrcpy-btn"));
+    showLogsBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("show-logs-btn"));
 
   // Status elements
   connectionStatus = document.getElementById("connection-status");
@@ -52,6 +74,22 @@ function initializeElements() {
   
   // History elements
   connectionHistoryContainer = document.getElementById("connection-history");
+
+  // Pairing elements
+    pairHostInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-host-input'));
+    pairPortInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-port-input'));
+    pairCodeInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-code-input'));
+    pairManualBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('pair-manual-btn'));
+    pairQrInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-qr-input'));
+    pairQrBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('pair-qr-btn'));
+  generateQrBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('generate-qr-btn'));
+  cancelQrBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('cancel-qr-btn'));
+  qrDisplay = document.getElementById('qr-display');
+  qrStatus = document.getElementById('qr-status');
+  qrImageWrapper = document.getElementById('qr-image-wrapper');
+  qrImage = /** @type {HTMLImageElement | null} */(document.getElementById('qr-image'));
+  qrMeta = document.getElementById('qr-meta');
+  qrPayload = document.getElementById('qr-payload');
 }
 
 /**
@@ -61,7 +99,7 @@ function setupEventListeners() {
   // Input change listeners
   if (ipInput) {
     ipInput.addEventListener("input", function (e) {
-      const value = e.target.value.trim();
+      const value = /** @type {HTMLInputElement} */(e.target).value.trim();
       vscode.postMessage({
         type: "ipChanged",
         value: value,
@@ -73,7 +111,7 @@ function setupEventListeners() {
 
   if (portInput) {
     portInput.addEventListener("input", function (e) {
-      const value = e.target.value.trim();
+      const value = /** @type {HTMLInputElement} */(e.target).value.trim();
       vscode.postMessage({
         type: "portChanged",
         value: value,
@@ -139,6 +177,42 @@ function setupEventListeners() {
     });
   }
 
+  // Pairing manual button
+  if (pairManualBtn) {
+    pairManualBtn.addEventListener('click', () => {
+      const host = pairHostInput?.value.trim();
+      const port = pairPortInput?.value.trim();
+      const code = pairCodeInput?.value.trim();
+      if (host && port && /^\d{6}$/.test(code || '')) {
+        vscode.postMessage({ type: 'pairManual', host, port, code });
+      } else {
+        vscode.postMessage({ type: 'showError', error: 'Provide host, port and 6-digit code' });
+      }
+    });
+  }
+
+  // Pairing via QR payload
+  if (pairQrBtn) {
+    pairQrBtn.addEventListener('click', () => {
+      const payload = pairQrInput?.value.trim();
+      if (payload) {
+        vscode.postMessage({ type: 'pairFromQr', payload });
+      }
+    });
+  }
+
+  if (generateQrBtn) {
+    generateQrBtn.addEventListener('click', () => {
+      vscode.postMessage({ type: 'generateQrPairing' });
+    });
+  }
+
+  if (cancelQrBtn) {
+    cancelQrBtn.addEventListener('click', () => {
+      vscode.postMessage({ type: 'cancelQrPairing' });
+    });
+  }
+
   // Set up history event delegation
   setupHistoryEventListeners();
 }
@@ -149,12 +223,12 @@ function setupEventListeners() {
 function setupHistoryEventListeners() {
   if (connectionHistoryContainer) {
     connectionHistoryContainer.addEventListener("click", function (e) {
-      const target = e.target.closest("button");
-      if (!target) return;
-
-      if (target.classList.contains("history-connect-btn")) {
-        const ip = target.getAttribute("data-ip");
-        const port = target.getAttribute("data-port");
+      const target = /** @type {HTMLElement} */(e.target);
+      const button = target.closest ? target.closest("button") : null;
+      if (!button) return;
+      if (button.classList.contains("history-connect-btn")) {
+        const ip = button.getAttribute("data-ip");
+        const port = button.getAttribute("data-port");
         if (ip && port) {
           vscode.postMessage({
             type: "connectFromHistory",
@@ -162,8 +236,8 @@ function setupHistoryEventListeners() {
             port: port,
           });
         }
-      } else if (target.classList.contains("history-remove-btn")) {
-        const id = target.getAttribute("data-id");
+      } else if (button.classList.contains("history-remove-btn")) {
+        const id = button.getAttribute("data-id");
         if (id) {
           vscode.postMessage({
             type: "removeFromHistory",
@@ -177,6 +251,9 @@ function setupHistoryEventListeners() {
 
 /**
  * Update connection history display
+ */
+/**
+ * @param {Array<any>} history
  */
 function updateConnectionHistory(history) {
   if (!connectionHistoryContainer || !history) return;
@@ -210,6 +287,54 @@ function updateConnectionHistory(history) {
   }).join('');
 
   connectionHistoryContainer.innerHTML = historyHtml;
+}
+
+/**
+ * @param {{active?: boolean, dataUrl?: string, message?: string, payload?: string, host?: string, port?: string, code?: string, expiresInSeconds?: number}} qrState
+ */
+function updateQrSection(qrState) {
+  if (!qrDisplay || !qrStatus || !cancelQrBtn) {
+    return;
+  }
+
+  const active = !!qrState?.active;
+  if (active) {
+    cancelQrBtn.disabled = false;
+    if (generateQrBtn) {
+      generateQrBtn.disabled = true;
+    }
+    qrStatus.textContent = qrState?.message || 'QR pairing session active. Scan the code within the next minute.';
+  } else {
+    cancelQrBtn.disabled = true;
+    if (generateQrBtn) {
+      generateQrBtn.disabled = false;
+    }
+    qrStatus.textContent = qrState?.message || 'No active QR session yet.';
+  }
+
+  if (qrImageWrapper && qrImage) {
+    if (active && qrState?.dataUrl) {
+      qrImageWrapper.hidden = false;
+      qrImage.src = qrState.dataUrl;
+      qrImage.alt = 'Wireless pairing QR';
+    } else {
+      qrImageWrapper.hidden = true;
+      qrImage.src = '';
+    }
+  }
+
+  if (qrMeta) {
+    if (qrState?.host && qrState?.port) {
+      const expiryText = qrState?.expiresInSeconds ? ` — expires in ~${qrState.expiresInSeconds}s` : '';
+      qrMeta.textContent = `Host: ${qrState.host}:${qrState.port} (${qrState.code || '••••••'})${expiryText}`;
+    } else {
+      qrMeta.textContent = '';
+    }
+  }
+
+  if (qrPayload) {
+    qrPayload.textContent = qrState?.payload || '';
+  }
 }
 
 /**
@@ -251,6 +376,9 @@ function updateButtonStates() {
 
 /**
  * Update UI state based on extension state
+ */
+/**
+ * @param {any} state
  */
 function updateUIState(state) {
   // Update connection status
@@ -333,6 +461,8 @@ function updateUIState(state) {
     updateConnectionHistory(state.connectionHistory);
   }
 
+  updateQrSection(state.qrPairing);
+
   // Update button states
   updateButtonStates();
 }
@@ -346,6 +476,7 @@ function saveState() {
     ...currentState,
     currentIp: ipInput?.value.trim() || "",
     currentPort: portInput?.value.trim() || "",
+    qrPairing: currentState?.qrPairing,
   };
   vscode.setState(newState);
 }
@@ -362,6 +493,7 @@ window.addEventListener("message", (event) => {
         currentIp: message.currentIp,
         currentPort: message.currentPort,
         connectionHistory: message.connectionHistory,
+        qrPairing: message.qrPairing,
       };
       vscode.setState(newState);
       updateUIState(newState);
@@ -389,6 +521,18 @@ window.addEventListener("message", (event) => {
       // Handle theme change from extension
       updateThemeClass();
       console.log("Theme changed to:", message.themeCssClass);
+      break;
+
+    case "qrPairingUpdate":
+      {
+        const state = vscode.getState() || {};
+        const newState = {
+          ...state,
+          qrPairing: message.state,
+        };
+        vscode.setState(newState);
+        updateQrSection(message.state);
+      }
       break;
   }
 });

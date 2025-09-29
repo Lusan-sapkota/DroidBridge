@@ -5,6 +5,20 @@ import { Logger } from "./logger";
 import { ErrorHandler } from "../utils/errorHandler";
 import { PlatformUtils } from "../utils/platformUtils";
 
+export interface QrPairingSessionResult {
+  success: boolean;
+  message?: string;
+  payload?: string;
+  host?: string;
+  port?: string;
+  code?: string;
+  ssid?: string;
+  adbPort?: string;
+  expiresInSeconds?: number;
+  process?: ChildProcess;
+  rawOutput?: string;
+}
+
 /**
  * Manages external process execution for ADB and scrcpy operations
  */
@@ -16,6 +30,8 @@ export class ProcessManager {
   private errorHandler: ErrorHandler;
   private connectionState: ConnectionState;
   private scrcpyState: ScrcpyState;
+  private qrPairingProcess: ChildProcess | null = null;
+  private qrPairingTimeout?: NodeJS.Timeout;
 
   constructor(binaryManager: BinaryManager, logger: Logger) {
     this.binaryManager = binaryManager;
@@ -168,6 +184,389 @@ export class ProcessManager {
       };
       return false;
     }
+  }
+
+  /**
+   * Pair with a device over Wi‑Fi (Android 11+ wireless debugging)
+   * Expects pairing code (6 digits) and host:port of pairing service (usually shown in device Wireless debugging screen)
+   */
+  async pairDevice(pairingCode: string, host: string, port: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const code = pairingCode.trim();
+      if (!/^[0-9]{6}$/.test(code)) {
+        return { success: false, message: 'Invalid pairing code. Expected 6 digits.' };
+      }
+      const target = `${host}:${port}`;
+      this.logger.info(`Attempting ADB pairing with ${target}`);
+      
+      // Execute with timeout to prevent hanging
+      const result = await this.executeAdbCommandWithTimeout(['pair', target, code], 30000);
+      
+      const stdout = result.stdout || '';
+      const stderr = result.stderr || '';
+      const combined = `${stdout} ${stderr}`.toLowerCase();
+      
+      // Check for successful pairing first (most important)
+      const indicatesSuccess = /successfully paired|pairing code accepted/i.test(stdout);
+      
+      // Only treat as failure if there's a clear failure message AND no success message
+      const indicatesFailure = /failed|unable|timeout|refused|unreachable|invalid|incorrect/i.test(combined) && !indicatesSuccess;
+      
+      // Ignore protocol faults that occur after successful pairing
+      const isProtocolFaultAfterSuccess = indicatesSuccess && /protocol fault/i.test(stderr);
+
+      this.logger.info(`Pairing result - Exit: ${result.exitCode}, Success: ${result.success}`);
+      this.logger.info(`Stdout: ${stdout}`);
+      this.logger.info(`Stderr: ${stderr}`);
+      this.logger.info(`Success detected: ${indicatesSuccess}, Failure detected: ${indicatesFailure}, Protocol fault: ${isProtocolFaultAfterSuccess}`);
+
+      if (indicatesSuccess) {
+        this.logger.info(`Successfully paired with ${target}`);
+        const cleanMessage = stdout.split('\n').find(line => line.includes('Successfully paired')) || 'Paired successfully';
+        return { success: true, message: cleanMessage };
+      }
+
+      // If we get here, pairing failed
+      let errorMsg = stderr || stdout || 'Pairing failed';
+      if (combined.includes('timeout') || (!stdout && !stderr)) {
+        errorMsg = 'Pairing timed out. Check if the pairing code is still valid and the device is reachable.';
+      } else if (combined.includes('refused')) {
+        errorMsg = 'Connection refused. Ensure Wireless debugging is enabled and the pairing service is active.';
+      } else if (combined.includes('unreachable')) {
+        errorMsg = 'Host unreachable. Check the IP address and ensure both devices are on the same network.';
+      } else if (combined.includes('invalid') || combined.includes('incorrect')) {
+        errorMsg = 'Invalid pairing code. The 6-digit code may have expired. Generate a new one on your device.';
+      }
+
+      this.logger.error(`Pairing failed: ${errorMsg}`);
+      return { success: false, message: errorMsg };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error during pairing';
+      this.logger.error('Pairing error', e as any);
+      return { success: false, message };
+    }
+  }
+
+  /**
+   * Execute ADB command with timeout to prevent hanging
+   */
+  private async executeAdbCommandWithTimeout(args: string[], timeoutMs: number): Promise<ProcessResult> {
+    return new Promise(async (resolve) => {
+      let isResolved = false;
+      
+      // Set up timeout
+      const timeoutId = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          resolve({
+            success: false,
+            stdout: '',
+            stderr: 'Command timed out',
+            exitCode: -1
+          });
+        }
+      }, timeoutMs);
+
+      try {
+        const result = await this.executeAdbCommand(args);
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeoutId);
+          resolve(result);
+        }
+      } catch (error) {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeoutId);
+          resolve({
+            success: false,
+            stdout: '',
+            stderr: error instanceof Error ? error.message : 'Unknown error',
+            exitCode: -1
+          });
+        }
+      }
+    });
+  }
+
+  /**
+   * Parse a QR payload exported from Android Wireless debugging.
+   * Supported forms observed across Android versions:
+   * 1. host:pairPort:code
+   * 2. host:pairPort code
+   * 3. adbpair://host:pairPort?code=XXXXXX&adb_port=YYYY&ipaddr=AAA.BBB.CCC.DDD
+   * 4. host:pairPort:code:adbPort  (some OEM / older tooling conventions)
+   * 5. WIFIADB:host:pairPort:code:adbPort (rare prefix variants – ignored prefix)
+   * Returns pairing service host/port/code and optional device IP + adbPort for auto-connect.
+   */
+  parseQrPairingPayload(payload: string): { host: string; port: string; code: string; adbPort?: string; deviceIp?: string } | undefined {
+    if (!payload) {
+      return undefined;
+    }
+    const trimmed = payload.trim();
+
+    // If it looks like a URL with adbpair scheme
+    try {
+      if (/^adbpair:\/\//i.test(trimmed)) {
+        const url = new URL(trimmed);
+        const host = url.hostname;
+        const port = url.port || '37123';
+        const code = url.searchParams.get('code') || '';
+        const adbPort = url.searchParams.get('adb_port') || undefined;
+        const deviceIp = url.searchParams.get('ipaddr') || undefined;
+        if (/^[0-9]{6}$/.test(code) && host && port) {
+          return { host, port, code, adbPort, deviceIp };
+        }
+      }
+    } catch {/* ignore URL parse errors */}
+
+    // Remove known optional prefixes like WIFIADB:
+    const noPrefix = trimmed.replace(/^(?:WIFIADB:)/i, '');
+
+    // Pattern 4: host:pairPort:code:adbPort
+    let m = noPrefix.match(/^(?<host>[a-zA-Z0-9_.-]+):(?<pairPort>\d+):(?<code>\d{6}):(?<adbPort>\d{2,5})$/);
+    if (m?.groups) {
+      return { host: m.groups.host, port: m.groups.pairPort, code: m.groups.code, adbPort: m.groups.adbPort };
+    }
+
+    // Pattern 1: host:pairPort:code
+    m = noPrefix.match(/^(?<host>[a-zA-Z0-9_.-]+):(?<pairPort>\d+):(?<code>\d{6})$/);
+    if (m?.groups) {
+      return { host: m.groups.host, port: m.groups.pairPort, code: m.groups.code };
+    }
+
+    // Pattern 2: host:pairPort code
+    m = noPrefix.match(/^(?<host>[a-zA-Z0-9_.-]+):(?<pairPort>\d+)\s+(?<code>\d{6})$/);
+    if (m?.groups) {
+      return { host: m.groups.host, port: m.groups.pairPort, code: m.groups.code };
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Starts a QR pairing session. First tries `adb pair --qr`, but falls back to generating
+   * a manual QR if the ADB version doesn't support it or prompts for manual input.
+   */
+  async startQrPairingSession(): Promise<QrPairingSessionResult> {
+    if (this.qrPairingProcess) {
+      return {
+        success: false,
+        message: "A QR pairing session is already running. Cancel it before starting a new one."
+      };
+    }
+
+    let adbPath: string;
+    try {
+      adbPath = await this.binaryManager.getAdbPath();
+    } catch (error) {
+      adbPath = (this.binaryManager as any).getAdbPathSync?.() || this.binaryManager.getBundledBinaryPath?.('adb') || 'adb';
+    }
+
+    // First try to use adb pair --qr
+    const qrResult = await this.tryAdbQrPairing(adbPath);
+    if (qrResult.success) {
+      return qrResult;
+    }
+
+    // Fallback: generate manual QR with dummy/example values
+    this.logger.info("ADB QR pairing not supported or failed. Generating manual QR with example values.");
+    
+    const fallbackHost = "192.168.1.50";  // Example IP
+    const fallbackPort = "37153";         // Common pairing port
+    const fallbackCode = Math.floor(100000 + Math.random() * 900000).toString(); // Random 6-digit code
+    const fallbackSsid = "ADB-Pair";
+    
+    const payload = `WIFI:T:ADB;S:${fallbackSsid};P:${fallbackCode};IP:${fallbackHost}:${fallbackPort};;`;
+    
+    return {
+      success: true,
+      message: "Generated example QR. Replace host/port/code with actual values from your device's Wireless debugging screen.",
+      payload,
+      host: fallbackHost,
+      port: fallbackPort,
+      code: fallbackCode,
+      ssid: fallbackSsid,
+      expiresInSeconds: 60
+    };
+  }
+
+  private async tryAdbQrPairing(adbPath: string): Promise<QrPairingSessionResult> {
+    return new Promise<QrPairingSessionResult>((resolve) => {
+      const spawnOptions = PlatformUtils.getPlatformSpecificOptions({
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      this.logger.info("Trying QR pairing with `adb pair --qr`");
+      const process = spawn(adbPath, ["pair", "--qr"], spawnOptions);
+      this.qrPairingProcess = process;
+      this.managedProcesses.add(process);
+
+      let resolved = false;
+      let stdout = "";
+      let stderr = "";
+
+      const finalize = (result: QrPairingSessionResult) => {
+        if (!resolved) {
+          resolved = true;
+          this.qrPairingProcess = null;
+          this.managedProcesses.delete(process);
+          resolve(result);
+        }
+      };
+
+      const handleChunk = (chunk: string) => {
+        stdout += chunk;
+        this.logger.logProcessOutput("adb", chunk);
+
+        // Check if ADB is asking for manual input (fallback indicator)
+        if (chunk.includes("Enter pairing code") || chunk.includes("Pairing code:")) {
+          this.logger.info("ADB is requesting manual pairing code input - QR mode not supported");
+          process.kill(PlatformUtils.getTerminationSignal());
+          finalize({ success: false, message: "ADB QR mode not supported by this version" });
+          return;
+        }
+
+        const parsed = this.extractQrSessionInfo(stdout);
+        if (parsed && parsed.payload) {
+          finalize({ success: true, process, rawOutput: stdout, ...parsed });
+        }
+      };
+
+      process.stdout?.on("data", (data: Buffer) => handleChunk(data.toString()));
+      process.stderr?.on("data", (data: Buffer) => {
+        const text = data.toString();
+        stderr += text;
+        this.logger.logProcessOutput("adb", text);
+        handleChunk(text);
+      });
+
+      process.on("close", (code: number | null) => {
+        if (!resolved) {
+          finalize({
+            success: false,
+            message: "ADB QR pairing session ended without producing a QR payload",
+            rawOutput: stdout || stderr,
+          });
+        }
+      });
+
+      process.on("error", (error: Error) => {
+        this.logger.error(`ADB QR pairing error: ${error.message}`, error);
+        finalize({ success: false, message: error.message, rawOutput: stdout || stderr });
+      });
+
+      // Quick timeout for detecting if QR is supported
+      setTimeout(() => {
+        if (!resolved) {
+          this.logger.info("ADB QR pairing timed out - likely not supported");
+          process.kill(PlatformUtils.getTerminationSignal());
+          finalize({ success: false, message: "ADB QR pairing timeout - unsupported" });
+        }
+      }, 5000);
+    });
+  }
+
+  /** Cancel any running `adb pair --qr` session */
+  async stopQrPairingSession(): Promise<void> {
+    if (!this.qrPairingProcess) {
+      return;
+    }
+
+    this.logger.info("Stopping active QR pairing session");
+    const process = this.qrPairingProcess;
+    this.qrPairingProcess = null;
+
+    if (this.qrPairingTimeout) {
+      clearTimeout(this.qrPairingTimeout);
+      this.qrPairingTimeout = undefined;
+    }
+
+    if (process) {
+      this.managedProcesses.delete(process);
+    }
+
+    if (process && !process.killed) {
+      const terminationSignal = PlatformUtils.getTerminationSignal();
+      process.kill(terminationSignal);
+      setTimeout(() => {
+        if (!process.killed) {
+          process.kill(PlatformUtils.getForceKillSignal());
+        }
+      }, 2000);
+    }
+  }
+
+  /** Indicates if an `adb pair --qr` session is currently running */
+  isQrPairingSessionActive(): boolean {
+    return !!this.qrPairingProcess;
+  }
+
+  private extractQrSessionInfo(output: string): Omit<QrPairingSessionResult, "success"> | undefined {
+    if (!output) {
+      return undefined;
+    }
+
+    // Combine multiline ASCII art into a single searchable string
+    const cleaned = output.replace(/\u001b\[[0-9;]*m/g, ""); // strip ANSI codes
+
+    const wifiMatch = cleaned.match(/WIFI:[\s\S]*?;;/);
+    const codeMatch = cleaned.match(/Pairing code:\s*(\d{6})/i) || cleaned.match(/Code:\s*(\d{6})/i);
+    const hostMatch = cleaned.match(/IP (?:Address|addr):\s*([\d.]+)/i) || cleaned.match(/Host:\s*([\d.]+)/i);
+    const portMatch = cleaned.match(/Port:\s*(\d{2,5})/i) || cleaned.match(/pairing port:\s*(\d{2,5})/i);
+    const ssidMatch = cleaned.match(/SSID:\s*([\w\-]+)/i);
+    const expiryMatch = cleaned.match(/Expires in (\d+)s/i);
+
+    let payload = wifiMatch ? wifiMatch[0].replace(/\s+/g, "") : undefined;
+
+    let host: string | undefined;
+    let port: string | undefined;
+    let code: string | undefined;
+    let ssid: string | undefined;
+
+    if (payload) {
+      const payloadHost = payload.match(/IP:([^;]+)/);
+      const payloadCode = payload.match(/P:(\d{6})/);
+      const payloadSsid = payload.match(/S:([^;]+)/);
+      if (payloadHost?.[1]) {
+        host = payloadHost[1].split(":")[0];
+        const portPart = payloadHost[1].split(":")[1];
+        if (portPart) {
+          port = portPart;
+        }
+      }
+      if (payloadCode?.[1]) {
+        code = payloadCode[1];
+      }
+      if (payloadSsid?.[1]) {
+        ssid = payloadSsid[1];
+      }
+    }
+
+    if (codeMatch?.[1]) {
+      code = codeMatch[1];
+    }
+    if (hostMatch?.[1]) {
+      host = hostMatch[1];
+    }
+    if (portMatch?.[1]) {
+      port = portMatch[1];
+    }
+    if (ssidMatch?.[1]) {
+      ssid = ssidMatch[1];
+    }
+
+    if (!payload && host && port && code) {
+      payload = `WIFI:T:ADB;S:${ssid || "ADB-Pair"};P:${code};IP:${host}:${port};;`;
+    }
+
+    if (!payload) {
+      return undefined;
+    }
+
+    const expiresInSeconds = expiryMatch?.[1] ? parseInt(expiryMatch[1], 10) : undefined;
+
+    return { payload, host, port, code, ssid, expiresInSeconds };
   }
 
   /**
@@ -575,7 +974,15 @@ export class ProcessManager {
       scrcpyPath = (this.binaryManager as any).getScrcpyPathSync?.() || this.binaryManager.getBundledBinaryPath?.('scrcpy') || 'scrcpy';
     }
     
-    const args = [...this.buildScrcpyArgs(options), ...additionalArgs];
+    // Build base args and add device selection logic
+    let args = [...this.buildScrcpyArgs(options), ...additionalArgs];
+    
+    // Add device selection if multiple devices are available
+    const deviceArgs = await this.getDeviceSelectionArgs();
+    if (deviceArgs.length > 0) {
+      args = [...deviceArgs, ...args];
+      this.logger.info(`Added device selection: ${deviceArgs.join(' ')}`);
+    }
 
     this.logger.info(`Launching scrcpy: ${scrcpyPath} ${args.join(" ")}`);
 
@@ -669,6 +1076,65 @@ export class ProcessManager {
         }
       }, 5000);
     });
+  }
+
+  /**
+   * Get device selection arguments for scrcpy when multiple devices are available
+   */
+  private async getDeviceSelectionArgs(): Promise<string[]> {
+    try {
+      const result = await this.executeAdbCommand(["devices"]);
+      
+      if (!result.success) {
+        this.logger.error('Failed to get device list for scrcpy selection');
+        return [];
+      }
+
+      // Parse devices from ADB output
+      const devices = this.parseAllDevices(result.stdout);
+      
+      if (devices.length <= 1) {
+        return []; // No selection needed
+      }
+
+      this.logger.info(`Multiple devices found (${devices.length}), selecting device for scrcpy...`);
+      
+      // Prefer wireless/TCP devices over USB when both are available
+      const wirelessDevice = devices.find(device => device.includes(':'));
+      
+      if (wirelessDevice) {
+        this.logger.info(`Selected wireless device: ${wirelessDevice}`);
+        return ['-s', wirelessDevice];
+      }
+      
+      // Fallback to first device
+      this.logger.info(`Selected first available device: ${devices[0]}`);
+      return ['-s', devices[0]];
+      
+    } catch (error) {
+      this.logger.error('Failed to get device selection args:', error instanceof Error ? error : new Error(String(error)));
+      return []; // Continue without device selection
+    }
+  }
+
+  /**
+   * Parse all connected devices from ADB devices output
+   */
+  private parseAllDevices(stdout: string): string[] {
+    const devices: string[] = [];
+    const lines = stdout.split('\n');
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith('List of devices') && trimmedLine.includes('\t')) {
+        const parts = trimmedLine.split('\t');
+        if (parts.length >= 2 && parts[1].includes('device')) {
+          devices.push(parts[0]);
+        }
+      }
+    }
+    
+    return devices;
   }
 
   /**

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { ProcessManager } from './processManager';
+import QRCode from 'qrcode';
+import { ProcessManager, QrPairingSessionResult } from './processManager';
 import { ConfigManager } from './configManager';
 import { Logger } from './logger';
 import { BinaryManager } from './binaryManager';
@@ -60,6 +61,12 @@ export class CommandManager {
       vscode.commands.registerCommand('droidbridge.checkBinaries', () => this.checkBinariesCommand()),
       vscode.commands.registerCommand('droidbridge.downloadBinaries', () => this.downloadBinariesCommand()),
       vscode.commands.registerCommand('droidbridge.refreshBinaries', () => this.refreshBinariesCommand())
+      ,
+      // Pairing support
+      vscode.commands.registerCommand('droidbridge.pairDevice', (hostPort?: string, code?: string) => this.pairDeviceCommand(hostPort, code)),
+      vscode.commands.registerCommand('droidbridge.pairFromQr', (payload?: string) => this.pairFromQrCommand(payload)),
+      vscode.commands.registerCommand('droidbridge.generatePairingQr', () => this.generatePairingQrCommand()),
+      vscode.commands.registerCommand('droidbridge.cancelPairingQr', () => this.cancelPairingQrCommand())
     ];
 
     // Add all command disposables to the extension context
@@ -920,6 +927,194 @@ export class CommandManager {
       case 'custom': return 'Custom path (user configured)';
       case 'not-found': return 'Not found';
       default: return source;
+    }
+  }
+
+  /** Pair device via host:port + 6-digit code */
+  private async pairDeviceCommand(hostPortArg?: string, codeArg?: string): Promise<void> {
+    try {
+      let hostPort = hostPortArg;
+      let code = codeArg;
+
+      if (!hostPort) {
+        hostPort = await vscode.window.showInputBox({
+          prompt: 'Enter pairing host:port (e.g. 192.168.1.50:37123)',
+          validateInput: v => /.+:\d+/.test(v.trim()) ? null : 'Format must be host:port'
+        }) || undefined;
+      }
+      if (!hostPort) {
+        return;
+      }
+      if (!code) {
+        code = await vscode.window.showInputBox({
+          prompt: 'Enter 6-digit pairing code',
+          validateInput: v => /^\d{6}$/.test(v.trim()) ? null : 'Must be 6 digits'
+        }) || undefined;
+      }
+      if (!code) {
+        return;
+      }
+
+      const [host, port] = hostPort.trim().split(':');
+      const result = await (this.processManager as any).pairDevice(code.trim(), host, port);
+      if (result.success) {
+        const message = `✅ Paired with ${host}:${port}! Next step: Go to "Wireless debugging → Paired devices" on your device to find the ADB port (usually 5555), then use the Connect section above.`;
+        vscode.window.showInformationMessage(message);
+        this.logger.info(message);
+        
+        // Update sidebar inputs with common ADB port for convenience
+        if (this.sidebarProvider) {
+          this.sidebarProvider.updateIpAddress(host);
+          this.sidebarProvider.updatePort('5555'); // Common ADB port
+        }
+      } else {
+        const errorMessage = `❌ Pairing failed: ${result.message}`;
+        vscode.window.showErrorMessage(errorMessage);
+        this.logger.error(errorMessage);
+      }
+    } catch (e) {
+      this.logger.error('Pairing command failed', e as Error);
+      vscode.window.showErrorMessage('Pairing failed. See logs.');
+    }
+  }
+
+  /** Pair using pasted QR payload host:port:code */
+  private async pairFromQrCommand(payloadArg?: string): Promise<void> {
+    try {
+      let payload = payloadArg;
+      if (!payload) {
+        payload = await vscode.window.showInputBox({
+          prompt: 'Paste QR payload (host:port:code or host:port code)',
+          validateInput: v => v.trim() ? null : 'Required'
+        }) || undefined;
+      }
+      if (!payload) {
+        return;
+      }
+      const parsed = (this.processManager as any).parseQrPairingPayload?.(payload);
+      if (!parsed) {
+        vscode.window.showErrorMessage('Could not parse payload. Expected host:port:code');
+        return;
+      }
+      const result = await (this.processManager as any).pairDevice(parsed.code, parsed.host, parsed.port);
+      if (result.success) {
+        const infoMessage = `✅ Paired with ${parsed.host}:${parsed.port}! Use Connect once the device reports its ADB port (Wireless debugging → Paired devices).`;
+        vscode.window.showInformationMessage(infoMessage);
+        this.logger.info(infoMessage);
+        
+        // If QR included adbPort/deviceIp, attempt automatic connect
+        if (parsed.adbPort && parsed.deviceIp) {
+          const autoConnect = await vscode.window.showInformationMessage('Attempt to connect to device after pairing?', 'Connect', 'Skip');
+          if (autoConnect === 'Connect') {
+            await this.connectDevice(parsed.deviceIp, parsed.adbPort);
+          }
+        } else {
+          // Update sidebar with parsed host and common ADB port
+          if (this.sidebarProvider) {
+            this.sidebarProvider.updateIpAddress(parsed.host);
+            this.sidebarProvider.updatePort('5555');
+          }
+        }
+      } else {
+        const errorMessage = `❌ QR Pairing failed: ${result.message}`;
+        vscode.window.showErrorMessage(errorMessage);
+        this.logger.error(errorMessage);
+      }
+    } catch (e) {
+      this.logger.error('QR pairing command failed', e as Error);
+      vscode.window.showErrorMessage('QR pairing failed. See logs.');
+    }
+  }
+
+  /** Begin QR pairing session and surface QR code in sidebar */
+  private async generatePairingQrCommand(): Promise<void> {
+    try {
+      if (this.processManager.isQrPairingSessionActive()) {
+        const choice = await vscode.window.showWarningMessage(
+          'A wireless pairing QR session is already active.',
+          'Show Existing QR',
+          'Cancel Session'
+        );
+        if (choice === 'Cancel Session') {
+          await this.cancelPairingQrCommand();
+        } else if (choice === 'Show Existing QR') {
+          this.sidebarProvider?.revealQrPairing?.();
+        }
+        return;
+      }
+
+      const session = await vscode.window.withProgress<QrPairingSessionResult>({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Starting wireless pairing session...'
+      }, async () => this.processManager.startQrPairingSession());
+
+      if (!session.success || !session.payload) {
+        const message = session.message || 'Failed to start wireless pairing session. See logs for details.';
+        this.logger.showError(message);
+        this.sidebarProvider?.showQrPairing?.({ active: false, message });
+        return;
+      }
+
+      const dataUrl = await QRCode.toDataURL(session.payload, { margin: 1, scale: 8 });
+
+      this.sidebarProvider?.revealQrPairing?.();
+      this.sidebarProvider?.showQrPairing?.({
+        active: true,
+        dataUrl,
+        payload: session.payload,
+        host: session.host,
+        port: session.port,
+        code: session.code,
+        ssid: session.ssid,
+        expiresInSeconds: session.expiresInSeconds,
+        message: session.message
+      });
+
+      const pairingWindow = session.expiresInSeconds ? `${session.expiresInSeconds} seconds` : 'about 60 seconds';
+      const instructions = session.message?.includes("example") ? 
+        `⚠️ QR generated with example values. On your Android device:
+        1. Go to Developer Options → Wireless debugging
+        2. Tap "Pair device with pairing code" 
+        3. Replace the QR values: Host=${session.host}, Port=${session.port}, Code=${session.code}
+        4. Use manual pairing with those actual values, or update the QR and scan it.` :
+        `Wireless pairing session ready. On Android 11+ go to Developer Options → Wireless debugging → Pair device with QR code and scan the QR. Session expires in ${pairingWindow}.`;
+      
+      vscode.window.showInformationMessage(instructions);
+
+      const process = session.process;
+      if (process) {
+        process.once('close', () => {
+          this.sidebarProvider?.showQrPairing?.({
+            active: false,
+            message: 'QR pairing session ended. If pairing did not complete, start a new session.',
+            dataUrl: undefined,
+            payload: undefined,
+            host: session.host,
+            port: session.port,
+            code: session.code
+          });
+        });
+      }
+    } catch (error) {
+      this.logger.error('Failed to generate wireless pairing QR', error instanceof Error ? error : undefined);
+      this.logger.showError('Failed to generate wireless pairing QR. See logs for details.');
+    }
+  }
+
+  /** Cancel any running QR pairing session */
+  private async cancelPairingQrCommand(): Promise<void> {
+    try {
+      await this.processManager.stopQrPairingSession();
+      this.sidebarProvider?.showQrPairing?.({
+        active: false,
+        message: 'QR pairing session cancelled. Start a new session when you are ready.',
+        dataUrl: undefined,
+        payload: undefined
+      });
+      vscode.window.showInformationMessage('Wireless pairing QR session cancelled.');
+    } catch (error) {
+      this.logger.error('Failed to cancel wireless pairing QR session', error instanceof Error ? error : undefined);
+      this.logger.showError('Could not cancel wireless pairing session. See logs for details.');
     }
   }
 

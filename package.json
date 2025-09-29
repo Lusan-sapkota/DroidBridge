@@ -90,10 +90,32 @@
         "title": "Refresh Binary Detection",
         "category": "DroidBridge"
       }
+      ,
+      {
+        "command": "droidbridge.pairDevice",
+        "title": "Pair Device (Manual)",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.pairFromQr",
+        "title": "Pair Device from QR Payload",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.generatePairingQr",
+        "title": "Generate Wireless Pairing QR",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.cancelPairingQr",
+        "title": "Cancel Wireless Pairing QR Session",
+        "category": "DroidBridge"
+      }
     ],
     "views": {
       "droidbridge": [
         {
+          "type": "webview",
           "id": "droidbridge-sidebar",
           "name": "Device Manager",
           "when": "true",
@@ -135,6 +157,9 @@
         }
       }
     }
+  },
+  "dependencies": {
+    "qrcode": "^1.5.3"
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

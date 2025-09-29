@@ -6,6 +6,14 @@ import { ThemeManager } from './utils/themeManager';
 // Explicit side-effect import to keep provider in bundle
 import './providers/sidebarProvider';
 
+// Debug helper: simple tree provider to verify container renders something.
+// class DebugTreeDataProvider implements vscode.TreeDataProvider<string> {
+//   private _onDidChangeTreeData = new vscode.EventEmitter<string | undefined | null | void>();
+//   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+//   getTreeItem(element: string): vscode.TreeItem { return new vscode.TreeItem(element); }
+//   getChildren(): string[] { return ['DroidBridge Debug: Webview not resolving', 'If you see this, container works']; }
+// }
+
 // Global extension state
 let extensionState: ExtensionState;
 let logger: Logger;
@@ -81,6 +89,7 @@ function initializeManagers(context: vscode.ExtensionContext): void {
     configManager
   );
   logger.debug('DroidBridgeSidebarProvider initialized');
+    logger.info(`Sidebar provider class loaded with viewType=${DroidBridgeSidebarProvider.viewType}`);
   
   // Initialize command manager last (depends on all other managers)
   commandManager = new CommandManager(processManager, configManager, logger, binaryManager, sidebarProvider);
@@ -121,8 +130,11 @@ function registerVSCodeComponents(context: vscode.ExtensionContext): void {
     sidebarProvider
   );
   logger.debug(`Registered webview view provider for id: ${DroidBridgeSidebarProvider.viewType}`);
+  logger.info('Sidebar provider registration complete');
   context.subscriptions.push(sidebarDisposable);
   logger.debug('Sidebar webview provider registered');
+
+    // Debug: removed tree view registration
   
   // Register all commands - Requirement 4.6: Register all commands with VSCode
   commandManager.registerCommands(context);

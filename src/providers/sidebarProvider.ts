@@ -3,6 +3,18 @@ import { ConfigManager } from '../managers/configManager';
 import { ThemeManager, ThemeKind } from '../utils/themeManager';
 import { ConnectionHistoryManager, ConnectionHistoryEntry } from '../managers/connectionHistory';
 
+interface QrPairingState {
+  active: boolean;
+  dataUrl?: string;
+  payload?: string;
+  message?: string;
+  host?: string;
+  port?: string;
+  code?: string;
+  ssid?: string;
+  expiresInSeconds?: number;
+}
+
 /**
  * Provides the webview content for the DroidBridge sidebar view
  */
@@ -20,6 +32,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   private themeManager: ThemeManager;
   private themeChangeListener?: vscode.Disposable;
   private connectionHistory: ConnectionHistoryManager;
+  private qrPairingState: QrPairingState = { active: false, message: 'No active QR session yet.' };
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -151,6 +164,23 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             this.connectionHistory.clearHistory();
             this._updateWebviewState();
             break;
+          case 'pairManual':
+            if (message.host && message.port && message.code) {
+              const hostPort = `${message.host}:${message.port}`;
+              vscode.commands.executeCommand('droidbridge.pairDevice', hostPort, message.code);
+            }
+            break;
+          case 'pairFromQr':
+            if (message.payload) {
+              vscode.commands.executeCommand('droidbridge.pairFromQr', message.payload);
+            }
+            break;
+          case 'generateQrPairing':
+            vscode.commands.executeCommand('droidbridge.generatePairingQr');
+            break;
+          case 'cancelQrPairing':
+            vscode.commands.executeCommand('droidbridge.cancelPairingQr');
+            break;
         }
       },
       undefined,
@@ -194,6 +224,15 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
 
     // Use a nonce to only allow a specific script to be run.
     const nonce = getNonce();
+    const qrStatusText = this.qrPairingState.message || 'No active QR session yet.';
+    const qrImageHiddenAttr = this.qrPairingState.active && this.qrPairingState.dataUrl ? '' : 'hidden';
+    const qrImageSrc = this.qrPairingState.dataUrl || '';
+    const qrMetaText = this.qrPairingState.host && this.qrPairingState.port
+      ? `Host: ${this.qrPairingState.host}:${this.qrPairingState.port} (${this.qrPairingState.code || '••••••'})`
+      : '';
+    const qrPayloadText = this.qrPairingState.payload || '';
+    const cancelDisabledAttr = this.qrPairingState.active ? '' : 'disabled';
+    const generateDisabledAttr = this.qrPairingState.active ? 'disabled' : '';
 
     return `<!DOCTYPE html>
       <html lang="en">
@@ -275,6 +314,76 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             </div>
           </div>
 
+          <!-- Pairing Section -->
+          <div class="section">
+            <div class="section-header">
+              <span class="codicon codicon-link section-icon"></span>
+              <h3>Wireless Pairing</h3>
+            </div>
+            <div class="section-content">
+              <p class="help-text">
+                <strong>Quick Steps:</strong>
+                <br />1. On Android: <em>Developer options → Wireless debugging → Pair device with pairing code</em>
+                <br />2. Enter the <strong>IP address</strong>, <strong>Port</strong>, and <strong>6-digit code</strong> shown on device
+                <br />3. Click <strong>Pair (Manual)</strong> - pairing expires in ~60 seconds
+                <br />4. After pairing, use <strong>Connect</strong> section with device's ADB port (usually 5555)
+              </p>
+              <div class="button-group qr-button-group">
+                <button id="generate-qr-btn" class="primary-button" ${generateDisabledAttr}>
+                  <span class="codicon codicon-broadcast"></span>
+                  Generate Host QR
+                </button>
+                <button id="cancel-qr-btn" class="secondary-button" ${cancelDisabledAttr}>
+                  <span class="codicon codicon-close"></span>
+                  Cancel QR Session
+                </button>
+              </div>
+              <div class="qr-display" id="qr-display">
+                <div class="qr-status" id="qr-status">${qrStatusText}</div>
+                <div class="qr-image-wrapper" id="qr-image-wrapper" ${qrImageHiddenAttr}>
+                  <img id="qr-image" alt="Wireless pairing QR" src="${qrImageSrc}" />
+                </div>
+                <div class="qr-meta" id="qr-meta">${qrMetaText}</div>
+                <code class="qr-payload" id="qr-payload">${qrPayloadText}</code>
+              </div>
+              <div class="input-row">
+                <div class="input-group small">
+                  <label for="pair-host-input">Host:</label>
+                  <input type="text" id="pair-host-input" placeholder="192.168.1.50" />
+                </div>
+                <div class="input-group small">
+                  <label for="pair-port-input">Port:</label>
+                  <input type="text" id="pair-port-input" placeholder="37123" />
+                </div>
+                <div class="input-group small">
+                  <label for="pair-code-input">Code:</label>
+                  <input type="text" id="pair-code-input" placeholder="6 digits" maxlength="6" />
+                </div>
+              </div>
+              <div class="button-group">
+                <button id="pair-manual-btn" class="secondary-button">
+                  <span class="codicon codicon-link"></span>
+                  Pair (Manual)
+                </button>
+              </div>
+              <div class="input-group">
+                <label for="pair-qr-input">QR Payload (host:port:code)</label>
+                <input type="text" id="pair-qr-input" placeholder="Paste scanned QR payload here" />
+              </div>
+              <div class="button-group">
+                <button id="pair-qr-btn" class="secondary-button">
+                  <span class="codicon codicon-diff-added"></span>
+                  Pair (QR Payload)
+                </button>
+              </div>
+              <p class="help-text">
+                <strong>QR Payload:</strong> Paste scanned QR data here (format: host:port:code).
+                <br />
+                <strong>Troubleshooting:</strong> If pairing hangs, the code may have expired. Generate a new pairing code on your device.
+              </p>
+            </div>
+          </div>
+
           <!-- Connection History Section -->
           <div class="section">
             <div class="section-header">
@@ -324,9 +433,36 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         scrcpyStatus: this.scrcpyStatus,
         currentIp: this.currentIp,
         currentPort: this.currentPort,
-        connectionHistory: this.connectionHistory.getRecentConnections()
+        connectionHistory: this.connectionHistory.getRecentConnections(),
+        qrPairing: this.qrPairingState
       });
     }
+  }
+
+  showQrPairing(update: Partial<QrPairingState> & { active: boolean; message?: string }): void {
+    this.qrPairingState = {
+      ...this.qrPairingState,
+      ...update,
+    };
+
+    if (update.active) {
+      this.qrPairingState.message = update.message || 'QR pairing session active. Scan the QR code within the next minute.';
+    } else {
+      this.qrPairingState.message = update.message || 'No active QR session yet.';
+    }
+
+    if (this._view) {
+      this._view.webview.postMessage({
+        type: 'qrPairingUpdate',
+        state: this.qrPairingState
+      });
+      this._updateWebviewState();
+    }
+  }
+
+  revealQrPairing(): void {
+    this._view?.show?.(true);
+    this._updateWebviewState();
   }
 
   /**
@@ -637,6 +773,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     this.connectionStatus = false;
     this.scrcpyStatus = false;
     this.loadDefaultValues(); // Reload defaults instead of clearing
+    this.qrPairingState = { active: false, message: 'No active QR session yet.' };
     this._updateWebviewState();
   }
 
@@ -685,12 +822,13 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   /**
    * Get current sidebar state for external synchronization
    */
-  getCurrentState(): { connectionStatus: boolean; scrcpyStatus: boolean; currentIp: string; currentPort: string } {
+  getCurrentState(): { connectionStatus: boolean; scrcpyStatus: boolean; currentIp: string; currentPort: string; qrPairing: QrPairingState } {
     return {
       connectionStatus: this.connectionStatus,
       scrcpyStatus: this.scrcpyStatus,
       currentIp: this.currentIp,
-      currentPort: this.currentPort
+      currentPort: this.currentPort,
+      qrPairing: this.qrPairingState
     };
   }
 

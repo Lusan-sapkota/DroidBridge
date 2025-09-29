@@ -74,6 +74,76 @@
   padding-left: 4px;
 }
 
+.help-text {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.input-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.input-group.small {
+  flex: 1 1 120px;
+}
+
+.qr-button-group {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.qr-display {
+  border: 1px dashed var(--vscode-sideBarSectionHeader-background);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qr-status {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.qr-image-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  background-color: var(--vscode-editor-background);
+  border-radius: 4px;
+}
+
+.qr-image-wrapper img {
+  max-width: 160px;
+  width: 100%;
+  height: auto;
+}
+
+.qr-meta {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.qr-payload {
+  display: block;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background-color: var(--vscode-editor-background);
+  padding: 6px;
+  border-radius: 3px;
+  border: 1px solid var(--vscode-input-border);
+}
+
 /* Status indicator styles */
 .status-indicator {
   display: flex;
@@ -311,6 +381,82 @@ button:disabled {
   font-size: 12px;
 }
 
+/* QR Pairing specific styles */
+.qr-button-group {
+  margin-bottom: 16px;
+}
+
+.qr-display {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+}
+
+.qr-status {
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.qr-image-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.qr-image-wrapper img {
+  max-width: 200px;
+  max-height: 200px;
+  border: 2px solid var(--vscode-input-border);
+  border-radius: 4px;
+}
+
+.qr-meta {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+  margin-bottom: 8px;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.qr-payload {
+  display: block;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  background-color: var(--vscode-textCodeBlock-background);
+  padding: 4px 6px;
+  border-radius: 2px;
+  word-break: break-all;
+  max-height: 60px;
+  overflow-y: auto;
+}
+
+.help-text {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.input-group.small {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.input-group.small input {
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
 /* Responsive design */
 @media (max-width: 300px) {
   .container {
@@ -334,5 +480,15 @@ button:disabled {
 
   .history-actions {
     justify-content: center;
+  }
+
+  .input-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .qr-image-wrapper img {
+    max-width: 150px;
+    max-height: 150px;
   }
 }
