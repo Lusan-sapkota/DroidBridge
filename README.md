@@ -1,254 +1,409 @@
-# DroidBridge
+# 🤖 DroidBridge
 
-DroidBridge is a VSCode extension that seamlessly integrates Android device management into your development workflow. Connect to Android devices via ADB, launch scrcpy for screen mirroring, and manage your Android debugging sessions directly from VSCode's sidebar.
+<div align="center">
 
-## Features
+![DroidBridge Logo](media/icons/droidbridge-icon.png)
 
-- **Wireless ADB Connection**: Connect to Android devices over WiFi using IP address and port
-- **Screen Mirroring**: Launch and control scrcpy sessions for real-time device interaction
-- **Integrated Sidebar**: Dedicated sidebar view for device management and status monitoring
-- **Command Palette Integration**: Access all features through VSCode's command palette
-- **Cross-Platform Support**: Works on Windows, macOS, and Linux
-- **Automatic Binary Downloads**: Detects installed ADB/scrcpy or automatically downloads the latest binaries when needed
-- **Theme Integration**: Automatically adapts to VSCode's light and dark themes
-- **Comprehensive Logging**: Detailed logs for troubleshooting connection and mirroring issues
+**Seamlessly connect, control, and mirror Android devices inside VS Code**
 
-## Installation
+[![VS Code](https://img.shields.io/badge/VS%20Code-v1.104.0+-007ACC?style=flat&logo=visual-studio-code)](https://code.visualstudio.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/Lusan-sapkota/DroidBridge)
+[![Author](https://img.shields.io/badge/Author-Lusan%20Sapkota-brightgreen.svg)](https://www.lusansapkota.com.np)
 
-### From VSCode Marketplace
+[📥 Install](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge) • [📖 Documentation](https://lusan-sapkota.github.io/DroidBridge/) • [🐛 Issues](https://github.com/Lusan-sapkota/DroidBridge/issues) • [💼 Portfolio](https://www.lusansapkota.com.np)
 
-1. Open VSCode
-2. Go to Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`)
-3. Search for "DroidBridge"
-4. Click "Install"
+</div>
 
-### Manual Installation
+---
 
-1. Download the `.vsix` file from the releases page
-2. Open VSCode
-3. Go to Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`)
-4. Click the "..." menu and select "Install from VSIX..."
-5. Select the downloaded `.vsix` file
+## ✨ Features
 
-## Quick Start
+DroidBridge transforms your VS Code into a powerful Android development hub with these key features:
 
-1. **Enable Developer Options** on your Android device:
-   - Go to Settings > About phone
-   - Tap "Build number" 7 times
-   - Go back to Settings > Developer options
-   - Enable "USB debugging" and "Wireless debugging"
+### 🔌 **Wireless Device Management**
+- **One-Click Connection**: Connect to Android devices over WiFi using IP address and port
+- **Connection History**: Remember and quickly reconnect to recent devices
+- **Smart Pairing**: Simplified pairing process for wireless debugging
+- **Real-time Status**: Live connection status with detailed feedback
 
-2. **Connect via WiFi**:
-   - In Developer options, tap "Wireless debugging"
-   - Tap "Pair device with pairing code"
-   - Note the IP address and port (e.g., 192.168.1.100:5555)
+### 📱 **Integrated Screen Mirroring**
+- **Sidebar Embedding**: Screen mirroring appears directly in the VS Code sidebar
+- **Eject & Embed**: Switch between sidebar and external window modes
+- **Optimized Performance**: Smart resolution and bitrate adjustments for smooth mirroring
+- **Always-on-Top Mode**: Keep device screen visible while coding
 
-3. **Use DroidBridge**:
-   - Click the DroidBridge icon in VSCode's activity bar
-   - Enter your device's IP address and port
-   - Click "Connect Device"
-   - Once connected, click "Launch Scrcpy" to start screen mirroring
+### 🛠️ **Smart Binary Management**
+- **Auto-Detection**: Finds existing ADB/scrcpy installations automatically
+- **Zero-Config Setup**: Downloads required binaries when not found
+- **Cross-Platform**: Works seamlessly on Windows, macOS, and Linux
+- **Custom Paths**: Support for custom binary locations
 
-## Usage
+### 🎨 **Native VS Code Integration**
+- **Theme Adaptive**: Automatically matches VS Code's light/dark themes
+- **Command Palette**: Access all features via `Ctrl+Shift+P`
+- **Status Bar**: Quick status indicators and controls
+- **Comprehensive Logging**: Detailed logs for troubleshooting
 
-### Sidebar Interface
+## 🚀 Quick Start
 
-The DroidBridge sidebar provides two main sections:
+### Installation
 
-**Connect Section:**
-- IP Address input field (pre-populated with default from settings)
-- Port input field (pre-populated with default from settings)
-- "Connect Device" button
-- Connection status indicator
+#### **VS Code Marketplace** (Recommended)
+```bash
+# Search for "DroidBridge" in Extensions (Ctrl+Shift+X)
+# Or install via command line
+code --install-extension LusanSapkota.droidbridge
+```
 
-**Scrcpy Section:**
-- "Launch Scrcpy" button
-- "Launch Scrcpy Screen Off" button (keeps device screen off during mirroring)
-- "Stop Scrcpy" button
-- Scrcpy status indicator
+#### **Manual Installation**
+1. Download the latest `.vsix` from [Releases](https://github.com/Lusan-sapkota/DroidBridge/releases)
+2. Install via: `Extensions → ... → Install from VSIX...`
+
+### Setup Your Android Device
+
+1. **Enable Developer Options**:
+   ```
+   Settings → About Phone → Tap "Build Number" 7 times
+   ```
+
+2. **Enable Wireless Debugging**:
+   ```
+   Settings → Developer Options → Enable "Wireless Debugging"
+   ```
+
+3. **Get Connection Details**:
+   ```
+   Developer Options → Wireless Debugging → Note IP:Port (e.g., 192.168.1.100:5555)
+   ```
+
+### Connect & Mirror
+
+1. **Open DroidBridge**: Click the 🤖 icon in VS Code's Activity Bar
+2. **Connect Device**: Enter IP address and port, click "Connect Device"
+3. **Start Mirroring**: Click "Launch Scrcpy" - screen appears in sidebar!
+4. **Eject/Embed**: Use controls to switch between sidebar and external window modes
+
+> 💡 **Pro Tip**: DroidBridge automatically handles ADB and scrcpy binaries - no manual installation needed!
+
+## 🖥️ Interface Overview
+
+### Sidebar Sections
+
+#### **📱 Screen Mirror**
+- **Live Preview**: Device screen embedded directly in sidebar
+- **Eject Button**: Move to external window for larger view
+- **Close Button**: Stop mirroring session
+- **Status Indicator**: Real-time connection status
+
+#### **🔌 Device Connection**
+- **IP/Port Fields**: Pre-filled with your last successful connection
+- **Connect/Disconnect**: One-click connection management
+- **Status Display**: Connection state with helpful error messages
+
+#### **🔄 Scrcpy Controls**
+- **Launch Scrcpy**: Start screen mirroring (sidebar mode by default)
+- **Launch Screen Off**: Mirror with device screen off (battery saving)
+- **Stop Scrcpy**: Terminate current mirroring session
+
+#### **🕐 Connection History**
+- **Recent Devices**: Quick access to your last 5 connections
+- **One-Click Reconnect**: Click the plug icon to instantly reconnect
+- **Manage History**: Remove unwanted entries with trash icon
+
+#### **⚙️ Wireless Pairing**
+- **Manual Pairing**: Enter host, port, and 6-digit code from device
+- **Quick Setup**: Streamlined pairing for first-time connections
 
 ### Command Palette
 
-Access DroidBridge commands via `Ctrl+Shift+P` / `Cmd+Shift+P`:
+Access all features via `Ctrl+Shift+P` / `Cmd+Shift+P`:
 
-- `DroidBridge: Connect to Device`
-- `DroidBridge: Disconnect Device`
-- `DroidBridge: Launch Scrcpy`
-- `DroidBridge: Launch Scrcpy Screen Off`
-- `DroidBridge: Stop Scrcpy`
-- `DroidBridge: Show Logs`
-
-## Configuration
-
-Configure DroidBridge through VSCode settings (`Ctrl+,` / `Cmd+,`):
-
-### Available Settings
-
-```json
-{
-  "droidbridge.defaultIp": "192.168.1.100",
-  "droidbridge.defaultPort": "5555",
-  "droidbridge.adbPath": "",
-  "droidbridge.scrcpyPath": ""
-}
 ```
+DroidBridge: Connect to Device
+DroidBridge: Disconnect Device
+DroidBridge: Launch Scrcpy
+DroidBridge: Launch Scrcpy Screen Off
+DroidBridge: Stop Scrcpy
+DroidBridge: Eject Scrcpy from Sidebar
+DroidBridge: Embed Scrcpy in Sidebar
+DroidBridge: Show Logs
+DroidBridge: Check Binary Status
+DroidBridge: Download Missing Binaries
+DroidBridge: Refresh Binary Detection
+```
+
+## ⚙️ Configuration
+
+### VS Code Settings
+
+Configure DroidBridge via `Settings` → `Extensions` → `DroidBridge`:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `droidbridge.defaultIp` | Default IP address for connections | `"192.168.1.100"` |
+| `droidbridge.defaultPort` | Default port for ADB connection | `"5555"` |
+| `droidbridge.adbPath` | Custom ADB binary path (optional) | `""` |
+| `droidbridge.scrcpyPath` | Custom scrcpy binary path (optional) | `""` |
 
 ### Configuration Examples
 
-**Basic Configuration:**
+<details>
+<summary><strong>📱 Basic Setup</strong></summary>
+
 ```json
 {
   "droidbridge.defaultIp": "192.168.1.150",
   "droidbridge.defaultPort": "5555"
 }
 ```
+</details>
 
-**Custom Binary Paths:**
+<details>
+<summary><strong>🛠️ Custom Binary Paths</strong></summary>
+
 ```json
 {
   "droidbridge.adbPath": "/usr/local/bin/adb",
   "droidbridge.scrcpyPath": "/usr/local/bin/scrcpy"
 }
 ```
+</details>
 
-**Development Setup:**
+<details>
+<summary><strong>🏢 Development Environment</strong></summary>
+
 ```json
 {
   "droidbridge.defaultIp": "10.0.0.100",
   "droidbridge.defaultPort": "5037",
-  "droidbridge.adbPath": "/Android/Sdk/platform-tools/adb"
+  "droidbridge.adbPath": "/Android/Sdk/platform-tools/adb",
+  "droidbridge.scrcpyPath": "/usr/local/bin/scrcpy"
 }
 ```
+</details>
 
-## Binary Management
+## 🔧 Binary Management
 
-DroidBridge uses a smart binary management system that automatically handles ADB and scrcpy binaries:
+DroidBridge features an intelligent binary management system that handles ADB and scrcpy automatically:
 
-### Automatic Detection
+### 🔍 Smart Detection Process
 
-The extension automatically detects binaries in this order:
-1. **Custom paths** (if configured in settings)
-2. **System PATH** (if installed via package managers like Homebrew, apt, etc.)
-3. **Common installation directories** (platform-specific locations)
-4. **Bundled binaries** (included with the extension as fallback)
-5. **Downloaded binaries** (automatically downloaded when needed)
+1. **Custom Paths** → Your configured binary locations
+2. **System PATH** → Homebrew, apt, chocolatey installations  
+3. **Common Directories** → Platform-specific standard locations
+4. **Auto-Download** → Fetches latest binaries from [droidbridge-binaries](https://github.com/Lusan-sapkota/droidbridge-binaries)
 
-### Manual Binary Management
+### 🛠️ Management Commands
 
-Use these commands from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+| Command | Description |
+|---------|-------------|
+| `Check Binary Status` | View current detection status for all binaries |
+| `Download Missing Binaries` | Download any missing ADB/scrcpy binaries |
+| `Refresh Binary Detection` | Re-scan system for existing installations |
 
-- `DroidBridge: Check Binary Status` - Shows current binary detection status
-- `DroidBridge: Download Missing Binaries` - Downloads any missing binaries
-- `DroidBridge: Refresh Binary Detection` - Re-scans for binaries
+### 📦 Supported Platforms
 
-### Custom Binary Paths
+| Platform | ADB Source | Scrcpy Source |
+|----------|-----------|---------------|
+| **Windows** | Android SDK, Chocolatey, Manual | GitHub Releases, Chocolatey |
+| **macOS** | Android SDK, Homebrew, Xcode | Homebrew, GitHub Releases |
+| **Linux** | Android SDK, apt/yum/pacman | Package Manager, AppImage |
 
-If you have ADB or scrcpy installed in custom locations, configure them in settings:
+### 🌐 Offline Usage
 
-```json
-{
-  "droidbridge.adbPath": "/custom/path/to/adb",
-  "droidbridge.scrcpyPath": "/custom/path/to/scrcpy"
-}
+No internet? No problem:
+1. Install binaries manually via package manager
+2. Add them to your system PATH
+3. Or configure custom paths in settings
+
+> 💡 **Binary hosting**: All binaries are securely hosted at [github.com/Lusan-sapkota/droidbridge-binaries](https://github.com/Lusan-sapkota/droidbridge-binaries)
+
+## 🔧 Troubleshooting
+
+<details>
+<summary><strong>🔌 Connection Issues</strong></summary>
+
+### Device Won't Connect
+- ✅ Both device and computer on same WiFi network
+- ✅ Wireless debugging enabled in Developer Options
+- ✅ Correct IP address and port entered
+- ✅ Try: `adb kill-server && adb start-server`
+
+### "Device Offline" Error
+- 🔄 Disconnect and reconnect device
+- 🌐 Check network connectivity
+- 📱 Restart wireless debugging on device
+- 🛡️ Check firewall/VPN settings
+
+</details>
+
+<details>
+<summary><strong>📱 Screen Mirroring Issues</strong></summary>
+
+### Scrcpy Won't Launch
+- ✅ Device connected via ADB first
+- ✅ USB debugging enabled
+- ✅ Device authorization prompt accepted
+- 🧪 Test manually: `scrcpy --help`
+
+### Poor Performance
+- 📐 Lower resolution (max-size parameter)
+- 📊 Reduce bitrate
+- 🚫 Close other device apps
+- 🌐 Check WiFi bandwidth
+
+### Sidebar Embedding Problems
+- 🔄 Try eject → embed cycle
+- ⏹️ Stop and restart scrcpy
+- 🪟 Check if external window is hidden
+
+</details>
+
+<details>
+<summary><strong>💾 Binary Issues</strong></summary>
+
+### "Binary Not Found" Errors
+1. Run `Check Binary Status` command
+2. Use `Download Missing Binaries`
+3. Manual installation:
+   ```bash
+   # Windows (Chocolatey)
+   choco install adb scrcpy
+
+   # macOS (Homebrew)  
+   brew install android-platform-tools scrcpy
+
+   # Linux (Ubuntu/Debian)
+   sudo apt install adb scrcpy
+   ```
+
+### Download Failures
+- 🌐 Check internet connection
+- 🛡️ Verify firewall/proxy settings
+- 🔄 Try `Refresh Binary Detection`
+- ⚙️ Configure custom paths
+
+</details>
+
+<details>
+<summary><strong>🆘 Getting Help</strong></summary>
+
+1. **📋 Check Logs**: `DroidBridge: Show Logs`
+2. **🔄 Reset Settings**: Clear custom paths
+3. **♻️ Restart Extension**: `Developer: Reload Window`
+4. **🐛 Report Issues**: [GitHub Issues](https://github.com/Lusan-sapkota/DroidBridge/issues)
+
+</details>
+
+## 📋 Requirements
+
+### 💻 System Requirements
+| Component | Requirement |
+|-----------|-------------|
+| **VS Code** | 1.104.0+ |
+| **OS** | Windows 10+ / macOS 10.14+ / Linux (Ubuntu 18.04+) |
+| **Android** | 5.0+ with Developer Options |
+| **Network** | Same WiFi network for device & computer |
+
+### 🔧 Dependencies
+
+DroidBridge automatically manages these essential tools:
+
+<table>
+<tr>
+<td>
+
+**🔌 ADB (Android Debug Bridge)**
+- Device connection & communication
+- Auto-downloaded if missing
+- Custom paths configurable
+
+</td>
+<td>
+
+**📱 Scrcpy**
+- High-performance screen mirroring
+- Lightweight & efficient
+- Optimized settings included
+
+</td>
+</tr>
+</table>
+
+> 💡 **Smart Binary Management**: Extension automatically detects, downloads, and configures all required tools. No manual setup needed!
+
+## ⚠️ Known Issues
+
+| Issue | Description | Workaround |
+|-------|-------------|------------|
+| 🔄 **Multiple Instances** | Scrcpy instances may conflict | Stop existing sessions first |
+| 📱 **Device Setup** | Some devices need extra wireless setup | Follow device-specific guides |
+| 🌐 **WiFi Latency** | Network can affect performance | Use 5GHz WiFi or USB debugging |
+| 🪟 **Windows Paths** | Custom binaries need `.exe` extension | Include full path with extension |
+
+## 🤝 Contributing
+
+We welcome contributions! Help make DroidBridge even better.
+
+### 🚀 Quick Start
+```bash
+# 1. Fork the repository
+git clone https://github.com/yourusername/DroidBridge.git
+
+# 2. Install dependencies
+npm install
+
+# 3. Start development
+npm run watch
+
+# 4. Test your changes
+npm test
 ```
 
-### No Internet Connection
+### 📝 Contribution Guidelines
+- 🌿 Create feature branches from `main`
+- ✅ Add tests for new functionality  
+- 📚 Update documentation
+- 🧹 Follow existing code style
+- 📋 Submit detailed pull requests
 
-If you can't download binaries automatically:
-1. Install ADB and scrcpy manually on your system
-2. Ensure they're in your system PATH, or
-3. Configure custom paths in DroidBridge settings
+### 🐛 Bug Reports
+Found a bug? [Create an issue](https://github.com/Lusan-sapkota/DroidBridge/issues) with:
+- Steps to reproduce
+- Expected vs actual behavior
+- Environment details (OS, VS Code version, etc.)
 
-## Troubleshooting
+---
 
-### Connection Issues
+## 👨‍💻 About
 
-**Device not connecting:**
-1. Ensure both device and computer are on the same network
-2. Verify wireless debugging is enabled on the device
-3. Check if the IP address and port are correct
-4. Try restarting ADB: `adb kill-server && adb start-server`
+**Created by [Lusan Sapkota](https://lusansapkota.com.np)**
 
-**"Device offline" error:**
-1. Disconnect and reconnect the device
-2. Check network connectivity
-3. Restart wireless debugging on the device
-4. Verify firewall settings aren't blocking the connection
+DroidBridge combines modern Android development tools with VS Code's powerful interface, making device management effortless and productive.
 
-### Scrcpy Issues
+- 🌟 **Binaries Repository**: [DroidBridge-Binaries](https://github.com/Lusan-sapkota/DroidBridge-Binaries)
+- 💼 **Portfolio**: [lusansapkota.com.np](https://lusansapkota.com.np)
+- 📧 **Contact**: Available through GitHub or portfolio site
 
-**Scrcpy won't launch:**
-1. Ensure device is connected via ADB first
-2. Check that USB debugging is enabled
-3. Verify device authorization (check device screen for authorization prompt)
-4. Try launching scrcpy manually to test: `scrcpy --help`
+### 💝 Support This Project
 
-**Poor performance:**
-1. Reduce screen resolution: use scrcpy with `--max-size` parameter
-2. Lower bitrate: use `--bit-rate` parameter
-3. Close other applications using the device
-4. Check network bandwidth
+If DroidBridge has improved your development workflow:
+- ⭐ Star this repository
+- 🐛 Report bugs and suggest features
+- 🤝 Contribute code or documentation
+- 🗣️ Share with other developers
 
-### Binary Issues
+---
 
-**"Binary not found" errors:**
-1. Run `DroidBridge: Check Binary Status` to see what's missing
-2. Use `DroidBridge: Download Missing Binaries` to download automatically
-3. If download fails, install ADB/scrcpy manually:
-   - **Windows**: Download from Android SDK or use Chocolatey
-   - **macOS**: Use Homebrew: `brew install android-platform-tools scrcpy`
-   - **Linux**: Use package manager: `sudo apt install adb scrcpy` (Ubuntu/Debian)
+<div align="center">
 
-**Download failures:**
-1. Check internet connection
-2. Verify firewall/proxy settings
-3. Try `DroidBridge: Refresh Binary Detection` after manual installation
-4. Configure custom paths if binaries are installed in non-standard locations
+**Made with ❤️ for the Android development community**
 
-### General Issues
+[![VS Code](https://img.shields.io/badge/Made%20for-VS%20Code-blue.svg?style=for-the-badge&logo=visual-studio-code)](https://code.visualstudio.com/)
+[![Android](https://img.shields.io/badge/Supports-Android-green.svg?style=for-the-badge&logo=android)](https://developer.android.com/)
 
-**Extension not loading:**
-1. Check VSCode version compatibility (requires VSCode 1.104.0+)
-2. Restart VSCode
-3. Check the Output panel for error messages (View > Output > DroidBridge Logs)
-
-**Binary permission errors (macOS/Linux):**
-1. The extension should handle permissions automatically
-2. If issues persist, manually set permissions: `chmod +x /path/to/binary`
-
-**Custom binary not found:**
-1. Verify the path in settings is correct
-2. Ensure the binary is executable
-3. Test the binary manually in terminal
-
-### Getting Help
-
-1. **Check Logs**: Use `DroidBridge: Show Logs` command to view detailed logs
-2. **Reset Settings**: Clear custom paths to use bundled binaries
-3. **Restart Extension**: Reload VSCode window (`Ctrl+Shift+P` > "Developer: Reload Window")
-
-## Requirements
-
-- VSCode 1.104.0 or higher
-- Android device with Developer Options enabled
-- Network connection between computer and Android device (for wireless debugging)
-
-## Known Issues
-
-- Multiple scrcpy instances may conflict - always stop existing sessions before starting new ones
-- Some Android devices may require additional setup for wireless debugging
-- Network latency can affect scrcpy performance over WiFi connections
-- Custom binary paths on Windows may require full path including `.exe` extension
-
-## Contributing
-
-This extension is open source. Contributions are welcome!
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
+</div>
 
 ## License
 

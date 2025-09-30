@@ -1,0 +1,69 @@
+# GitHub Pages Configuration for DroidBridge Documentation
+
+# Theme
+theme: minima
+
+# Site settings
+title: "DroidBridge Documentation"
+description: "Comprehensive documentation for DroidBridge - VS Code extension for Android device management"
+url: "https://lusan-sapkota.github.io"
+baseurl: "/DroidBridge"
+
+# Author
+author:
+  name: "Lusan Sapkota"
+  url: "https://lusansapkota.com.np"
+
+# Repository
+repository: "Lusan-sapkota/DroidBridge"
+
+# Navigation
+header_pages:
+  - DOCS/index.md
+  - README.md
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Markdown settings
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Exclude from processing
+exclude:
+  - node_modules/
+  - package.json
+  - package-lock.json
+  - tsconfig.json
+  - esbuild.js
+  - eslint.config.mjs
+  - scripts/
+  - src/
+  - media/
+  - "*.vsix"
+
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:collection/:name/
+
+# Default front matter
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+  - scope:
+      path: "DOCS"
+      type: "pages" 
+    values:
+      layout: "default"
+      nav_order: 2

@@ -9,8 +9,8 @@
 
 ### Installation
 ```bash
-git clone <repository-url>
-cd droidbridge
+git clone https://github.com/Lusan-sapkota/DroidBridge.git
+cd DroidBridge
 npm install
 ```
 
