@@ -403,6 +403,11 @@ export class CommandManager {
           if (success) {
             progress.report({ message: 'Screen mirroring stopped', increment: 100 });
             this.logger.showSuccess('✅ Scrcpy stopped successfully');
+            
+            // Update sidebar to show scrcpy is no longer running
+            if (this.sidebarProvider) {
+              this.sidebarProvider.showScrcpySidebar(false);
+            }
           }
           
           return success;

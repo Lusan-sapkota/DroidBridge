@@ -1066,6 +1066,9 @@ var _CommandManager = class _CommandManager {
           if (success) {
             progress.report({ message: "Screen mirroring stopped", increment: 100 });
             this.logger.showSuccess("\u2705 Scrcpy stopped successfully");
+            if (this.sidebarProvider) {
+              this.sidebarProvider.showScrcpySidebar(false);
+            }
           }
           return success;
         },
