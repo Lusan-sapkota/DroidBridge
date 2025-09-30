@@ -27,16 +27,11 @@ const vscode = acquireVsCodeApi();
 /** @type {HTMLInputElement | null} */ let pairPortInput = null;
 /** @type {HTMLInputElement | null} */ let pairCodeInput = null;
 /** @type {HTMLButtonElement | null} */ let pairManualBtn = null;
-/** @type {HTMLInputElement | null} */ let pairQrInput = null;
-/** @type {HTMLButtonElement | null} */ let pairQrBtn = null;
-/** @type {HTMLButtonElement | null} */ let generateQrBtn = null;
-/** @type {HTMLButtonElement | null} */ let cancelQrBtn = null;
-/** @type {HTMLElement | null} */ let qrDisplay = null;
-/** @type {HTMLElement | null} */ let qrStatus = null;
-/** @type {HTMLElement | null} */ let qrImageWrapper = null;
-/** @type {HTMLImageElement | null} */ let qrImage = null;
-/** @type {HTMLElement | null} */ let qrMeta = null;
-/** @type {HTMLElement | null} */ let qrPayload = null;
+/** @type {HTMLButtonElement | null} */ let ejectScrcpyBtn = null;
+/** @type {HTMLButtonElement | null} */ let closeScrcpyBtn = null;
+/** @type {HTMLElement | null} */ let scrcpySidebarSection = null;
+/** @type {HTMLElement | null} */ let scrcpyContainer = null;
+/** @type {HTMLElement | null} */ let scrcpyPlaceholder = null;
 
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", function () {
@@ -80,16 +75,13 @@ function initializeElements() {
     pairPortInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-port-input'));
     pairCodeInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-code-input'));
     pairManualBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('pair-manual-btn'));
-    pairQrInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-qr-input'));
-    pairQrBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('pair-qr-btn'));
-  generateQrBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('generate-qr-btn'));
-  cancelQrBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('cancel-qr-btn'));
-  qrDisplay = document.getElementById('qr-display');
-  qrStatus = document.getElementById('qr-status');
-  qrImageWrapper = document.getElementById('qr-image-wrapper');
-  qrImage = /** @type {HTMLImageElement | null} */(document.getElementById('qr-image'));
-  qrMeta = document.getElementById('qr-meta');
-  qrPayload = document.getElementById('qr-payload');
+
+  // Scrcpy sidebar elements
+  ejectScrcpyBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('eject-scrcpy-btn'));
+  closeScrcpyBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('close-scrcpy-btn'));
+  scrcpySidebarSection = document.getElementById('scrcpy-sidebar-section');
+  scrcpyContainer = document.getElementById('scrcpy-container');
+  scrcpyPlaceholder = document.getElementById('scrcpy-placeholder');
 }
 
 /**
@@ -191,25 +183,16 @@ function setupEventListeners() {
     });
   }
 
-  // Pairing via QR payload
-  if (pairQrBtn) {
-    pairQrBtn.addEventListener('click', () => {
-      const payload = pairQrInput?.value.trim();
-      if (payload) {
-        vscode.postMessage({ type: 'pairFromQr', payload });
-      }
+  // Scrcpy sidebar controls
+  if (ejectScrcpyBtn) {
+    ejectScrcpyBtn.addEventListener('click', () => {
+      vscode.postMessage({ type: 'ejectScrcpySidebar' });
     });
   }
 
-  if (generateQrBtn) {
-    generateQrBtn.addEventListener('click', () => {
-      vscode.postMessage({ type: 'generateQrPairing' });
-    });
-  }
-
-  if (cancelQrBtn) {
-    cancelQrBtn.addEventListener('click', () => {
-      vscode.postMessage({ type: 'cancelQrPairing' });
+  if (closeScrcpyBtn) {
+    closeScrcpyBtn.addEventListener('click', () => {
+      vscode.postMessage({ type: 'stopScrcpy' });
     });
   }
 
@@ -290,50 +273,33 @@ function updateConnectionHistory(history) {
 }
 
 /**
- * @param {{active?: boolean, dataUrl?: string, message?: string, payload?: string, host?: string, port?: string, code?: string, expiresInSeconds?: number}} qrState
+ * @param {{isRunning?: boolean, processId?: number, windowId?: string}} scrcpySidebarState
  */
-function updateQrSection(qrState) {
-  if (!qrDisplay || !qrStatus || !cancelQrBtn) {
+function updateScrcpySidebarSection(scrcpySidebarState) {
+  if (!scrcpySidebarSection) {
     return;
   }
 
-  const active = !!qrState?.active;
-  if (active) {
-    cancelQrBtn.disabled = false;
-    if (generateQrBtn) {
-      generateQrBtn.disabled = true;
+  const isRunning = !!scrcpySidebarState?.isRunning;
+  
+  if (isRunning) {
+    scrcpySidebarSection.style.display = 'block';
+    if (scrcpyPlaceholder) {
+      scrcpyPlaceholder.style.display = 'none';
     }
-    qrStatus.textContent = qrState?.message || 'QR pairing session active. Scan the code within the next minute.';
+    
+    // Enable sidebar controls
+    if (ejectScrcpyBtn) ejectScrcpyBtn.disabled = false;
+    if (closeScrcpyBtn) closeScrcpyBtn.disabled = false;
   } else {
-    cancelQrBtn.disabled = true;
-    if (generateQrBtn) {
-      generateQrBtn.disabled = false;
+    scrcpySidebarSection.style.display = 'none';
+    if (scrcpyPlaceholder) {
+      scrcpyPlaceholder.style.display = 'flex';
     }
-    qrStatus.textContent = qrState?.message || 'No active QR session yet.';
-  }
-
-  if (qrImageWrapper && qrImage) {
-    if (active && qrState?.dataUrl) {
-      qrImageWrapper.hidden = false;
-      qrImage.src = qrState.dataUrl;
-      qrImage.alt = 'Wireless pairing QR';
-    } else {
-      qrImageWrapper.hidden = true;
-      qrImage.src = '';
-    }
-  }
-
-  if (qrMeta) {
-    if (qrState?.host && qrState?.port) {
-      const expiryText = qrState?.expiresInSeconds ? ` — expires in ~${qrState.expiresInSeconds}s` : '';
-      qrMeta.textContent = `Host: ${qrState.host}:${qrState.port} (${qrState.code || '••••••'})${expiryText}`;
-    } else {
-      qrMeta.textContent = '';
-    }
-  }
-
-  if (qrPayload) {
-    qrPayload.textContent = qrState?.payload || '';
+    
+    // Disable sidebar controls
+    if (ejectScrcpyBtn) ejectScrcpyBtn.disabled = true;
+    if (closeScrcpyBtn) closeScrcpyBtn.disabled = true;
   }
 }
 
@@ -461,7 +427,7 @@ function updateUIState(state) {
     updateConnectionHistory(state.connectionHistory);
   }
 
-  updateQrSection(state.qrPairing);
+  updateScrcpySidebarSection(state.scrcpySidebar);
 
   // Update button states
   updateButtonStates();
@@ -476,7 +442,7 @@ function saveState() {
     ...currentState,
     currentIp: ipInput?.value.trim() || "",
     currentPort: portInput?.value.trim() || "",
-    qrPairing: currentState?.qrPairing,
+    scrcpySidebar: currentState?.scrcpySidebar,
   };
   vscode.setState(newState);
 }
@@ -493,7 +459,7 @@ window.addEventListener("message", (event) => {
         currentIp: message.currentIp,
         currentPort: message.currentPort,
         connectionHistory: message.connectionHistory,
-        qrPairing: message.qrPairing,
+        scrcpySidebar: message.scrcpySidebar,
       };
       vscode.setState(newState);
       updateUIState(newState);
@@ -523,15 +489,15 @@ window.addEventListener("message", (event) => {
       console.log("Theme changed to:", message.themeCssClass);
       break;
 
-    case "qrPairingUpdate":
+    case "scrcpySidebarUpdate":
       {
         const state = vscode.getState() || {};
         const newState = {
           ...state,
-          qrPairing: message.state,
+          scrcpySidebar: message.state,
         };
         vscode.setState(newState);
-        updateQrSection(message.state);
+        updateScrcpySidebarSection(message.state);
       }
       break;
   }
