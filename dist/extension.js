@@ -6115,13 +6115,29 @@ Scrcpy: ${(scrcpyStatus == null ? void 0 : scrcpyStatus.found) ? "\u2705 Found" 
       const [host, port] = hostPort.trim().split(":");
       const result = await this.processManager.pairDevice(code.trim(), host, port);
       if (result.success) {
-        const message = `\u2705 Paired with ${host}:${port}! Next step: Go to "Wireless debugging \u2192 Paired devices" on your device to find the ADB port (usually 5555), then use the Connect section above.`;
-        vscode2.window.showInformationMessage(message);
-        this.logger.info(message);
-        if (this.sidebarProvider) {
-          this.sidebarProvider.updateIpAddress(host);
-          this.sidebarProvider.updatePort("5555");
-        }
+        vscode2.window.showInformationMessage(result.message);
+        this.logger.info(result.message);
+        vscode2.window.withProgress(
+          { location: vscode2.ProgressLocation.Notification, title: "Attempting auto-connection..." },
+          async () => {
+            const autoConnectResult = await this.processManager.tryAutoConnectAfterPairing(host);
+            if (autoConnectResult.success) {
+              vscode2.window.showInformationMessage(autoConnectResult.message);
+              this.logger.info(`Auto-connection successful: ${autoConnectResult.message}`);
+              if (this.sidebarProvider) {
+                this.sidebarProvider.updateIpAddress(host);
+                this.sidebarProvider.updatePort(autoConnectResult.connectedPort || "5555");
+              }
+            } else {
+              if (this.sidebarProvider) {
+                this.sidebarProvider.updateIpAddress(host);
+                this.sidebarProvider.updatePort("5555");
+              }
+              vscode2.window.showWarningMessage(autoConnectResult.message);
+              this.logger.info(`Auto-connection failed, manual connection needed: ${autoConnectResult.message}`);
+            }
+          }
+        );
       } else {
         const errorMessage = `\u274C Pairing failed: ${result.message}`;
         vscode2.window.showErrorMessage(errorMessage);
@@ -6153,20 +6169,36 @@ Scrcpy: ${(scrcpyStatus == null ? void 0 : scrcpyStatus.found) ? "\u2705 Found" 
       }
       const result = await this.processManager.pairDevice(parsed.code, parsed.host, parsed.port);
       if (result.success) {
-        const infoMessage = `\u2705 Paired with ${parsed.host}:${parsed.port}! Use Connect once the device reports its ADB port (Wireless debugging \u2192 Paired devices).`;
-        vscode2.window.showInformationMessage(infoMessage);
-        this.logger.info(infoMessage);
+        vscode2.window.showInformationMessage(result.message);
+        this.logger.info(result.message);
         if (parsed.adbPort && parsed.deviceIp) {
           const autoConnect = await vscode2.window.showInformationMessage("Attempt to connect to device after pairing?", "Connect", "Skip");
           if (autoConnect === "Connect") {
             await this.connectDevice(parsed.deviceIp, parsed.adbPort);
-          }
-        } else {
-          if (this.sidebarProvider) {
-            this.sidebarProvider.updateIpAddress(parsed.host);
-            this.sidebarProvider.updatePort("5555");
+            return;
           }
         }
+        vscode2.window.withProgress(
+          { location: vscode2.ProgressLocation.Notification, title: "Attempting auto-connection..." },
+          async () => {
+            const autoConnectResult = await this.processManager.tryAutoConnectAfterPairing(parsed.host);
+            if (autoConnectResult.success) {
+              vscode2.window.showInformationMessage(autoConnectResult.message);
+              this.logger.info(`Auto-connection successful: ${autoConnectResult.message}`);
+              if (this.sidebarProvider) {
+                this.sidebarProvider.updateIpAddress(parsed.host);
+                this.sidebarProvider.updatePort(autoConnectResult.connectedPort || "5555");
+              }
+            } else {
+              if (this.sidebarProvider) {
+                this.sidebarProvider.updateIpAddress(parsed.host);
+                this.sidebarProvider.updatePort("5555");
+              }
+              vscode2.window.showWarningMessage(autoConnectResult.message);
+              this.logger.info(`Auto-connection failed, manual connection needed: ${autoConnectResult.message}`);
+            }
+          }
+        );
       } else {
         const errorMessage = `\u274C QR Pairing failed: ${result.message}`;
         vscode2.window.showErrorMessage(errorMessage);
@@ -6615,7 +6647,7 @@ var _ProcessManager = class _ProcessManager {
    * Pair with a device over Wi‑Fi (Android 11+ wireless debugging)
    * Expects pairing code (6 digits) and host:port of pairing service (usually shown in device Wireless debugging screen)
    */
-  async pairDevice(pairingCode, host, port) {
+  async pairDevice(pairingCode, host, port, attempt = 0) {
     try {
       const code = pairingCode.trim();
       if (!/^[0-9]{6}$/.test(code)) {
@@ -6628,26 +6660,71 @@ var _ProcessManager = class _ProcessManager {
       const stderr = result.stderr || "";
       const combined = `${stdout} ${stderr}`.toLowerCase();
       const indicatesSuccess = /successfully paired|pairing code accepted/i.test(stdout);
-      const indicatesFailure = /failed|unable|timeout|refused|unreachable|invalid|incorrect/i.test(combined) && !indicatesSuccess;
-      const isProtocolFaultAfterSuccess = indicatesSuccess && /protocol fault/i.test(stderr);
+      const hasProtocolFault = /protocol fault.*couldn't read status message/i.test(stderr);
+      const hasSuccessInFault = hasProtocolFault && /success/i.test(stderr);
+      const indicatesFailure = /failed|unable|timeout|refused|unreachable|invalid|incorrect/i.test(combined);
+      let isProtocolFaultSuccess = false;
+      if (hasSuccessInFault && !indicatesFailure && !indicatesSuccess) {
+        this.logger.info("Protocol fault with Success detected - verifying pairing status...");
+        await new Promise((resolve) => setTimeout(resolve, 2e3));
+        const verifyResult = await this.executeAdbCommandWithTimeout(["devices"], 5e3);
+        const baseIp = target.split(":")[0];
+        const hasDeviceInList = verifyResult.stdout.includes(baseIp) || verifyResult.stdout.includes("device") || verifyResult.stdout.includes("unauthorized");
+        this.logger.info(`Pairing verification: devices output contains connection = ${hasDeviceInList}`);
+        if (hasDeviceInList) {
+          isProtocolFaultSuccess = true;
+        } else {
+          this.logger.info("No device found in list, attempting connection verification...");
+          isProtocolFaultSuccess = await this.tryQuickConnectVerification(baseIp);
+          this.logger.info(`Connection verification result: ${isProtocolFaultSuccess}`);
+        }
+      }
       this.logger.info(`Pairing result - Exit: ${result.exitCode}, Success: ${result.success}`);
       this.logger.info(`Stdout: ${stdout}`);
       this.logger.info(`Stderr: ${stderr}`);
-      this.logger.info(`Success detected: ${indicatesSuccess}, Failure detected: ${indicatesFailure}, Protocol fault: ${isProtocolFaultAfterSuccess}`);
-      if (indicatesSuccess) {
+      this.logger.info(`Success detected: ${indicatesSuccess}, Failure detected: ${indicatesFailure}, Protocol fault with success: ${isProtocolFaultSuccess}`);
+      if (indicatesSuccess || isProtocolFaultSuccess) {
         this.logger.info(`Successfully paired with ${target}`);
-        const cleanMessage = stdout.split("\n").find((line) => line.includes("Successfully paired")) || "Paired successfully";
+        const baseIp = target.split(":")[0];
+        if (isProtocolFaultSuccess && !indicatesSuccess) {
+          this.logger.info("Verifying protocol fault pairing by attempting connection...");
+          const verifyConnection = await this.tryQuickConnectVerification(baseIp);
+          if (!verifyConnection) {
+            this.logger.error("Protocol fault pairing verification failed - treating as failure");
+            if (attempt < 1) {
+              this.logger.info("Restarting ADB server and retrying pairing once more due to protocol fault...");
+              await this.restartAdbServer();
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+              return this.pairDevice(pairingCode, host, port, attempt + 1);
+            }
+            return {
+              success: false,
+              message: "Pairing failed - the protocol fault indicates communication was interrupted. The pairing code popup is likely still showing on your device. Please:\n1. Dismiss the current pairing popup\n2. Generate a new pairing code\n3. Try pairing again immediately while the code is fresh\n4. Ensure both devices stay connected to Wi-Fi during pairing"
+            };
+          }
+        }
+        const cleanMessage = stdout.split("\n").find((line) => line.includes("Successfully paired")) || (isProtocolFaultSuccess ? `\u2705 Paired successfully! The pairing code popup should have disappeared on your device. Check "Paired devices" for the ADB port, then use the Connect section above.` : `\u2705 Paired successfully! Check your device's "Paired devices" section for the ADB port (usually 5555), then use the Connect section above.`);
         return { success: true, message: cleanMessage };
       }
       let errorMsg = stderr || stdout || "Pairing failed";
       if (combined.includes("timeout") || !stdout && !stderr) {
-        errorMsg = "Pairing timed out. Check if the pairing code is still valid and the device is reachable.";
+        errorMsg = "Pairing timed out. The pairing code may have expired. Generate a new pairing code on your device and try again.";
       } else if (combined.includes("refused")) {
-        errorMsg = "Connection refused. Ensure Wireless debugging is enabled and the pairing service is active.";
+        errorMsg = "Connection refused. Make sure Wireless debugging is enabled and the pairing service is running on your device.";
       } else if (combined.includes("unreachable")) {
-        errorMsg = "Host unreachable. Check the IP address and ensure both devices are on the same network.";
+        errorMsg = "Host unreachable. Verify the IP address and ensure both devices are connected to the same Wi-Fi network.";
       } else if (combined.includes("invalid") || combined.includes("incorrect")) {
-        errorMsg = "Invalid pairing code. The 6-digit code may have expired. Generate a new one on your device.";
+        errorMsg = "Invalid pairing code. The 6-digit code may have expired or been mistyped. Generate a fresh code on your device.";
+      } else if (hasProtocolFault && hasSuccessInFault) {
+        errorMsg = "Pairing communication failed (protocol fault). This happens when the pairing code expires during the handshake or there's a network interruption. The pairing popup should still be visible on your device. Please generate a fresh pairing code and try again.";
+        if (attempt < 1) {
+          this.logger.info("Protocol fault detected with failure - restarting ADB server and retrying pairing once.");
+          await this.restartAdbServer();
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          return this.pairDevice(pairingCode, host, port, attempt + 1);
+        }
+      } else if (hasProtocolFault) {
+        errorMsg = "Protocol fault occurred during pairing. This usually means the pairing code expired or there was a network issue. Please generate a new pairing code and try again.";
       }
       this.logger.error(`Pairing failed: ${errorMsg}`);
       return { success: false, message: errorMsg };
@@ -6656,6 +6733,60 @@ var _ProcessManager = class _ProcessManager {
       this.logger.error("Pairing error", e);
       return { success: false, message };
     }
+  }
+  /**
+   * Quick verification to check if pairing actually worked by attempting connection
+   */
+  async tryQuickConnectVerification(ip) {
+    const commonPorts = ["5555", "5556", "37115"];
+    for (const port of commonPorts) {
+      try {
+        const result = await this.executeAdbCommandWithTimeout(["connect", `${ip}:${port}`], 5e3);
+        if (result.stdout.includes("connected") || result.stdout.includes("already connected")) {
+          await this.executeAdbCommandWithTimeout(["disconnect", `${ip}:${port}`], 3e3);
+          return true;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+    return false;
+  }
+  /**
+   * Restart the ADB server to recover from protocol faults
+   */
+  async restartAdbServer() {
+    this.logger.info("Restarting ADB server (kill-server \u2192 start-server)");
+    await this.executeAdbCommandWithTimeout(["kill-server"], 5e3).catch(() => void 0);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await this.executeAdbCommandWithTimeout(["start-server"], 5e3).catch(() => void 0);
+  }
+  /**
+   * Attempt to auto-connect after successful pairing using common ADB ports
+   */
+  async tryAutoConnectAfterPairing(ip) {
+    const commonPorts = ["5555", "5556", "37115"];
+    this.logger.info(`Attempting auto-connection to ${ip} on common ports...`);
+    for (const port of commonPorts) {
+      try {
+        this.logger.info(`Trying ${ip}:${port}...`);
+        const connected = await this.connectDevice(ip, port);
+        if (connected) {
+          return {
+            success: true,
+            message: `\u{1F389} Auto-connected to ${ip}:${port}! Device is ready for debugging.`,
+            connectedPort: port
+          };
+        }
+      } catch (error) {
+        this.logger.debug(`Failed to connect to ${ip}:${port}: ${error}`);
+        continue;
+      }
+    }
+    return {
+      success: false,
+      message: `Could not auto-connect. Please check your device's "Paired devices" section for the correct port and connect manually.`
+    };
   }
   /**
    * Execute ADB command with timeout to prevent hanging
@@ -7243,7 +7374,12 @@ var _ProcessManager = class _ProcessManager {
     } catch (error) {
       scrcpyPath = ((_b2 = (_a2 = this.binaryManager).getScrcpyPathSync) == null ? void 0 : _b2.call(_a2)) || ((_d = (_c = this.binaryManager).getBundledBinaryPath) == null ? void 0 : _d.call(_c, "scrcpy")) || "scrcpy";
     }
-    const args = [...this.buildScrcpyArgs(options), ...additionalArgs];
+    let args = [...this.buildScrcpyArgs(options), ...additionalArgs];
+    const deviceArgs = await this.getDeviceSelectionArgs();
+    if (deviceArgs.length > 0) {
+      args = [...deviceArgs, ...args];
+      this.logger.info(`Added device selection: ${deviceArgs.join(" ")}`);
+    }
     this.logger.info(`Launching scrcpy: ${scrcpyPath} ${args.join(" ")}`);
     this.scrcpyState = {
       running: false,
@@ -7311,6 +7447,50 @@ var _ProcessManager = class _ProcessManager {
         }
       }, 5e3);
     });
+  }
+  /**
+   * Get device selection arguments for scrcpy when multiple devices are available
+   */
+  async getDeviceSelectionArgs() {
+    try {
+      const result = await this.executeAdbCommand(["devices"]);
+      if (!result.success) {
+        this.logger.error("Failed to get device list for scrcpy selection");
+        return [];
+      }
+      const devices = this.parseAllDevices(result.stdout);
+      if (devices.length <= 1) {
+        return [];
+      }
+      this.logger.info(`Multiple devices found (${devices.length}), selecting device for scrcpy...`);
+      const wirelessDevice = devices.find((device) => device.includes(":"));
+      if (wirelessDevice) {
+        this.logger.info(`Selected wireless device: ${wirelessDevice}`);
+        return ["-s", wirelessDevice];
+      }
+      this.logger.info(`Selected first available device: ${devices[0]}`);
+      return ["-s", devices[0]];
+    } catch (error) {
+      this.logger.error("Failed to get device selection args:", error instanceof Error ? error : new Error(String(error)));
+      return [];
+    }
+  }
+  /**
+   * Parse all connected devices from ADB devices output
+   */
+  parseAllDevices(stdout) {
+    const devices = [];
+    const lines = stdout.split("\n");
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith("List of devices") && trimmedLine.includes("	")) {
+        const parts = trimmedLine.split("	");
+        if (parts.length >= 2 && parts[1].includes("device")) {
+          devices.push(parts[0]);
+        }
+      }
+    }
+    return devices;
   }
   /**
    * Build command line arguments for scrcpy based on options

@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import QRCode from 'qrcode';
-import { ProcessManager, QrPairingSessionResult } from './processManager';
+import { ProcessManager } from './processManager';
 import { ConfigManager } from './configManager';
 import { Logger } from './logger';
 import { BinaryManager } from './binaryManager';
@@ -64,9 +63,10 @@ export class CommandManager {
       ,
       // Pairing support
       vscode.commands.registerCommand('droidbridge.pairDevice', (hostPort?: string, code?: string) => this.pairDeviceCommand(hostPort, code)),
-      vscode.commands.registerCommand('droidbridge.pairFromQr', (payload?: string) => this.pairFromQrCommand(payload)),
-      vscode.commands.registerCommand('droidbridge.generatePairingQr', () => this.generatePairingQrCommand()),
-      vscode.commands.registerCommand('droidbridge.cancelPairingQr', () => this.cancelPairingQrCommand())
+      
+      // Scrcpy sidebar commands
+      vscode.commands.registerCommand('droidbridge.ejectScrcpySidebar', () => this.ejectScrcpySidebarCommand()),
+      vscode.commands.registerCommand('droidbridge.embedScrcpySidebar', () => this.embedScrcpySidebarCommand())
     ];
 
     // Add all command disposables to the extension context
@@ -958,15 +958,36 @@ export class CommandManager {
       const [host, port] = hostPort.trim().split(':');
       const result = await (this.processManager as any).pairDevice(code.trim(), host, port);
       if (result.success) {
-        const message = `✅ Paired with ${host}:${port}! Next step: Go to "Wireless debugging → Paired devices" on your device to find the ADB port (usually 5555), then use the Connect section above.`;
-        vscode.window.showInformationMessage(message);
-        this.logger.info(message);
+        vscode.window.showInformationMessage(result.message);
+        this.logger.info(result.message);
         
-        // Update sidebar inputs with common ADB port for convenience
-        if (this.sidebarProvider) {
-          this.sidebarProvider.updateIpAddress(host);
-          this.sidebarProvider.updatePort('5555'); // Common ADB port
-        }
+        // Attempt auto-connection after successful pairing
+        vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: "Attempting auto-connection..." },
+          async () => {
+            const autoConnectResult = await (this.processManager as any).tryAutoConnectAfterPairing(host);
+            
+            if (autoConnectResult.success) {
+              vscode.window.showInformationMessage(autoConnectResult.message);
+              this.logger.info(`Auto-connection successful: ${autoConnectResult.message}`);
+              
+              // Update sidebar with successful connection info
+              if (this.sidebarProvider) {
+                this.sidebarProvider.updateIpAddress(host);
+                this.sidebarProvider.updatePort(autoConnectResult.connectedPort || '5555');
+              }
+            } else {
+              // Update sidebar inputs with common ADB port for manual connection
+              if (this.sidebarProvider) {
+                this.sidebarProvider.updateIpAddress(host);
+                this.sidebarProvider.updatePort('5555'); // Common ADB port
+              }
+              
+              vscode.window.showWarningMessage(autoConnectResult.message);
+              this.logger.info(`Auto-connection failed, manual connection needed: ${autoConnectResult.message}`);
+            }
+          }
+        );
       } else {
         const errorMessage = `❌ Pairing failed: ${result.message}`;
         vscode.window.showErrorMessage(errorMessage);
@@ -978,145 +999,73 @@ export class CommandManager {
     }
   }
 
-  /** Pair using pasted QR payload host:port:code */
-  private async pairFromQrCommand(payloadArg?: string): Promise<void> {
+    /**
+   * Eject scrcpy from sidebar to external window
+   */
+  private async ejectScrcpySidebarCommand(): Promise<void> {
     try {
-      let payload = payloadArg;
-      if (!payload) {
-        payload = await vscode.window.showInputBox({
-          prompt: 'Paste QR payload (host:port:code or host:port code)',
-          validateInput: v => v.trim() ? null : 'Required'
-        }) || undefined;
-      }
-      if (!payload) {
-        return;
-      }
-      const parsed = (this.processManager as any).parseQrPairingPayload?.(payload);
-      if (!parsed) {
-        vscode.window.showErrorMessage('Could not parse payload. Expected host:port:code');
-        return;
-      }
-      const result = await (this.processManager as any).pairDevice(parsed.code, parsed.host, parsed.port);
-      if (result.success) {
-        const infoMessage = `✅ Paired with ${parsed.host}:${parsed.port}! Use Connect once the device reports its ADB port (Wireless debugging → Paired devices).`;
-        vscode.window.showInformationMessage(infoMessage);
-        this.logger.info(infoMessage);
-        
-        // If QR included adbPort/deviceIp, attempt automatic connect
-        if (parsed.adbPort && parsed.deviceIp) {
-          const autoConnect = await vscode.window.showInformationMessage('Attempt to connect to device after pairing?', 'Connect', 'Skip');
-          if (autoConnect === 'Connect') {
-            await this.connectDevice(parsed.deviceIp, parsed.adbPort);
-          }
-        } else {
-          // Update sidebar with parsed host and common ADB port
-          if (this.sidebarProvider) {
-            this.sidebarProvider.updateIpAddress(parsed.host);
-            this.sidebarProvider.updatePort('5555');
-          }
-        }
-      } else {
-        const errorMessage = `❌ QR Pairing failed: ${result.message}`;
-        vscode.window.showErrorMessage(errorMessage);
-        this.logger.error(errorMessage);
-      }
-    } catch (e) {
-      this.logger.error('QR pairing command failed', e as Error);
-      vscode.window.showErrorMessage('QR pairing failed. See logs.');
-    }
-  }
-
-  /** Begin QR pairing session and surface QR code in sidebar */
-  private async generatePairingQrCommand(): Promise<void> {
-    try {
-      if (this.processManager.isQrPairingSessionActive()) {
-        const choice = await vscode.window.showWarningMessage(
-          'A wireless pairing QR session is already active.',
-          'Show Existing QR',
-          'Cancel Session'
-        );
-        if (choice === 'Cancel Session') {
-          await this.cancelPairingQrCommand();
-        } else if (choice === 'Show Existing QR') {
-          this.sidebarProvider?.revealQrPairing?.();
-        }
-        return;
-      }
-
-      const session = await vscode.window.withProgress<QrPairingSessionResult>({
-        location: vscode.ProgressLocation.Notification,
-        title: 'Starting wireless pairing session...'
-      }, async () => this.processManager.startQrPairingSession());
-
-      if (!session.success || !session.payload) {
-        const message = session.message || 'Failed to start wireless pairing session. See logs for details.';
-        this.logger.showError(message);
-        this.sidebarProvider?.showQrPairing?.({ active: false, message });
-        return;
-      }
-
-      const dataUrl = await QRCode.toDataURL(session.payload, { margin: 1, scale: 8 });
-
-      this.sidebarProvider?.revealQrPairing?.();
-      this.sidebarProvider?.showQrPairing?.({
-        active: true,
-        dataUrl,
-        payload: session.payload,
-        host: session.host,
-        port: session.port,
-        code: session.code,
-        ssid: session.ssid,
-        expiresInSeconds: session.expiresInSeconds,
-        message: session.message
-      });
-
-      const pairingWindow = session.expiresInSeconds ? `${session.expiresInSeconds} seconds` : 'about 60 seconds';
-      const instructions = session.message?.includes("example") ? 
-        `⚠️ QR generated with example values. On your Android device:
-        1. Go to Developer Options → Wireless debugging
-        2. Tap "Pair device with pairing code" 
-        3. Replace the QR values: Host=${session.host}, Port=${session.port}, Code=${session.code}
-        4. Use manual pairing with those actual values, or update the QR and scan it.` :
-        `Wireless pairing session ready. On Android 11+ go to Developer Options → Wireless debugging → Pair device with QR code and scan the QR. Session expires in ${pairingWindow}.`;
+      this.logger.info('Ejecting scrcpy from sidebar to external window');
       
-      vscode.window.showInformationMessage(instructions);
+      // If scrcpy is already running in sidebar, stop it and launch in external window
+      if (this.processManager.isScrcpyRunning()) {
+        await this.stopScrcpyCommand();
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for cleanup
+      }
+      
+      // Launch scrcpy in external window
+      await this.launchScrcpyCommand();
+      
+      // Update sidebar to show scrcpy is no longer embedded
+      if (this.sidebarProvider) {
+        this.sidebarProvider.showScrcpySidebar(false);
+      }
+      
+      vscode.window.showInformationMessage('Scrcpy ejected to external window');
+    } catch (error) {
+      this.logger.error('Failed to eject scrcpy sidebar', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage('Failed to eject scrcpy from sidebar');
+    }
+  }
 
-      const process = session.process;
-      if (process) {
-        process.once('close', () => {
-          this.sidebarProvider?.showQrPairing?.({
-            active: false,
-            message: 'QR pairing session ended. If pairing did not complete, start a new session.',
-            dataUrl: undefined,
-            payload: undefined,
-            host: session.host,
-            port: session.port,
-            code: session.code
-          });
-        });
+  /**
+   * Embed scrcpy into sidebar
+   */
+  private async embedScrcpySidebarCommand(): Promise<void> {
+    try {
+      this.logger.info('Embedding scrcpy into sidebar');
+      
+      // Check if device is connected
+      if (!this.processManager.isDeviceConnected()) {
+        vscode.window.showWarningMessage('Please connect to a device first');
+        return;
+      }
+      
+      // Stop any existing scrcpy instance
+      if (this.processManager.isScrcpyRunning()) {
+        await this.stopScrcpyCommand();
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for cleanup
+      }
+      
+      // Launch scrcpy with sidebar-specific options (smaller window, embedded mode)
+      const result = await this.processManager.launchScrcpySidebar();
+      
+      if (result.success) {
+        // Update sidebar to show scrcpy is embedded
+        if (this.sidebarProvider) {
+          this.sidebarProvider.showScrcpySidebar(true, result.processId, result.windowId);
+        }
+        
+        vscode.window.showInformationMessage('Scrcpy embedded in sidebar');
+      } else {
+        vscode.window.showErrorMessage(`Failed to embed scrcpy: ${result.message}`);
       }
     } catch (error) {
-      this.logger.error('Failed to generate wireless pairing QR', error instanceof Error ? error : undefined);
-      this.logger.showError('Failed to generate wireless pairing QR. See logs for details.');
+      this.logger.error('Failed to embed scrcpy in sidebar', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage('Failed to embed scrcpy in sidebar');
     }
   }
 
-  /** Cancel any running QR pairing session */
-  private async cancelPairingQrCommand(): Promise<void> {
-    try {
-      await this.processManager.stopQrPairingSession();
-      this.sidebarProvider?.showQrPairing?.({
-        active: false,
-        message: 'QR pairing session cancelled. Start a new session when you are ready.',
-        dataUrl: undefined,
-        payload: undefined
-      });
-      vscode.window.showInformationMessage('Wireless pairing QR session cancelled.');
-    } catch (error) {
-      this.logger.error('Failed to cancel wireless pairing QR session', error instanceof Error ? error : undefined);
-      this.logger.showError('Could not cancel wireless pairing session. See logs for details.');
-    }
-  }
+
 
   /**
    * Clean up resources

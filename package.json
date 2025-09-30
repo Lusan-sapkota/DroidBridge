@@ -89,26 +89,20 @@
         "command": "droidbridge.refreshBinaries",
         "title": "Refresh Binary Detection",
         "category": "DroidBridge"
-      }
-      ,
+      },
       {
         "command": "droidbridge.pairDevice",
         "title": "Pair Device (Manual)",
         "category": "DroidBridge"
       },
       {
-        "command": "droidbridge.pairFromQr",
-        "title": "Pair Device from QR Payload",
+        "command": "droidbridge.ejectScrcpySidebar",
+        "title": "Eject Scrcpy from Sidebar",
         "category": "DroidBridge"
       },
       {
-        "command": "droidbridge.generatePairingQr",
-        "title": "Generate Wireless Pairing QR",
-        "category": "DroidBridge"
-      },
-      {
-        "command": "droidbridge.cancelPairingQr",
-        "title": "Cancel Wireless Pairing QR Session",
+        "command": "droidbridge.embedScrcpySidebar",
+        "title": "Embed Scrcpy in Sidebar",
         "category": "DroidBridge"
       }
     ],
@@ -158,9 +152,7 @@
       }
     }
   },
-  "dependencies": {
-    "qrcode": "^1.5.3"
-  },
+  "dependencies": {},
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",

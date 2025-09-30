@@ -5,19 +5,7 @@ import { Logger } from "./logger";
 import { ErrorHandler } from "../utils/errorHandler";
 import { PlatformUtils } from "../utils/platformUtils";
 
-export interface QrPairingSessionResult {
-  success: boolean;
-  message?: string;
-  payload?: string;
-  host?: string;
-  port?: string;
-  code?: string;
-  ssid?: string;
-  adbPort?: string;
-  expiresInSeconds?: number;
-  process?: ChildProcess;
-  rawOutput?: string;
-}
+
 
 /**
  * Manages external process execution for ADB and scrcpy operations
@@ -30,8 +18,7 @@ export class ProcessManager {
   private errorHandler: ErrorHandler;
   private connectionState: ConnectionState;
   private scrcpyState: ScrcpyState;
-  private qrPairingProcess: ChildProcess | null = null;
-  private qrPairingTimeout?: NodeJS.Timeout;
+
 
   constructor(binaryManager: BinaryManager, logger: Logger) {
     this.binaryManager = binaryManager;
@@ -190,7 +177,7 @@ export class ProcessManager {
    * Pair with a device over Wi‑Fi (Android 11+ wireless debugging)
    * Expects pairing code (6 digits) and host:port of pairing service (usually shown in device Wireless debugging screen)
    */
-  async pairDevice(pairingCode: string, host: string, port: string): Promise<{ success: boolean; message: string }> {
+  async pairDevice(pairingCode: string, host: string, port: string, attempt = 0): Promise<{ success: boolean; message: string }> {
     try {
       const code = pairingCode.trim();
       if (!/^[0-9]{6}$/.test(code)) {
@@ -209,33 +196,96 @@ export class ProcessManager {
       // Check for successful pairing first (most important)
       const indicatesSuccess = /successfully paired|pairing code accepted/i.test(stdout);
       
-      // Only treat as failure if there's a clear failure message AND no success message
-      const indicatesFailure = /failed|unable|timeout|refused|unreachable|invalid|incorrect/i.test(combined) && !indicatesSuccess;
+      // Check for protocol fault - this specific message usually indicates failure
+      const hasProtocolFault = /protocol fault.*couldn't read status message/i.test(stderr);
+      const hasSuccessInFault = hasProtocolFault && /success/i.test(stderr);
       
-      // Ignore protocol faults that occur after successful pairing
-      const isProtocolFaultAfterSuccess = indicatesSuccess && /protocol fault/i.test(stderr);
+      // Check for clear failure indicators
+      const indicatesFailure = /failed|unable|timeout|refused|unreachable|invalid|incorrect/i.test(combined);
+      
+      // The "protocol fault (couldn't read status message): Success" pattern is usually a failure
+      // despite containing "Success" - it indicates communication broke down during handshake
+      let isProtocolFaultSuccess = false;
+      if (hasSuccessInFault && !indicatesFailure && !indicatesSuccess) {
+  this.logger.info('Protocol fault with Success detected - verifying pairing status...');
+        // Give Android a moment to process the pairing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Check if device appears in paired devices list
+        const verifyResult = await this.executeAdbCommandWithTimeout(['devices'], 5000);
+        const baseIp = target.split(':')[0];
+        const hasDeviceInList = verifyResult.stdout.includes(baseIp) || 
+                               verifyResult.stdout.includes('device') ||
+                               verifyResult.stdout.includes('unauthorized'); // unauthorized means paired but not authorized
+        
+        this.logger.info(`Pairing verification: devices output contains connection = ${hasDeviceInList}`);
+        
+        // Only consider it successful if we can actually see the device or connect to it
+        if (hasDeviceInList) {
+          isProtocolFaultSuccess = true;
+        } else {
+          // Double-check by trying a quick connection attempt
+          this.logger.info('No device found in list, attempting connection verification...');
+          isProtocolFaultSuccess = await this.tryQuickConnectVerification(baseIp);
+          this.logger.info(`Connection verification result: ${isProtocolFaultSuccess}`);
+        }
+      }
 
       this.logger.info(`Pairing result - Exit: ${result.exitCode}, Success: ${result.success}`);
       this.logger.info(`Stdout: ${stdout}`);
       this.logger.info(`Stderr: ${stderr}`);
-      this.logger.info(`Success detected: ${indicatesSuccess}, Failure detected: ${indicatesFailure}, Protocol fault: ${isProtocolFaultAfterSuccess}`);
+      this.logger.info(`Success detected: ${indicatesSuccess}, Failure detected: ${indicatesFailure}, Protocol fault with success: ${isProtocolFaultSuccess}`);
 
-      if (indicatesSuccess) {
+      if (indicatesSuccess || isProtocolFaultSuccess) {
         this.logger.info(`Successfully paired with ${target}`);
-        const cleanMessage = stdout.split('\n').find(line => line.includes('Successfully paired')) || 'Paired successfully';
+        const baseIp = target.split(':')[0];
+        
+        // For protocol fault cases, try to verify pairing worked by attempting connection
+        if (isProtocolFaultSuccess && !indicatesSuccess) {
+          this.logger.info('Verifying protocol fault pairing by attempting connection...');
+          const verifyConnection = await this.tryQuickConnectVerification(baseIp);
+          if (!verifyConnection) {
+            this.logger.error('Protocol fault pairing verification failed - treating as failure');
+            if (attempt < 1) {
+              this.logger.info('Restarting ADB server and retrying pairing once more due to protocol fault...');
+              await this.restartAdbServer();
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              return this.pairDevice(pairingCode, host, port, attempt + 1);
+            }
+            return { 
+              success: false, 
+              message: 'Pairing failed - the protocol fault indicates communication was interrupted. The pairing code popup is likely still showing on your device. Please:\n1. Dismiss the current pairing popup\n2. Generate a new pairing code\n3. Try pairing again immediately while the code is fresh\n4. Ensure both devices stay connected to Wi-Fi during pairing' 
+            };
+          }
+        }
+        
+        const cleanMessage = stdout.split('\n').find(line => line.includes('Successfully paired')) || 
+                            (isProtocolFaultSuccess ? 
+                              `✅ Paired successfully! The pairing code popup should have disappeared on your device. Check "Paired devices" for the ADB port, then use the Connect section above.` : 
+                              `✅ Paired successfully! Check your device's "Paired devices" section for the ADB port (usually 5555), then use the Connect section above.`);
         return { success: true, message: cleanMessage };
       }
 
       // If we get here, pairing failed
       let errorMsg = stderr || stdout || 'Pairing failed';
       if (combined.includes('timeout') || (!stdout && !stderr)) {
-        errorMsg = 'Pairing timed out. Check if the pairing code is still valid and the device is reachable.';
+        errorMsg = 'Pairing timed out. The pairing code may have expired. Generate a new pairing code on your device and try again.';
       } else if (combined.includes('refused')) {
-        errorMsg = 'Connection refused. Ensure Wireless debugging is enabled and the pairing service is active.';
+        errorMsg = 'Connection refused. Make sure Wireless debugging is enabled and the pairing service is running on your device.';
       } else if (combined.includes('unreachable')) {
-        errorMsg = 'Host unreachable. Check the IP address and ensure both devices are on the same network.';
+        errorMsg = 'Host unreachable. Verify the IP address and ensure both devices are connected to the same Wi-Fi network.';
       } else if (combined.includes('invalid') || combined.includes('incorrect')) {
-        errorMsg = 'Invalid pairing code. The 6-digit code may have expired. Generate a new one on your device.';
+        errorMsg = 'Invalid pairing code. The 6-digit code may have expired or been mistyped. Generate a fresh code on your device.';
+      } else if (hasProtocolFault && hasSuccessInFault) {
+        errorMsg = 'Pairing communication failed (protocol fault). This happens when the pairing code expires during the handshake or there\'s a network interruption. The pairing popup should still be visible on your device. Please generate a fresh pairing code and try again.';
+        if (attempt < 1) {
+          this.logger.info('Protocol fault detected with failure - restarting ADB server and retrying pairing once.');
+          await this.restartAdbServer();
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          return this.pairDevice(pairingCode, host, port, attempt + 1);
+        }
+      } else if (hasProtocolFault) {
+        errorMsg = 'Protocol fault occurred during pairing. This usually means the pairing code expired or there was a network issue. Please generate a new pairing code and try again.';
       }
 
       this.logger.error(`Pairing failed: ${errorMsg}`);
@@ -245,6 +295,68 @@ export class ProcessManager {
       this.logger.error('Pairing error', e as any);
       return { success: false, message };
     }
+  }
+
+  /**
+   * Quick verification to check if pairing actually worked by attempting connection
+   */
+  private async tryQuickConnectVerification(ip: string): Promise<boolean> {
+    const commonPorts = ['5555', '5556', '37115'];
+    
+    for (const port of commonPorts) {
+      try {
+        const result = await this.executeAdbCommandWithTimeout(['connect', `${ip}:${port}`], 5000);
+        if (result.stdout.includes('connected') || result.stdout.includes('already connected')) {
+          // Disconnect immediately after verification
+          await this.executeAdbCommandWithTimeout(['disconnect', `${ip}:${port}`], 3000);
+          return true;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Restart the ADB server to recover from protocol faults
+   */
+  private async restartAdbServer(): Promise<void> {
+    this.logger.info('Restarting ADB server (kill-server → start-server)');
+    await this.executeAdbCommandWithTimeout(['kill-server'], 5000).catch(() => undefined);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await this.executeAdbCommandWithTimeout(['start-server'], 5000).catch(() => undefined);
+  }
+
+  /**
+   * Attempt to auto-connect after successful pairing using common ADB ports
+   */
+  async tryAutoConnectAfterPairing(ip: string): Promise<{success: boolean, message: string, connectedPort?: string}> {
+    const commonPorts = ['5555', '5556', '37115']; // Common ADB ports
+    
+    this.logger.info(`Attempting auto-connection to ${ip} on common ports...`);
+    
+    for (const port of commonPorts) {
+      try {
+        this.logger.info(`Trying ${ip}:${port}...`);
+        const connected = await this.connectDevice(ip, port);
+        if (connected) {
+          return { 
+            success: true, 
+            message: `🎉 Auto-connected to ${ip}:${port}! Device is ready for debugging.`,
+            connectedPort: port
+          };
+        }
+      } catch (error) {
+        this.logger.debug(`Failed to connect to ${ip}:${port}: ${error}`);
+        continue;
+      }
+    }
+    
+    return {
+      success: false,
+      message: `Could not auto-connect. Please check your device's "Paired devices" section for the correct port and connect manually.`
+    };
   }
 
   /**
@@ -343,232 +455,6 @@ export class ProcessManager {
 
     return undefined;
   }
-
-  /**
-   * Starts a QR pairing session. First tries `adb pair --qr`, but falls back to generating
-   * a manual QR if the ADB version doesn't support it or prompts for manual input.
-   */
-  async startQrPairingSession(): Promise<QrPairingSessionResult> {
-    if (this.qrPairingProcess) {
-      return {
-        success: false,
-        message: "A QR pairing session is already running. Cancel it before starting a new one."
-      };
-    }
-
-    let adbPath: string;
-    try {
-      adbPath = await this.binaryManager.getAdbPath();
-    } catch (error) {
-      adbPath = (this.binaryManager as any).getAdbPathSync?.() || this.binaryManager.getBundledBinaryPath?.('adb') || 'adb';
-    }
-
-    // First try to use adb pair --qr
-    const qrResult = await this.tryAdbQrPairing(adbPath);
-    if (qrResult.success) {
-      return qrResult;
-    }
-
-    // Fallback: generate manual QR with dummy/example values
-    this.logger.info("ADB QR pairing not supported or failed. Generating manual QR with example values.");
-    
-    const fallbackHost = "192.168.1.50";  // Example IP
-    const fallbackPort = "37153";         // Common pairing port
-    const fallbackCode = Math.floor(100000 + Math.random() * 900000).toString(); // Random 6-digit code
-    const fallbackSsid = "ADB-Pair";
-    
-    const payload = `WIFI:T:ADB;S:${fallbackSsid};P:${fallbackCode};IP:${fallbackHost}:${fallbackPort};;`;
-    
-    return {
-      success: true,
-      message: "Generated example QR. Replace host/port/code with actual values from your device's Wireless debugging screen.",
-      payload,
-      host: fallbackHost,
-      port: fallbackPort,
-      code: fallbackCode,
-      ssid: fallbackSsid,
-      expiresInSeconds: 60
-    };
-  }
-
-  private async tryAdbQrPairing(adbPath: string): Promise<QrPairingSessionResult> {
-    return new Promise<QrPairingSessionResult>((resolve) => {
-      const spawnOptions = PlatformUtils.getPlatformSpecificOptions({
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-
-      this.logger.info("Trying QR pairing with `adb pair --qr`");
-      const process = spawn(adbPath, ["pair", "--qr"], spawnOptions);
-      this.qrPairingProcess = process;
-      this.managedProcesses.add(process);
-
-      let resolved = false;
-      let stdout = "";
-      let stderr = "";
-
-      const finalize = (result: QrPairingSessionResult) => {
-        if (!resolved) {
-          resolved = true;
-          this.qrPairingProcess = null;
-          this.managedProcesses.delete(process);
-          resolve(result);
-        }
-      };
-
-      const handleChunk = (chunk: string) => {
-        stdout += chunk;
-        this.logger.logProcessOutput("adb", chunk);
-
-        // Check if ADB is asking for manual input (fallback indicator)
-        if (chunk.includes("Enter pairing code") || chunk.includes("Pairing code:")) {
-          this.logger.info("ADB is requesting manual pairing code input - QR mode not supported");
-          process.kill(PlatformUtils.getTerminationSignal());
-          finalize({ success: false, message: "ADB QR mode not supported by this version" });
-          return;
-        }
-
-        const parsed = this.extractQrSessionInfo(stdout);
-        if (parsed && parsed.payload) {
-          finalize({ success: true, process, rawOutput: stdout, ...parsed });
-        }
-      };
-
-      process.stdout?.on("data", (data: Buffer) => handleChunk(data.toString()));
-      process.stderr?.on("data", (data: Buffer) => {
-        const text = data.toString();
-        stderr += text;
-        this.logger.logProcessOutput("adb", text);
-        handleChunk(text);
-      });
-
-      process.on("close", (code: number | null) => {
-        if (!resolved) {
-          finalize({
-            success: false,
-            message: "ADB QR pairing session ended without producing a QR payload",
-            rawOutput: stdout || stderr,
-          });
-        }
-      });
-
-      process.on("error", (error: Error) => {
-        this.logger.error(`ADB QR pairing error: ${error.message}`, error);
-        finalize({ success: false, message: error.message, rawOutput: stdout || stderr });
-      });
-
-      // Quick timeout for detecting if QR is supported
-      setTimeout(() => {
-        if (!resolved) {
-          this.logger.info("ADB QR pairing timed out - likely not supported");
-          process.kill(PlatformUtils.getTerminationSignal());
-          finalize({ success: false, message: "ADB QR pairing timeout - unsupported" });
-        }
-      }, 5000);
-    });
-  }
-
-  /** Cancel any running `adb pair --qr` session */
-  async stopQrPairingSession(): Promise<void> {
-    if (!this.qrPairingProcess) {
-      return;
-    }
-
-    this.logger.info("Stopping active QR pairing session");
-    const process = this.qrPairingProcess;
-    this.qrPairingProcess = null;
-
-    if (this.qrPairingTimeout) {
-      clearTimeout(this.qrPairingTimeout);
-      this.qrPairingTimeout = undefined;
-    }
-
-    if (process) {
-      this.managedProcesses.delete(process);
-    }
-
-    if (process && !process.killed) {
-      const terminationSignal = PlatformUtils.getTerminationSignal();
-      process.kill(terminationSignal);
-      setTimeout(() => {
-        if (!process.killed) {
-          process.kill(PlatformUtils.getForceKillSignal());
-        }
-      }, 2000);
-    }
-  }
-
-  /** Indicates if an `adb pair --qr` session is currently running */
-  isQrPairingSessionActive(): boolean {
-    return !!this.qrPairingProcess;
-  }
-
-  private extractQrSessionInfo(output: string): Omit<QrPairingSessionResult, "success"> | undefined {
-    if (!output) {
-      return undefined;
-    }
-
-    // Combine multiline ASCII art into a single searchable string
-    const cleaned = output.replace(/\u001b\[[0-9;]*m/g, ""); // strip ANSI codes
-
-    const wifiMatch = cleaned.match(/WIFI:[\s\S]*?;;/);
-    const codeMatch = cleaned.match(/Pairing code:\s*(\d{6})/i) || cleaned.match(/Code:\s*(\d{6})/i);
-    const hostMatch = cleaned.match(/IP (?:Address|addr):\s*([\d.]+)/i) || cleaned.match(/Host:\s*([\d.]+)/i);
-    const portMatch = cleaned.match(/Port:\s*(\d{2,5})/i) || cleaned.match(/pairing port:\s*(\d{2,5})/i);
-    const ssidMatch = cleaned.match(/SSID:\s*([\w\-]+)/i);
-    const expiryMatch = cleaned.match(/Expires in (\d+)s/i);
-
-    let payload = wifiMatch ? wifiMatch[0].replace(/\s+/g, "") : undefined;
-
-    let host: string | undefined;
-    let port: string | undefined;
-    let code: string | undefined;
-    let ssid: string | undefined;
-
-    if (payload) {
-      const payloadHost = payload.match(/IP:([^;]+)/);
-      const payloadCode = payload.match(/P:(\d{6})/);
-      const payloadSsid = payload.match(/S:([^;]+)/);
-      if (payloadHost?.[1]) {
-        host = payloadHost[1].split(":")[0];
-        const portPart = payloadHost[1].split(":")[1];
-        if (portPart) {
-          port = portPart;
-        }
-      }
-      if (payloadCode?.[1]) {
-        code = payloadCode[1];
-      }
-      if (payloadSsid?.[1]) {
-        ssid = payloadSsid[1];
-      }
-    }
-
-    if (codeMatch?.[1]) {
-      code = codeMatch[1];
-    }
-    if (hostMatch?.[1]) {
-      host = hostMatch[1];
-    }
-    if (portMatch?.[1]) {
-      port = portMatch[1];
-    }
-    if (ssidMatch?.[1]) {
-      ssid = ssidMatch[1];
-    }
-
-    if (!payload && host && port && code) {
-      payload = `WIFI:T:ADB;S:${ssid || "ADB-Pair"};P:${code};IP:${host}:${port};;`;
-    }
-
-    if (!payload) {
-      return undefined;
-    }
-
-    const expiresInSeconds = expiryMatch?.[1] ? parseInt(expiryMatch[1], 10) : undefined;
-
-    return { payload, host, port, code, ssid, expiresInSeconds };
-  }
-
   /**
    * Disconnect from the currently connected Android device
    */
@@ -954,6 +840,44 @@ export class ProcessManager {
     this.logger.info("Launching scrcpy with screen off functionality");
     
     return this.launchScrcpyWithCustomArgs(screenOffOptions, ["--turn-screen-off"]);
+  }
+
+  /**
+   * Launch scrcpy optimized for sidebar embedding
+   */
+  async launchScrcpySidebar(options?: ScrcpyOptions): Promise<{ success: boolean; message?: string; processId?: number; windowId?: string }> {
+    try {
+      const sidebarOptions: ScrcpyOptions = {
+        ...options,
+        maxSize: 400, // Smaller resolution for sidebar
+        bitrate: 2000000 // Lower bitrate for better performance in sidebar
+      };
+      
+      this.logger.info("Launching scrcpy optimized for sidebar");
+      
+      const process = await this.launchScrcpyWithCustomArgs(sidebarOptions, [
+        "--window-width=300",
+        "--window-height=400", 
+        "--window-x=0",
+        "--window-y=0",
+        "--stay-awake",
+        "--window-title=DroidBridge Sidebar",
+        "--always-on-top"
+      ]);
+      
+      return {
+        success: true,
+        message: "Scrcpy launched for sidebar",
+        processId: process.pid,
+        windowId: `scrcpy-sidebar-${process.pid}`
+      };
+    } catch (error) {
+      this.logger.error("Failed to launch scrcpy for sidebar", error instanceof Error ? error : undefined);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Unknown error launching scrcpy for sidebar"
+      };
+    }
   }
 
   /**

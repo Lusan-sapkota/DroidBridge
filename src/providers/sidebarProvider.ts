@@ -3,16 +3,10 @@ import { ConfigManager } from '../managers/configManager';
 import { ThemeManager, ThemeKind } from '../utils/themeManager';
 import { ConnectionHistoryManager, ConnectionHistoryEntry } from '../managers/connectionHistory';
 
-interface QrPairingState {
-  active: boolean;
-  dataUrl?: string;
-  payload?: string;
-  message?: string;
-  host?: string;
-  port?: string;
-  code?: string;
-  ssid?: string;
-  expiresInSeconds?: number;
+interface ScrcpySidebarState {
+  isRunning: boolean;
+  processId?: number;
+  windowId?: string;
 }
 
 /**
@@ -32,7 +26,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   private themeManager: ThemeManager;
   private themeChangeListener?: vscode.Disposable;
   private connectionHistory: ConnectionHistoryManager;
-  private qrPairingState: QrPairingState = { active: false, message: 'No active QR session yet.' };
+  private scrcpySidebarState: ScrcpySidebarState = { isRunning: false };
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -170,16 +164,11 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
               vscode.commands.executeCommand('droidbridge.pairDevice', hostPort, message.code);
             }
             break;
-          case 'pairFromQr':
-            if (message.payload) {
-              vscode.commands.executeCommand('droidbridge.pairFromQr', message.payload);
-            }
+          case 'ejectScrcpySidebar':
+            vscode.commands.executeCommand('droidbridge.ejectScrcpySidebar');
             break;
-          case 'generateQrPairing':
-            vscode.commands.executeCommand('droidbridge.generatePairingQr');
-            break;
-          case 'cancelQrPairing':
-            vscode.commands.executeCommand('droidbridge.cancelPairingQr');
+          case 'embedScrcpySidebar':
+            vscode.commands.executeCommand('droidbridge.embedScrcpySidebar');
             break;
         }
       },
@@ -224,15 +213,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
 
     // Use a nonce to only allow a specific script to be run.
     const nonce = getNonce();
-    const qrStatusText = this.qrPairingState.message || 'No active QR session yet.';
-    const qrImageHiddenAttr = this.qrPairingState.active && this.qrPairingState.dataUrl ? '' : 'hidden';
-    const qrImageSrc = this.qrPairingState.dataUrl || '';
-    const qrMetaText = this.qrPairingState.host && this.qrPairingState.port
-      ? `Host: ${this.qrPairingState.host}:${this.qrPairingState.port} (${this.qrPairingState.code || '••••••'})`
-      : '';
-    const qrPayloadText = this.qrPairingState.payload || '';
-    const cancelDisabledAttr = this.qrPairingState.active ? '' : 'disabled';
-    const generateDisabledAttr = this.qrPairingState.active ? 'disabled' : '';
 
     return `<!DOCTYPE html>
       <html lang="en">
@@ -314,6 +294,30 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             </div>
           </div>
 
+          <!-- Scrcpy Sidebar Mirror Section -->
+          <div class="section" id="scrcpy-sidebar-section" ${this.scrcpySidebarState.isRunning ? '' : 'style="display: none;"'}>
+            <div class="section-header">
+              <span class="codicon codicon-device-mobile section-icon"></span>
+              <h3>Scrcpy Mirror</h3>
+              <div class="section-actions">
+                <button id="eject-scrcpy-btn" class="icon-button" title="Eject to External Window">
+                  <span class="codicon codicon-window"></span>
+                </button>
+                <button id="close-scrcpy-btn" class="icon-button" title="Close Scrcpy">
+                  <span class="codicon codicon-close"></span>
+                </button>
+              </div>
+            </div>
+            <div class="section-content">
+              <div id="scrcpy-container" class="scrcpy-mirror-container">
+                <div id="scrcpy-placeholder" class="scrcpy-placeholder">
+                  <span class="codicon codicon-device-mobile"></span>
+                  <p>Scrcpy mirror will appear here when launched</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Pairing Section -->
           <div class="section">
             <div class="section-header">
@@ -328,24 +332,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
                 <br />3. Click <strong>Pair (Manual)</strong> - pairing expires in ~60 seconds
                 <br />4. After pairing, use <strong>Connect</strong> section with device's ADB port (usually 5555)
               </p>
-              <div class="button-group qr-button-group">
-                <button id="generate-qr-btn" class="primary-button" ${generateDisabledAttr}>
-                  <span class="codicon codicon-broadcast"></span>
-                  Generate Host QR
-                </button>
-                <button id="cancel-qr-btn" class="secondary-button" ${cancelDisabledAttr}>
-                  <span class="codicon codicon-close"></span>
-                  Cancel QR Session
-                </button>
-              </div>
-              <div class="qr-display" id="qr-display">
-                <div class="qr-status" id="qr-status">${qrStatusText}</div>
-                <div class="qr-image-wrapper" id="qr-image-wrapper" ${qrImageHiddenAttr}>
-                  <img id="qr-image" alt="Wireless pairing QR" src="${qrImageSrc}" />
-                </div>
-                <div class="qr-meta" id="qr-meta">${qrMetaText}</div>
-                <code class="qr-payload" id="qr-payload">${qrPayloadText}</code>
-              </div>
               <div class="input-row">
                 <div class="input-group small">
                   <label for="pair-host-input">Host:</label>
@@ -366,21 +352,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
                   Pair (Manual)
                 </button>
               </div>
-              <div class="input-group">
-                <label for="pair-qr-input">QR Payload (host:port:code)</label>
-                <input type="text" id="pair-qr-input" placeholder="Paste scanned QR payload here" />
-              </div>
-              <div class="button-group">
-                <button id="pair-qr-btn" class="secondary-button">
-                  <span class="codicon codicon-diff-added"></span>
-                  Pair (QR Payload)
-                </button>
-              </div>
-              <p class="help-text">
-                <strong>QR Payload:</strong> Paste scanned QR data here (format: host:port:code).
-                <br />
-                <strong>Troubleshooting:</strong> If pairing hangs, the code may have expired. Generate a new pairing code on your device.
-              </p>
             </div>
           </div>
 
@@ -434,27 +405,22 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         currentIp: this.currentIp,
         currentPort: this.currentPort,
         connectionHistory: this.connectionHistory.getRecentConnections(),
-        qrPairing: this.qrPairingState
+        scrcpySidebar: this.scrcpySidebarState
       });
     }
   }
 
-  showQrPairing(update: Partial<QrPairingState> & { active: boolean; message?: string }): void {
-    this.qrPairingState = {
-      ...this.qrPairingState,
-      ...update,
+  showScrcpySidebar(isRunning: boolean, processId?: number, windowId?: string): void {
+    this.scrcpySidebarState = {
+      isRunning,
+      processId,
+      windowId
     };
-
-    if (update.active) {
-      this.qrPairingState.message = update.message || 'QR pairing session active. Scan the QR code within the next minute.';
-    } else {
-      this.qrPairingState.message = update.message || 'No active QR session yet.';
-    }
 
     if (this._view) {
       this._view.webview.postMessage({
-        type: 'qrPairingUpdate',
-        state: this.qrPairingState
+        type: 'scrcpySidebarUpdate',
+        state: this.scrcpySidebarState
       });
       this._updateWebviewState();
     }
@@ -773,7 +739,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     this.connectionStatus = false;
     this.scrcpyStatus = false;
     this.loadDefaultValues(); // Reload defaults instead of clearing
-    this.qrPairingState = { active: false, message: 'No active QR session yet.' };
+    this.scrcpySidebarState = { isRunning: false };
     this._updateWebviewState();
   }
 
@@ -822,13 +788,13 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   /**
    * Get current sidebar state for external synchronization
    */
-  getCurrentState(): { connectionStatus: boolean; scrcpyStatus: boolean; currentIp: string; currentPort: string; qrPairing: QrPairingState } {
+  getCurrentState(): { connectionStatus: boolean; scrcpyStatus: boolean; currentIp: string; currentPort: string; scrcpySidebar: ScrcpySidebarState } {
     return {
       connectionStatus: this.connectionStatus,
       scrcpyStatus: this.scrcpyStatus,
       currentIp: this.currentIp,
       currentPort: this.currentPort,
-      qrPairing: this.qrPairingState
+      scrcpySidebar: this.scrcpySidebarState
     };
   }
 
