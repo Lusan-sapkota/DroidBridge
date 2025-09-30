@@ -442,7 +442,7 @@ function saveState() {
     ...currentState,
     currentIp: ipInput?.value.trim() || "",
     currentPort: portInput?.value.trim() || "",
-    qrPairing: currentState?.qrPairing,
+    scrcpySidebar: currentState?.scrcpySidebar,
   };
   vscode.setState(newState);
 }
@@ -459,7 +459,7 @@ window.addEventListener("message", (event) => {
         currentIp: message.currentIp,
         currentPort: message.currentPort,
         connectionHistory: message.connectionHistory,
-        qrPairing: message.qrPairing,
+        scrcpySidebar: message.scrcpySidebar,
       };
       vscode.setState(newState);
       updateUIState(newState);

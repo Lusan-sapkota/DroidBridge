@@ -426,10 +426,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  revealQrPairing(): void {
-    this._view?.show?.(true);
-    this._updateWebviewState();
-  }
+
 
   /**
    * Generate simple HTML for webview (fallback)

@@ -401,60 +401,7 @@ export class ProcessManager {
     });
   }
 
-  /**
-   * Parse a QR payload exported from Android Wireless debugging.
-   * Supported forms observed across Android versions:
-   * 1. host:pairPort:code
-   * 2. host:pairPort code
-   * 3. adbpair://host:pairPort?code=XXXXXX&adb_port=YYYY&ipaddr=AAA.BBB.CCC.DDD
-   * 4. host:pairPort:code:adbPort  (some OEM / older tooling conventions)
-   * 5. WIFIADB:host:pairPort:code:adbPort (rare prefix variants – ignored prefix)
-   * Returns pairing service host/port/code and optional device IP + adbPort for auto-connect.
-   */
-  parseQrPairingPayload(payload: string): { host: string; port: string; code: string; adbPort?: string; deviceIp?: string } | undefined {
-    if (!payload) {
-      return undefined;
-    }
-    const trimmed = payload.trim();
 
-    // If it looks like a URL with adbpair scheme
-    try {
-      if (/^adbpair:\/\//i.test(trimmed)) {
-        const url = new URL(trimmed);
-        const host = url.hostname;
-        const port = url.port || '37123';
-        const code = url.searchParams.get('code') || '';
-        const adbPort = url.searchParams.get('adb_port') || undefined;
-        const deviceIp = url.searchParams.get('ipaddr') || undefined;
-        if (/^[0-9]{6}$/.test(code) && host && port) {
-          return { host, port, code, adbPort, deviceIp };
-        }
-      }
-    } catch {/* ignore URL parse errors */}
-
-    // Remove known optional prefixes like WIFIADB:
-    const noPrefix = trimmed.replace(/^(?:WIFIADB:)/i, '');
-
-    // Pattern 4: host:pairPort:code:adbPort
-    let m = noPrefix.match(/^(?<host>[a-zA-Z0-9_.-]+):(?<pairPort>\d+):(?<code>\d{6}):(?<adbPort>\d{2,5})$/);
-    if (m?.groups) {
-      return { host: m.groups.host, port: m.groups.pairPort, code: m.groups.code, adbPort: m.groups.adbPort };
-    }
-
-    // Pattern 1: host:pairPort:code
-    m = noPrefix.match(/^(?<host>[a-zA-Z0-9_.-]+):(?<pairPort>\d+):(?<code>\d{6})$/);
-    if (m?.groups) {
-      return { host: m.groups.host, port: m.groups.pairPort, code: m.groups.code };
-    }
-
-    // Pattern 2: host:pairPort code
-    m = noPrefix.match(/^(?<host>[a-zA-Z0-9_.-]+):(?<pairPort>\d+)\s+(?<code>\d{6})$/);
-    if (m?.groups) {
-      return { host: m.groups.host, port: m.groups.pairPort, code: m.groups.code };
-    }
-
-    return undefined;
-  }
   /**
    * Disconnect from the currently connected Android device
    */
