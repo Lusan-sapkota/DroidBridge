@@ -295,24 +295,32 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
           </div>
 
           <!-- Scrcpy Sidebar Mirror Section -->
-          <div class="section" id="scrcpy-sidebar-section" ${this.scrcpySidebarState.isRunning ? '' : 'style="display: none;"'}>
+          <div class="section" id="scrcpy-sidebar-section">
             <div class="section-header">
               <span class="codicon codicon-device-mobile section-icon"></span>
-              <h3>Scrcpy Mirror</h3>
+              <h3>Screen Mirror</h3>
               <div class="section-actions">
-                <button id="eject-scrcpy-btn" class="icon-button" title="Eject to External Window">
+                <button id="eject-scrcpy-btn" class="icon-button" title="Eject to External Window" ${this.scrcpySidebarState.isRunning ? '' : 'disabled'}>
                   <span class="codicon codicon-window"></span>
                 </button>
-                <button id="close-scrcpy-btn" class="icon-button" title="Close Scrcpy">
+                <button id="close-scrcpy-btn" class="icon-button" title="Close Scrcpy" ${this.scrcpySidebarState.isRunning ? '' : 'disabled'}>
                   <span class="codicon codicon-close"></span>
                 </button>
               </div>
             </div>
             <div class="section-content">
               <div id="scrcpy-container" class="scrcpy-mirror-container">
-                <div id="scrcpy-placeholder" class="scrcpy-placeholder">
+                <div id="scrcpy-placeholder" class="scrcpy-placeholder" ${this.scrcpySidebarState.isRunning ? 'style="display: none;"' : ''}>
                   <span class="codicon codicon-device-mobile"></span>
-                  <p>Scrcpy mirror will appear here when launched</p>
+                  <p>Screen mirroring appears here when launched</p>
+                  <p class="help-text">Click "Launch Scrcpy" above to start mirroring</p>
+                </div>
+                <div id="scrcpy-active" class="scrcpy-active" ${this.scrcpySidebarState.isRunning ? '' : 'style="display: none;"'}>
+                  <div class="scrcpy-status">
+                    <span class="codicon codicon-eye"></span>
+                    <span>Screen mirroring active</span>
+                  </div>
+                  <p class="help-text">Scrcpy window should appear positioned near the sidebar. Use the buttons above to eject or close.</p>
                 </div>
               </div>
             </div>

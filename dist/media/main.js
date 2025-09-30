@@ -32,6 +32,7 @@ const vscode = acquireVsCodeApi();
 /** @type {HTMLElement | null} */ let scrcpySidebarSection = null;
 /** @type {HTMLElement | null} */ let scrcpyContainer = null;
 /** @type {HTMLElement | null} */ let scrcpyPlaceholder = null;
+/** @type {HTMLElement | null} */ let scrcpyActive = null;
 
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", function () {
@@ -82,6 +83,7 @@ function initializeElements() {
   scrcpySidebarSection = document.getElementById('scrcpy-sidebar-section');
   scrcpyContainer = document.getElementById('scrcpy-container');
   scrcpyPlaceholder = document.getElementById('scrcpy-placeholder');
+  scrcpyActive = document.getElementById('scrcpy-active');
 }
 
 /**
@@ -283,18 +285,24 @@ function updateScrcpySidebarSection(scrcpySidebarState) {
   const isRunning = !!scrcpySidebarState?.isRunning;
   
   if (isRunning) {
-    scrcpySidebarSection.style.display = 'block';
+    // Show active state, hide placeholder
     if (scrcpyPlaceholder) {
       scrcpyPlaceholder.style.display = 'none';
+    }
+    if (scrcpyActive) {
+      scrcpyActive.style.display = 'flex';
     }
     
     // Enable sidebar controls
     if (ejectScrcpyBtn) ejectScrcpyBtn.disabled = false;
     if (closeScrcpyBtn) closeScrcpyBtn.disabled = false;
   } else {
-    scrcpySidebarSection.style.display = 'none';
+    // Show placeholder, hide active state
     if (scrcpyPlaceholder) {
       scrcpyPlaceholder.style.display = 'flex';
+    }
+    if (scrcpyActive) {
+      scrcpyActive.style.display = 'none';
     }
     
     // Disable sidebar controls

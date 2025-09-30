@@ -791,30 +791,40 @@ export class ProcessManager {
 
   /**
    * Launch scrcpy optimized for sidebar embedding
+   * Creates a small, always-on-top window positioned to appear as part of the sidebar
    */
   async launchScrcpySidebar(options?: ScrcpyOptions): Promise<{ success: boolean; message?: string; processId?: number; windowId?: string }> {
     try {
       const sidebarOptions: ScrcpyOptions = {
         ...options,
-        maxSize: 400, // Smaller resolution for sidebar
-        bitrate: 2000000 // Lower bitrate for better performance in sidebar
+        maxSize: 300, // Small resolution for sidebar
+        bitrate: 1500000 // Lower bitrate for better performance
       };
       
       this.logger.info("Launching scrcpy optimized for sidebar");
       
+      // Launch scrcpy with sidebar-optimized settings
       const process = await this.launchScrcpyWithCustomArgs(sidebarOptions, [
-        "--window-width=300",
-        "--window-height=400", 
-        "--window-x=0",
-        "--window-y=0",
+        "--window-width=280",
+        "--window-height=350", 
+        "--window-x=50",
+        "--window-y=100",
         "--stay-awake",
-        "--window-title=DroidBridge Sidebar",
-        "--always-on-top"
+        "--window-title=DroidBridge Mirror",
+        "--always-on-top",
+        "--window-borderless", // Remove window decorations for cleaner look
+        "--disable-screensaver"
       ]);
+      
+      // Track this as a sidebar process
+      this.scrcpyState.running = true;
+      this.scrcpyState.process = process;
+      this.scrcpyState.startTime = new Date();
+      this.scrcpyState.options = sidebarOptions;
       
       return {
         success: true,
-        message: "Scrcpy launched for sidebar",
+        message: "Scrcpy launched in sidebar mode",
         processId: process.pid,
         windowId: `scrcpy-sidebar-${process.pid}`
       };
@@ -823,6 +833,47 @@ export class ProcessManager {
       return {
         success: false,
         message: error instanceof Error ? error.message : "Unknown error launching scrcpy for sidebar"
+      };
+    }
+  }
+
+  /**
+   * Check if scrcpy is running in sidebar mode
+   */
+  isScrcpySidebarRunning(): boolean {
+    return this.scrcpyState.running && !!this.scrcpyState.process;
+  }
+
+  /**
+   * Eject scrcpy from sidebar to a regular window
+   */
+  async ejectScrcpyFromSidebar(): Promise<{ success: boolean; message?: string }> {
+    try {
+      if (!this.isScrcpySidebarRunning()) {
+        return {
+          success: false,
+          message: "No scrcpy instance running in sidebar"
+        };
+      }
+
+      // Stop the current sidebar instance
+      await this.stopScrcpy();
+      
+      // Wait a moment for cleanup
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Launch regular scrcpy
+      await this.launchScrcpy(this.scrcpyState.options);
+      
+      return {
+        success: true,
+        message: "Scrcpy ejected to external window"
+      };
+    } catch (error) {
+      this.logger.error("Failed to eject scrcpy from sidebar", error instanceof Error ? error : undefined);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to eject scrcpy"
       };
     }
   }

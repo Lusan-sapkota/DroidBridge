@@ -965,13 +965,17 @@ var _CommandManager = class _CommandManager {
           if (token.isCancellationRequested) {
             throw new Error("Scrcpy launch cancelled by user");
           }
-          progress.report({ message: "Starting screen mirroring..." });
-          const success = await this.launchScrcpy();
-          if (success) {
-            progress.report({ message: "Screen mirroring started", increment: 100 });
-            this.logger.showSuccess("\u2705 Scrcpy launched successfully");
+          progress.report({ message: "Starting screen mirroring in sidebar..." });
+          const result = await this.processManager.launchScrcpySidebar();
+          if (result.success) {
+            if (this.sidebarProvider) {
+              this.sidebarProvider.showScrcpySidebar(true, result.processId, result.windowId);
+            }
+            progress.report({ message: "Screen mirroring started in sidebar", increment: 100 });
+            return true;
+          } else {
+            throw new Error(result.message || "Failed to launch scrcpy in sidebar");
           }
-          return success;
         },
         progressContext,
         "launch-scrcpy"
@@ -1541,15 +1545,15 @@ Scrcpy: ${(scrcpyStatus == null ? void 0 : scrcpyStatus.found) ? "\u2705 Found" 
   async ejectScrcpySidebarCommand() {
     try {
       this.logger.info("Ejecting scrcpy from sidebar to external window");
-      if (this.processManager.isScrcpyRunning()) {
-        await this.stopScrcpyCommand();
-        await new Promise((resolve) => setTimeout(resolve, 1e3));
+      const result = await this.processManager.ejectScrcpyFromSidebar();
+      if (result.success) {
+        if (this.sidebarProvider) {
+          this.sidebarProvider.showScrcpySidebar(false);
+        }
+        vscode2.window.showInformationMessage("Scrcpy ejected to external window");
+      } else {
+        vscode2.window.showErrorMessage(`Failed to eject scrcpy: ${result.message}`);
       }
-      await this.launchScrcpyCommand();
-      if (this.sidebarProvider) {
-        this.sidebarProvider.showScrcpySidebar(false);
-      }
-      vscode2.window.showInformationMessage("Scrcpy ejected to external window");
     } catch (error) {
       this.logger.error("Failed to eject scrcpy sidebar", error instanceof Error ? error : void 0);
       vscode2.window.showErrorMessage("Failed to eject scrcpy from sidebar");
@@ -2417,29 +2421,37 @@ var _ProcessManager = class _ProcessManager {
   }
   /**
    * Launch scrcpy optimized for sidebar embedding
+   * Creates a small, always-on-top window positioned to appear as part of the sidebar
    */
   async launchScrcpySidebar(options) {
     try {
       const sidebarOptions = {
         ...options,
-        maxSize: 400,
-        // Smaller resolution for sidebar
-        bitrate: 2e6
-        // Lower bitrate for better performance in sidebar
+        maxSize: 300,
+        // Small resolution for sidebar
+        bitrate: 15e5
+        // Lower bitrate for better performance
       };
       this.logger.info("Launching scrcpy optimized for sidebar");
       const process2 = await this.launchScrcpyWithCustomArgs(sidebarOptions, [
-        "--window-width=300",
-        "--window-height=400",
-        "--window-x=0",
-        "--window-y=0",
+        "--window-width=280",
+        "--window-height=350",
+        "--window-x=50",
+        "--window-y=100",
         "--stay-awake",
-        "--window-title=DroidBridge Sidebar",
-        "--always-on-top"
+        "--window-title=DroidBridge Mirror",
+        "--always-on-top",
+        "--window-borderless",
+        // Remove window decorations for cleaner look
+        "--disable-screensaver"
       ]);
+      this.scrcpyState.running = true;
+      this.scrcpyState.process = process2;
+      this.scrcpyState.startTime = /* @__PURE__ */ new Date();
+      this.scrcpyState.options = sidebarOptions;
       return {
         success: true,
-        message: "Scrcpy launched for sidebar",
+        message: "Scrcpy launched in sidebar mode",
         processId: process2.pid,
         windowId: `scrcpy-sidebar-${process2.pid}`
       };
@@ -2448,6 +2460,38 @@ var _ProcessManager = class _ProcessManager {
       return {
         success: false,
         message: error instanceof Error ? error.message : "Unknown error launching scrcpy for sidebar"
+      };
+    }
+  }
+  /**
+   * Check if scrcpy is running in sidebar mode
+   */
+  isScrcpySidebarRunning() {
+    return this.scrcpyState.running && !!this.scrcpyState.process;
+  }
+  /**
+   * Eject scrcpy from sidebar to a regular window
+   */
+  async ejectScrcpyFromSidebar() {
+    try {
+      if (!this.isScrcpySidebarRunning()) {
+        return {
+          success: false,
+          message: "No scrcpy instance running in sidebar"
+        };
+      }
+      await this.stopScrcpy();
+      await new Promise((resolve) => setTimeout(resolve, 1e3));
+      await this.launchScrcpy(this.scrcpyState.options);
+      return {
+        success: true,
+        message: "Scrcpy ejected to external window"
+      };
+    } catch (error) {
+      this.logger.error("Failed to eject scrcpy from sidebar", error instanceof Error ? error : void 0);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to eject scrcpy"
       };
     }
   }
@@ -4292,24 +4336,32 @@ var _DroidBridgeSidebarProvider = class _DroidBridgeSidebarProvider {
           </div>
 
           <!-- Scrcpy Sidebar Mirror Section -->
-          <div class="section" id="scrcpy-sidebar-section" ${this.scrcpySidebarState.isRunning ? "" : 'style="display: none;"'}>
+          <div class="section" id="scrcpy-sidebar-section">
             <div class="section-header">
               <span class="codicon codicon-device-mobile section-icon"></span>
-              <h3>Scrcpy Mirror</h3>
+              <h3>Screen Mirror</h3>
               <div class="section-actions">
-                <button id="eject-scrcpy-btn" class="icon-button" title="Eject to External Window">
+                <button id="eject-scrcpy-btn" class="icon-button" title="Eject to External Window" ${this.scrcpySidebarState.isRunning ? "" : "disabled"}>
                   <span class="codicon codicon-window"></span>
                 </button>
-                <button id="close-scrcpy-btn" class="icon-button" title="Close Scrcpy">
+                <button id="close-scrcpy-btn" class="icon-button" title="Close Scrcpy" ${this.scrcpySidebarState.isRunning ? "" : "disabled"}>
                   <span class="codicon codicon-close"></span>
                 </button>
               </div>
             </div>
             <div class="section-content">
               <div id="scrcpy-container" class="scrcpy-mirror-container">
-                <div id="scrcpy-placeholder" class="scrcpy-placeholder">
+                <div id="scrcpy-placeholder" class="scrcpy-placeholder" ${this.scrcpySidebarState.isRunning ? 'style="display: none;"' : ""}>
                   <span class="codicon codicon-device-mobile"></span>
-                  <p>Scrcpy mirror will appear here when launched</p>
+                  <p>Screen mirroring appears here when launched</p>
+                  <p class="help-text">Click "Launch Scrcpy" above to start mirroring</p>
+                </div>
+                <div id="scrcpy-active" class="scrcpy-active" ${this.scrcpySidebarState.isRunning ? "" : 'style="display: none;"'}>
+                  <div class="scrcpy-status">
+                    <span class="codicon codicon-eye"></span>
+                    <span>Screen mirroring active</span>
+                  </div>
+                  <p class="help-text">Scrcpy window should appear positioned near the sidebar. Use the buttons above to eject or close.</p>
                 </div>
               </div>
             </div>

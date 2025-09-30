@@ -276,15 +276,19 @@ export class CommandManager {
             throw new Error('Scrcpy launch cancelled by user');
           }
           
-          progress.report({ message: 'Starting screen mirroring...' });
-          const success = await this.launchScrcpy();
+          progress.report({ message: 'Starting screen mirroring in sidebar...' });
+          const result = await this.processManager.launchScrcpySidebar();
           
-          if (success) {
-            progress.report({ message: 'Screen mirroring started', increment: 100 });
-            this.logger.showSuccess('✅ Scrcpy launched successfully');
+          if (result.success) {
+            // Update sidebar to show scrcpy is embedded
+            if (this.sidebarProvider) {
+              this.sidebarProvider.showScrcpySidebar(true, result.processId, result.windowId);
+            }
+            progress.report({ message: 'Screen mirroring started in sidebar', increment: 100 });
+            return true;
+          } else {
+            throw new Error(result.message || 'Failed to launch scrcpy in sidebar');
           }
-          
-          return success;
         },
         progressContext,
         'launch-scrcpy'
@@ -1006,21 +1010,18 @@ export class CommandManager {
     try {
       this.logger.info('Ejecting scrcpy from sidebar to external window');
       
-      // If scrcpy is already running in sidebar, stop it and launch in external window
-      if (this.processManager.isScrcpyRunning()) {
-        await this.stopScrcpyCommand();
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for cleanup
+      const result = await this.processManager.ejectScrcpyFromSidebar();
+      
+      if (result.success) {
+        // Update sidebar to show scrcpy is no longer embedded
+        if (this.sidebarProvider) {
+          this.sidebarProvider.showScrcpySidebar(false);
+        }
+        
+        vscode.window.showInformationMessage('Scrcpy ejected to external window');
+      } else {
+        vscode.window.showErrorMessage(`Failed to eject scrcpy: ${result.message}`);
       }
-      
-      // Launch scrcpy in external window
-      await this.launchScrcpyCommand();
-      
-      // Update sidebar to show scrcpy is no longer embedded
-      if (this.sidebarProvider) {
-        this.sidebarProvider.showScrcpySidebar(false);
-      }
-      
-      vscode.window.showInformationMessage('Scrcpy ejected to external window');
     } catch (error) {
       this.logger.error('Failed to eject scrcpy sidebar', error instanceof Error ? error : undefined);
       vscode.window.showErrorMessage('Failed to eject scrcpy from sidebar');
