@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", function () {
   setupEventListeners();
 
   const state = vscode.getState();
+  setupCollapsibleSections(state && state.sections);
   if (state) {
     updateUIState(state);
   }
@@ -231,6 +232,7 @@ function updateButtonStates() {
 
   const state = vscode.getState() || {};
   const isConnected = state.connectionStatus || false;
+  const hasDevice = isConnected || (state.availableDevices || []).length > 0;
   const isScrcpyRunning = state.scrcpyStatus || false;
 
   if (connectBtn) {
@@ -242,11 +244,11 @@ function updateButtonStates() {
   }
 
   if (launchScrcpyBtn) {
-    launchScrcpyBtn.disabled = isScrcpyRunning || !isConnected;
+    launchScrcpyBtn.disabled = isScrcpyRunning || !hasDevice;
   }
 
   if (launchScrcpyScreenOffBtn) {
-    launchScrcpyScreenOffBtn.disabled = isScrcpyRunning || !isConnected;
+    launchScrcpyScreenOffBtn.disabled = isScrcpyRunning || !hasDevice;
   }
 
   if (stopScrcpyBtn) {
@@ -273,6 +275,15 @@ function updateUIState(state) {
             ? ` (${state.currentIp}:${state.currentPort})`
             : "";
         statusText.textContent = `Connected${ipPort}`;
+      }
+    } else if ((state.availableDevices || []).length > 0) {
+      const devices = state.availableDevices;
+      connectionStatus.className = "status-indicator connected";
+      if (statusIcon) {
+        statusIcon.className = "codicon codicon-device-mobile status-icon";
+      }
+      if (statusText) {
+        statusText.textContent = devices.length === 1 ? `Device ready: ${devices[0]}` : `${devices.length} devices ready`;
       }
     } else {
       connectionStatus.className = "status-indicator disconnected";
@@ -336,6 +347,24 @@ function updateUIState(state) {
   updateButtonStates();
 }
 
+/**
+ * Restores each section's open state and remembers it when the user toggles one.
+ * @param {Record<string, boolean> | undefined} saved
+ */
+function setupCollapsibleSections(saved) {
+  document.querySelectorAll("details[data-section]").forEach((el) => {
+    const details = /** @type {HTMLDetailsElement} */ (el);
+    const key = details.dataset.section || "";
+    if (saved && key in saved) {
+      details.open = saved[key];
+    }
+    details.addEventListener("toggle", () => {
+      const current = vscode.getState() || {};
+      vscode.setState({ ...current, sections: { ...(current.sections || {}), [key]: details.open } });
+    });
+  });
+}
+
 function saveState() {
   const currentState = vscode.getState() || {};
   const newState = {
@@ -352,11 +381,13 @@ window.addEventListener("message", (event) => {
   switch (message.type) {
     case "updateState":
       const newState = {
+        ...(vscode.getState() || {}),
         connectionStatus: message.connectionStatus,
         scrcpyStatus: message.scrcpyStatus,
         currentIp: message.currentIp,
         currentPort: message.currentPort,
         connectionHistory: message.connectionHistory,
+        availableDevices: message.availableDevices || [],
       };
       vscode.setState(newState);
       updateUIState(newState);

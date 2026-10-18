@@ -3,6 +3,7 @@ import { CommandManager, ConfigManager, ProcessManager, BinaryManager, Logger } 
 import { DroidBridgeSidebarProvider } from './providers';
 import { MirrorController } from './providers/mirrorController';
 import { registerMcp } from './providers/mcpProvider';
+import { DeviceTracker } from './managers/deviceTracker';
 import { ExtensionState } from './types';
 import { ThemeManager } from './utils/themeManager';
 import './providers/sidebarProvider';
@@ -103,6 +104,11 @@ function registerVSCodeComponents(context: vscode.ExtensionContext): void {
   commandManager.registerCommands(context);
   mirrorController.registerCommands(context);
   registerMcp(context, binaryManager, configManager, logger);
+
+  const deviceTracker = new DeviceTracker(() => binaryManager.getAdbPath());
+  deviceTracker.onDidChange(devices => sidebarProvider.setAvailableDevices(devices));
+  context.subscriptions.push(deviceTracker, configManager.onConfigurationChanged(() => deviceTracker.restart()));
+  deviceTracker.start();
   logger.debug('All commands registered');
   
   logger.info('All VSCode components registered successfully');

@@ -200,7 +200,7 @@ export class CommandManager {
         return;
       }
 
-      if (!this.processManager.isDeviceConnected()) {
+      if (!(await this.hasAnyDevice())) {
         const shouldConnect = await vscode.window.showWarningMessage(
           'No device is connected. Would you like to connect to a device first?',
           { title: 'Connect Device' },
@@ -263,7 +263,7 @@ export class CommandManager {
         return;
       }
 
-      if (!this.processManager.isDeviceConnected()) {
+      if (!(await this.hasAnyDevice())) {
         const shouldConnect = await vscode.window.showWarningMessage(
           'No device is connected. Would you like to connect to a device first?',
           { title: 'Connect Device' },
@@ -520,6 +520,15 @@ export class CommandManager {
       );
       return false;
     }
+  }
+
+  /** True for a wireless connection made here, or any USB device or emulator adb can see. */
+  private async hasAnyDevice(): Promise<boolean> {
+    if (this.processManager.isDeviceConnected()) {
+      return true;
+    }
+    const serials = await this.processManager.getDeviceSerials().catch(() => []);
+    return (serials ?? []).length > 0;
   }
 
   isDeviceConnected(): boolean {

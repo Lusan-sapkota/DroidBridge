@@ -21,6 +21,7 @@ suite('CommandManager Test Suite', () => {
     binaryManager = sandbox.createStubInstance(BinaryManager);
     logger = sandbox.createStubInstance(Logger);
     processManager = sandbox.createStubInstance(ProcessManager);
+    (processManager.getDeviceSerials as sinon.SinonStub).resolves([]);
     configManager = sandbox.createStubInstance(ConfigManager);
     commandManager = new CommandManager(processManager, configManager, logger, binaryManager);
   });

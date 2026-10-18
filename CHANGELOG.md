@@ -17,6 +17,8 @@ First public release.
 - MCP server for AI agents (screenshot, UI tree, tap, swipe, type, keys, apps, logcat, APK install, shell), available to GitHub Copilot agent mode, with a setup command for Claude Code, Cursor and other clients
 - Native scrcpy window option with resolution, bitrate and always-on-top settings
 - Wireless ADB connect and disconnect, pairing with a code, and connection history
+- Automatic detection of USB devices and emulators, shown as ready in the sidebar
+- Collapsible sidebar sections that remember their state
 - Detection of installed ADB and scrcpy, with download of missing binaries
 - Light, dark and high contrast theme support
 

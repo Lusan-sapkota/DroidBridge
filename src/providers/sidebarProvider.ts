@@ -18,6 +18,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   private themeChangeListener?: vscode.Disposable;
   private connectionHistory: ConnectionHistoryManager;
   private mirror?: MirrorController;
+  private availableDevices: string[] = [];
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -193,11 +194,12 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       <body class="${themeCssClass}">
         <div class="container ${themeCssClass}">
           <!-- Connect Section -->
-          <div class="section">
-            <div class="section-header">
+          <details class="section" data-section="connect" open>
+            <summary class="section-header">
               <img src="${plugIconUri}" alt="Connect" width="16" height="16" class="section-icon" />
               <h3>Connect</h3>
-            </div>
+              <span class="codicon codicon-chevron-right section-chevron" aria-hidden="true"></span>
+            </summary>
             <div class="section-content">
               <div class="status-indicator" id="connection-status">
                 <span class="codicon codicon-x status-icon"></span>
@@ -225,24 +227,26 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
                 </button>
               </div>
             </div>
-          </div>
+          </details>
 
-          <div class="section">
-            <div class="section-header">
+          <details class="section" data-section="mirror" open>
+            <summary class="section-header">
               <span class="codicon codicon-device-mobile section-icon"></span>
               <h3>Screen Mirror</h3>
-            </div>
+              <span class="codicon codicon-chevron-right section-chevron" aria-hidden="true"></span>
+            </summary>
             <div class="section-content">
               ${getMirrorMarkup(false)}
             </div>
-          </div>
+          </details>
 
           <!-- Scrcpy Section -->
-          <div class="section">
-            <div class="section-header">
+          <details class="section" data-section="native">
+            <summary class="section-header">
               <img src="${deviceIconUri}" alt="Device" width="16" height="16" class="section-icon" />
               <h3>Native Window</h3>
-            </div>
+              <span class="codicon codicon-chevron-right section-chevron" aria-hidden="true"></span>
+            </summary>
             <div class="section-content">
               <div class="status-indicator" id="scrcpy-status">
                 <span class="codicon codicon-stop status-icon"></span>
@@ -264,14 +268,15 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
                 </button>
               </div>
             </div>
-          </div>
+          </details>
 
           <!-- Pairing Section -->
-          <div class="section">
-            <div class="section-header">
+          <details class="section" data-section="pairing">
+            <summary class="section-header">
               <span class="codicon codicon-link section-icon"></span>
               <h3>Wireless Pairing</h3>
-            </div>
+              <span class="codicon codicon-chevron-right section-chevron" aria-hidden="true"></span>
+            </summary>
             <div class="section-content">
               <p class="help-text">
                 <strong>Quick Steps:</strong>
@@ -301,20 +306,21 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
                 </button>
               </div>
             </div>
-          </div>
+          </details>
 
           <!-- Connection History Section -->
-          <div class="section">
-            <div class="section-header">
+          <details class="section" data-section="history" open>
+            <summary class="section-header">
               <span class="codicon codicon-history section-icon"></span>
               <h3>Recent Connections</h3>
-            </div>
+              <span class="codicon codicon-chevron-right section-chevron" aria-hidden="true"></span>
+            </summary>
             <div class="section-content">
               <div id="connection-history">
                 ${this.generateHistoryHtml()}
               </div>
             </div>
-          </div>
+          </details>
 
           <!-- Logs Section -->
           <div class="section">
@@ -347,9 +353,15 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         scrcpyStatus: this.scrcpyStatus,
         currentIp: this.currentIp,
         currentPort: this.currentPort,
-        connectionHistory: this.connectionHistory.getRecentConnections()
+        connectionHistory: this.connectionHistory.getRecentConnections(),
+        availableDevices: this.availableDevices
       });
     }
+  }
+
+  setAvailableDevices(devices: string[]): void {
+    this.availableDevices = devices;
+    this._updateWebviewState();
   }
 
   setMirrorController(mirror: MirrorController): void {

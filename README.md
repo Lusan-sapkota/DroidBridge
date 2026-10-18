@@ -18,7 +18,7 @@
 ---
 
 <p align="center">
-  <img src="images/sidebar-mirror.png" alt="DroidBridge sidebar with a live tablet mirror" width="320">
+  <img src="images/sidebar-mirror.png" alt="DroidBridge sidebar with a live tablet mirror" width="300">
   <img src="images/editor-tab-mirror.png" alt="Mirror popped out into an editor tab" width="560">
 </p>
 
@@ -54,6 +54,8 @@ DroidBridge transforms your VS Code into a powerful Android development hub with
 
 ### **Native VS Code Integration**
 - **Theme Adaptive**: Automatically matches VS Code's light/dark themes
+- **Tidy Sidebar**: Collapsible sections that remember whether you opened or closed them
+- **USB and Emulators**: Detects USB devices and emulators automatically, no IP needed
 - **Command Palette**: Access all features via `Ctrl+Shift+P`
 - **Comprehensive Logging**: Detailed logs for troubleshooting
 
