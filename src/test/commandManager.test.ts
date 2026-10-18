@@ -39,7 +39,7 @@ suite('CommandManager Test Suite', () => {
       
       commandManager.registerCommands(context);
 
-      assert.strictEqual(registerCommandStub.callCount, 12);
+      assert.strictEqual(registerCommandStub.callCount, 10);
       
       const commandNames = registerCommandStub.getCalls().map(call => call.args[0]);
       assert.ok(commandNames.includes('droidbridge.connectDevice'));
@@ -52,7 +52,7 @@ suite('CommandManager Test Suite', () => {
       assert.ok(commandNames.includes('droidbridge.downloadBinaries'));
       assert.ok(commandNames.includes('droidbridge.refreshBinaries'));
 
-      assert.strictEqual(context.subscriptions.length, 12);
+      assert.strictEqual(context.subscriptions.length, 10);
     });
 
     test('should log successful command registration', () => {

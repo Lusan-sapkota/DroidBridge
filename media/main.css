@@ -352,72 +352,22 @@ button:disabled {
 
 }
 
-@media (pointer: coarse) {
-  button,
-  .icon-button,
-  .input-group input {
-    min-height: 36px;
-  }
-
-  .history-connect-btn,
-  .history-remove-btn {
-    width: 36px;
-    min-height: 36px;
-  }
-}
-
-.scrcpy-mirror-container {
-  width: 100%;
-  border: 1px solid var(--vscode-sideBarSectionHeader-background);
-  border-radius: 4px;
-  background: var(--vscode-editor-background);
-  position: relative;
-  overflow: hidden;
-}
-
-.scrcpy-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 12px;
-  color: var(--vscode-descriptionForeground);
-  text-align: center;
-  gap: 12px;
-}
-
-.scrcpy-placeholder .codicon {
-  font-size: 32px;
-  opacity: 0.6;
-}
-
-.scrcpy-placeholder p {
-  margin: 0;
-  opacity: 0.8;
-}
-
-.section-actions {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-
 .icon-button {
   background: none;
-  border: 1px solid var(--vscode-button-border);
-  color: var(--vscode-button-foreground);
-  padding: 4px 6px;
-  border-radius: 2px;
+  border: 1px solid transparent;
+  color: var(--vscode-foreground);
+  padding: 4px;
+  border-radius: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  min-height: 28px;
+  min-width: 26px;
+  min-height: 26px;
 }
 
-.icon-button:hover {
-  background: var(--vscode-button-hoverBackground);
+.icon-button:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
 }
 
 .icon-button:disabled {
@@ -425,29 +375,116 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.icon-button:disabled:hover {
-  background: none;
+.mirror {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.scrcpy-active {
+.mirror-toolbar,
+.mirror-toolbar > span,
+.mirror-toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.mirror-toolbar-end {
+  margin-left: auto;
+}
+
+.mirror-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  overflow: hidden;
+  border: 1px solid var(--droidbridge-section-border);
+  border-radius: 4px;
+  background: var(--vscode-editor-background);
+}
+
+#mirror-canvas {
+  display: none;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 80vh;
+  touch-action: none;
+  cursor: pointer;
+  outline: none;
+}
+
+#mirror-canvas:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+.mirror-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
   padding: 24px 12px;
-  color: var(--droidbridge-success-color);
   text-align: center;
-  gap: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--vscode-descriptionForeground);
 }
 
-.scrcpy-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  color: var(--droidbridge-success-color);
+.mirror-placeholder > .codicon {
+  font-size: 32px;
+  opacity: 0.6;
 }
 
-.scrcpy-status .codicon {
-  font-size: 16px;
+.mirror-when-live,
+.mirror-when-idle,
+.mirror-when-elsewhere {
+  display: none !important;
+}
+
+.mirror[data-state="running"] .mirror-when-live,
+.mirror[data-state="idle"] .mirror-when-idle,
+.mirror[data-state="elsewhere"] .mirror-when-elsewhere {
+  display: flex !important;
+}
+
+.mirror[data-state="running"] #mirror-canvas {
+  display: block;
+}
+
+.mirror[data-state="running"] .mirror-placeholder {
+  display: none;
+}
+
+body.mirror-panel {
+  padding: 8px;
+}
+
+body.mirror-panel .mirror {
+  height: calc(100vh - 16px);
+}
+
+body.mirror-panel .mirror-stage {
+  flex: 1;
+  min-height: 0;
+}
+
+body.mirror-panel #mirror-canvas {
+  max-height: calc(100vh - 60px);
+}
+
+@media (pointer: coarse) {
+  button,
+  .icon-button,
+  .input-group input {
+    min-height: 36px;
+  }
+
+  .icon-button,
+  .history-connect-btn,
+  .history-remove-btn {
+    width: 36px;
+    min-height: 36px;
+  }
 }

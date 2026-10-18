@@ -43,12 +43,8 @@ export class CommandManager {
       
       vscode.commands.registerCommand('droidbridge.checkBinaries', () => this.checkBinariesCommand()),
       vscode.commands.registerCommand('droidbridge.downloadBinaries', () => this.downloadBinariesCommand()),
-      vscode.commands.registerCommand('droidbridge.refreshBinaries', () => this.refreshBinariesCommand())
-      ,
+      vscode.commands.registerCommand('droidbridge.refreshBinaries', () => this.refreshBinariesCommand()),
       vscode.commands.registerCommand('droidbridge.pairDevice', (hostPort?: string, code?: string) => this.pairDeviceCommand(hostPort, code)),
-      
-      vscode.commands.registerCommand('droidbridge.ejectScrcpySidebar', () => this.ejectScrcpySidebarCommand()),
-      vscode.commands.registerCommand('droidbridge.embedScrcpySidebar', () => this.embedScrcpySidebarCommand())
     ];
 
     commands.forEach(command => context.subscriptions.push(command));
@@ -231,17 +227,17 @@ export class CommandManager {
             throw new Error('Scrcpy launch cancelled by user');
           }
           
-          progress.report({ message: 'Starting screen mirroring in sidebar...' });
+          progress.report({ message: 'Opening scrcpy window...' });
           const result = await this.processManager.launchScrcpySidebar(this.configManager.getScrcpyOptions());
           
           if (result.success) {
             if (this.sidebarProvider) {
-              this.sidebarProvider.showScrcpySidebar(true, result.processId, result.windowId);
+              this.sidebarProvider.updateScrcpyStatus(true);
             }
-            progress.report({ message: 'Screen mirroring started in sidebar', increment: 100 });
+            progress.report({ message: 'Scrcpy window opened', increment: 100 });
             return true;
           } else {
-            throw new Error(result.message || 'Failed to launch scrcpy in sidebar');
+            throw new Error(result.message || 'Failed to launch scrcpy');
           }
         },
         progressContext,
@@ -342,9 +338,6 @@ export class CommandManager {
             progress.report({ message: 'Screen mirroring stopped', increment: 100 });
             this.logger.showSuccess('Scrcpy stopped successfully');
             
-            if (this.sidebarProvider) {
-              this.sidebarProvider.showScrcpySidebar(false);
-            }
           }
           
           return success;
@@ -835,58 +828,6 @@ export class CommandManager {
     } catch (e) {
       this.logger.error('Pairing command failed', e as Error);
       vscode.window.showErrorMessage('Pairing failed. See logs.');
-    }
-  }
-
-  private async ejectScrcpySidebarCommand(): Promise<void> {
-    try {
-      this.logger.info('Ejecting scrcpy from sidebar to external window');
-      
-      const result = await this.processManager.ejectScrcpyFromSidebar();
-      
-      if (result.success) {
-        if (this.sidebarProvider) {
-          this.sidebarProvider.showScrcpySidebar(false);
-        }
-        
-        vscode.window.showInformationMessage('Scrcpy ejected to external window');
-      } else {
-        vscode.window.showErrorMessage(`Failed to eject scrcpy: ${result.message}`);
-      }
-    } catch (error) {
-      this.logger.error('Failed to eject scrcpy sidebar', error instanceof Error ? error : undefined);
-      vscode.window.showErrorMessage('Failed to eject scrcpy from sidebar');
-    }
-  }
-
-  private async embedScrcpySidebarCommand(): Promise<void> {
-    try {
-      this.logger.info('Embedding scrcpy into sidebar');
-      
-      if (!this.processManager.isDeviceConnected()) {
-        vscode.window.showWarningMessage('Please connect to a device first');
-        return;
-      }
-      
-      if (this.processManager.isScrcpyRunning()) {
-        await this.stopScrcpyCommand();
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for cleanup
-      }
-      
-      const result = await this.processManager.launchScrcpySidebar(this.configManager.getScrcpyOptions());
-      
-      if (result.success) {
-        if (this.sidebarProvider) {
-          this.sidebarProvider.showScrcpySidebar(true, result.processId, result.windowId);
-        }
-        
-        vscode.window.showInformationMessage('Scrcpy embedded in sidebar');
-      } else {
-        vscode.window.showErrorMessage(`Failed to embed scrcpy: ${result.message}`);
-      }
-    } catch (error) {
-      this.logger.error('Failed to embed scrcpy in sidebar', error instanceof Error ? error : undefined);
-      vscode.window.showErrorMessage('Failed to embed scrcpy in sidebar');
     }
   }
 

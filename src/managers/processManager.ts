@@ -696,37 +696,6 @@ export class ProcessManager {
     }
   }
 
-  isScrcpySidebarRunning(): boolean {
-    return this.scrcpyState.running && !!this.scrcpyState.process;
-  }
-
-  async ejectScrcpyFromSidebar(): Promise<{ success: boolean; message?: string }> {
-    try {
-      if (!this.isScrcpySidebarRunning()) {
-        return {
-          success: false,
-          message: "No scrcpy instance running in sidebar"
-        };
-      }
-
-      const options = this.scrcpyState.options;
-      await this.stopScrcpy();
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      await this.launchScrcpy({ ...options, alwaysOnTop: false });
-      
-      return {
-        success: true,
-        message: "Scrcpy ejected to external window"
-      };
-    } catch (error) {
-      this.logger.error("Failed to eject scrcpy from sidebar", error instanceof Error ? error : undefined);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "Failed to eject scrcpy"
-      };
-    }
-  }
-
   private async launchScrcpyWithCustomArgs(options?: ScrcpyOptions, additionalArgs: string[] = []): Promise<ChildProcess> {
     if (this.isScrcpyRunning()) {
       throw new Error(
@@ -835,7 +804,7 @@ export class ProcessManager {
     });
   }
 
-  private async getDeviceSelectionArgs(): Promise<string[]> {
+  async getDeviceSelectionArgs(): Promise<string[]> {
     try {
       const result = await this.executeAdbCommand(["devices"]);
       
@@ -865,6 +834,11 @@ export class ProcessManager {
       this.logger.error('Failed to get device selection args:', error instanceof Error ? error : new Error(String(error)));
       return []; // Continue without device selection
     }
+  }
+
+  async getDeviceSerials(): Promise<string[]> {
+    const result = await this.executeAdbCommand(["devices"]);
+    return result.success ? this.parseAllDevices(result.stdout) : [];
   }
 
   private parseAllDevices(stdout: string): string[] {

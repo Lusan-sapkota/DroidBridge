@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CommandManager, ConfigManager, ProcessManager, BinaryManager, Logger } from './managers';
 import { DroidBridgeSidebarProvider } from './providers';
+import { MirrorController } from './providers/mirrorController';
 import { ExtensionState } from './types';
 import { ThemeManager } from './utils/themeManager';
 import './providers/sidebarProvider';
@@ -13,6 +14,7 @@ let configManager: ConfigManager;
 let binaryManager: BinaryManager;
 let sidebarProvider: DroidBridgeSidebarProvider;
 let themeManager: ThemeManager;
+let mirrorController: MirrorController;
 
 export function activate(context: vscode.ExtensionContext) {
   logger = new Logger();
@@ -65,6 +67,9 @@ function initializeManagers(context: vscode.ExtensionContext): void {
   logger.debug('CommandManager initialized');
   
   commandManager.setSidebarProvider(sidebarProvider);
+
+  mirrorController = new MirrorController(vscode.Uri.file(context.extensionPath), processManager, binaryManager, configManager, logger);
+  sidebarProvider.setMirrorController(mirrorController);
   logger.debug('Manager cross-references established');
 }
 
@@ -95,6 +100,7 @@ function registerVSCodeComponents(context: vscode.ExtensionContext): void {
   logger.debug('Sidebar webview provider registered');
 
   commandManager.registerCommands(context);
+  mirrorController.registerCommands(context);
   logger.debug('All commands registered');
   
   logger.info('All VSCode components registered successfully');

@@ -33,7 +33,7 @@ Welcome to the comprehensive documentation for DroidBridge - the VS Code extensi
 - **[Main Repository](https://github.com/Lusan-sapkota/DroidBridge)** - Source code and issues
 - **[Binaries Repository](https://github.com/Lusan-sapkota/DroidBridge-Binaries)** - ADB and scrcpy binaries
 - **[Author Portfolio](https://lusansapkota.com.np)** - Lusan Sapkota's portfolio
-- **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge)** - Extension listing
+- **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=lusansapkota.droidbridge)** - Extension listing
 
 ## Quick Navigation
 
@@ -75,6 +75,6 @@ DroidBridge transforms Android development by bringing device management directl
 
 **Made with by [Lusan Sapkota](https://lusansapkota.com.np)**
 
-[Star on GitHub](https://github.com/Lusan-sapkota/DroidBridge) | [Install from Marketplace](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge) | [Visit Portfolio](https://lusansapkota.com.np)
+[Star on GitHub](https://github.com/Lusan-sapkota/DroidBridge) | [Install from Marketplace](https://marketplace.visualstudio.com/items?itemName=lusansapkota.droidbridge) | [Visit Portfolio](https://lusansapkota.com.np)
 
 </div>

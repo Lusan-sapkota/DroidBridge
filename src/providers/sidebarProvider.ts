@@ -2,12 +2,7 @@ import * as vscode from 'vscode';
 import { ConfigManager } from '../managers/configManager';
 import { ThemeManager, ThemeKind } from '../utils/themeManager';
 import { ConnectionHistoryManager, ConnectionHistoryEntry } from '../managers/connectionHistory';
-
-interface ScrcpySidebarState {
-  isRunning: boolean;
-  processId?: number;
-  windowId?: string;
-}
+import { getMirrorMarkup, MirrorController } from './mirrorController';
 
 export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'droidbridge-sidebar';
@@ -22,7 +17,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   private themeManager: ThemeManager;
   private themeChangeListener?: vscode.Disposable;
   private connectionHistory: ConnectionHistoryManager;
-  private scrcpySidebarState: ScrcpySidebarState = { isRunning: false };
+  private mirror?: MirrorController;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -94,6 +89,9 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       webviewView.webview.html = this._getSimpleHtmlForWebview(webviewView.webview);
     }
 
+    this.mirror?.attachSidebar(webviewView.webview);
+    webviewView.onDidDispose(() => this.mirror?.attachSidebar(undefined));
+
     webviewView.webview.onDidReceiveMessage(
       message => {
         switch (message.type) {
@@ -138,12 +136,8 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
               vscode.commands.executeCommand('droidbridge.pairDevice', hostPort, message.code);
             }
             break;
-          case 'ejectScrcpySidebar':
-            vscode.commands.executeCommand('droidbridge.ejectScrcpySidebar');
-            break;
-          case 'embedScrcpySidebar':
-            vscode.commands.executeCommand('droidbridge.embedScrcpySidebar');
-            break;
+          default:
+            this.mirror?.handleMessage(message, webviewView.webview);
         }
       },
       undefined,
@@ -157,6 +151,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css'));
     const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
     const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'codicons', 'codicon.css'));
+    const mirrorScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'mirror.js'));
 
     let plugIconUri, deviceIconUri;
     try {
@@ -232,11 +227,21 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             </div>
           </div>
 
+          <div class="section">
+            <div class="section-header">
+              <span class="codicon codicon-device-mobile section-icon"></span>
+              <h3>Screen Mirror</h3>
+            </div>
+            <div class="section-content">
+              ${getMirrorMarkup(false)}
+            </div>
+          </div>
+
           <!-- Scrcpy Section -->
           <div class="section">
             <div class="section-header">
               <img src="${deviceIconUri}" alt="Device" width="16" height="16" class="section-icon" />
-              <h3>Scrcpy</h3>
+              <h3>Native Window</h3>
             </div>
             <div class="section-content">
               <div class="status-indicator" id="scrcpy-status">
@@ -257,38 +262,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
                   <span class="codicon codicon-stop"></span>
                   Stop Scrcpy
                 </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Scrcpy Sidebar Mirror Section -->
-          <div class="section" id="scrcpy-sidebar-section">
-            <div class="section-header">
-              <span class="codicon codicon-device-mobile section-icon"></span>
-              <h3>Screen Mirror</h3>
-              <div class="section-actions">
-                <button id="eject-scrcpy-btn" class="icon-button" title="Release from always-on-top" ${this.scrcpySidebarState.isRunning ? '' : 'disabled'}>
-                  <span class="codicon codicon-window"></span>
-                </button>
-                <button id="close-scrcpy-btn" class="icon-button" title="Close Scrcpy" ${this.scrcpySidebarState.isRunning ? '' : 'disabled'}>
-                  <span class="codicon codicon-close"></span>
-                </button>
-              </div>
-            </div>
-            <div class="section-content">
-              <div id="scrcpy-container" class="scrcpy-mirror-container">
-                <div id="scrcpy-placeholder" class="scrcpy-placeholder" ${this.scrcpySidebarState.isRunning ? 'style="display: none;"' : ''}>
-                  <span class="codicon codicon-device-mobile"></span>
-                  <p>Screen mirroring appears here when launched</p>
-                  <p class="help-text">Click "Launch Scrcpy" above to start mirroring</p>
-                </div>
-                <div id="scrcpy-active" class="scrcpy-active" ${this.scrcpySidebarState.isRunning ? '' : 'style="display: none;"'}>
-                  <div class="scrcpy-status">
-                    <span class="codicon codicon-eye"></span>
-                    <span>Screen mirroring active</span>
-                  </div>
-                  <p class="help-text">The mirror window follows the device aspect ratio and rotation, and can be resized freely. Use the buttons above to release it from always-on-top or close it.</p>
-                </div>
               </div>
             </div>
           </div>
@@ -355,6 +328,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         </div>
 
         <script nonce="${nonce}" src="${scriptUri}"></script>
+        <script nonce="${nonce}" src="${mirrorScriptUri}"></script>
       </body>
       </html>`;
   }
@@ -373,27 +347,16 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         scrcpyStatus: this.scrcpyStatus,
         currentIp: this.currentIp,
         currentPort: this.currentPort,
-        connectionHistory: this.connectionHistory.getRecentConnections(),
-        scrcpySidebar: this.scrcpySidebarState
+        connectionHistory: this.connectionHistory.getRecentConnections()
       });
     }
   }
 
-  showScrcpySidebar(isRunning: boolean, processId?: number, windowId?: string): void {
-    this.scrcpySidebarState = {
-      isRunning,
-      processId,
-      windowId
-    };
-
-    if (this._view) {
-      this._view.webview.postMessage({
-        type: 'scrcpySidebarUpdate',
-        state: this.scrcpySidebarState
-      });
-      this._updateWebviewState();
-    }
+  setMirrorController(mirror: MirrorController): void {
+    this.mirror = mirror;
+    mirror.attachSidebar(this._view?.webview);
   }
+
 
   private _getSimpleHtmlForWebview(webview: vscode.Webview) {
     const nonce = getNonce();
@@ -662,7 +625,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     this.connectionStatus = false;
     this.scrcpyStatus = false;
     this.loadDefaultValues(); // Reload defaults instead of clearing
-    this.scrcpySidebarState = { isRunning: false };
     this._updateWebviewState();
   }
 
@@ -697,13 +659,12 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     this.refresh();
   }
 
-  getCurrentState(): { connectionStatus: boolean; scrcpyStatus: boolean; currentIp: string; currentPort: string; scrcpySidebar: ScrcpySidebarState } {
+  getCurrentState(): { connectionStatus: boolean; scrcpyStatus: boolean; currentIp: string; currentPort: string } {
     return {
       connectionStatus: this.connectionStatus,
       scrcpyStatus: this.scrcpyStatus,
       currentIp: this.currentIp,
-      currentPort: this.currentPort,
-      scrcpySidebar: this.scrcpySidebarState
+      currentPort: this.currentPort
     };
   }
 

@@ -35,7 +35,7 @@
     "url": "https://github.com/Lusan-sapkota/DroidBridge/issues"
   },
   "homepage": "https://github.com/Lusan-sapkota/DroidBridge#readme",
-  "publisher": "LusanSapkota",
+  "publisher": "lusansapkota",
   "galleryBanner": {
     "color": "#1e1e1e",
     "theme": "dark"
@@ -97,14 +97,28 @@
         "category": "DroidBridge"
       },
       {
-        "command": "droidbridge.ejectScrcpySidebar",
-        "title": "Eject Scrcpy from Sidebar",
-        "category": "DroidBridge"
+        "command": "droidbridge.startMirror",
+        "title": "Start Screen Mirror",
+        "category": "DroidBridge",
+        "icon": "$(play)"
       },
       {
-        "command": "droidbridge.embedScrcpySidebar",
-        "title": "Embed Scrcpy in Sidebar",
-        "category": "DroidBridge"
+        "command": "droidbridge.stopMirror",
+        "title": "Stop Screen Mirror",
+        "category": "DroidBridge",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "droidbridge.openMirrorInEditor",
+        "title": "Open Screen Mirror in Editor Tab",
+        "category": "DroidBridge",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "droidbridge.openMirrorNative",
+        "title": "Open Screen Mirror in Native Window",
+        "category": "DroidBridge",
+        "icon": "$(window)"
       }
     ],
     "views": {
@@ -167,6 +181,31 @@
           "description": "Keep the mirror window above other windows."
         }
       }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "droidbridge.startMirror",
+          "when": "view == droidbridge-sidebar && !droidbridge.mirrorRunning",
+          "group": "navigation@1"
+        },
+        {
+          "command": "droidbridge.stopMirror",
+          "when": "view == droidbridge-sidebar && droidbridge.mirrorRunning",
+          "group": "navigation@1"
+        },
+        {
+          "command": "droidbridge.openMirrorInEditor",
+          "when": "view == droidbridge-sidebar",
+          "group": "navigation@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "droidbridge.stopMirror",
+          "when": "droidbridge.mirrorRunning"
+        }
+      ]
     }
   },
   "scripts": {

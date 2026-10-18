@@ -8,11 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Tablet support: the mirror window follows the device aspect ratio and rotation
+- Live, interactive screen mirror embedded in the sidebar (tap, swipe, scroll, type, Back, Home, Recents, Rotate)
+- Pop the mirror out into a resizable editor tab and dock it back to the sidebar
+- Bundled scrcpy-server 3.3.4, so the embedded mirror needs only ADB
+- Tablet support: the mirror keeps the device aspect ratio and follows rotation
 - Settings for mirror resolution, bitrate and always-on-top
 
 ### Fixed
 - Mirror window was locked to a fixed 280x350 borderless size and could not be resized
+- Icon buttons were invisible in light themes
+
+### Removed
+- Eject Scrcpy from Sidebar and Embed Scrcpy in Sidebar commands, replaced by the embedded mirror
 - Use `--video-bit-rate` for scrcpy 2.x and later
 - Codicon icons not rendering in the sidebar
 - Pairing inputs squeezing instead of wrapping in narrow sidebars

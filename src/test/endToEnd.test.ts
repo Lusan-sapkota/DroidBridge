@@ -40,7 +40,8 @@ suite('End-to-End Test Suite', () => {
     };
 
     mockWebviewView = {
-      webview: mockWebview
+      webview: mockWebview,
+      onDidDispose: () => ({ dispose: () => undefined })
     };
 
     sandbox.stub(vscode.window, 'createOutputChannel').returns(mockOutputChannel);

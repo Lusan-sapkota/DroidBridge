@@ -7,8 +7,8 @@
  * @property {function(): any} getState - Get the webview state
  */
 
-// @ts-ignore - acquireVsCodeApi is provided by VSCode webview runtime
-const vscode = acquireVsCodeApi();
+// @ts-ignore - acquireVsCodeApi is provided by VSCode webview runtime and may only be called once
+const vscode = window.__droidbridgeApi || (window.__droidbridgeApi = acquireVsCodeApi());
 
 // DOM elements (annotated for @ts-check)
 /** @type {HTMLInputElement | null} */ let ipInput = null;
@@ -26,12 +26,6 @@ const vscode = acquireVsCodeApi();
 /** @type {HTMLInputElement | null} */ let pairPortInput = null;
 /** @type {HTMLInputElement | null} */ let pairCodeInput = null;
 /** @type {HTMLButtonElement | null} */ let pairManualBtn = null;
-/** @type {HTMLButtonElement | null} */ let ejectScrcpyBtn = null;
-/** @type {HTMLButtonElement | null} */ let closeScrcpyBtn = null;
-/** @type {HTMLElement | null} */ let scrcpySidebarSection = null;
-/** @type {HTMLElement | null} */ let scrcpyContainer = null;
-/** @type {HTMLElement | null} */ let scrcpyPlaceholder = null;
-/** @type {HTMLElement | null} */ let scrcpyActive = null;
 
 document.addEventListener("DOMContentLoaded", function () {
   initializeElements();
@@ -66,12 +60,6 @@ function initializeElements() {
     pairCodeInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-code-input'));
     pairManualBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('pair-manual-btn'));
 
-  ejectScrcpyBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('eject-scrcpy-btn'));
-  closeScrcpyBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('close-scrcpy-btn'));
-  scrcpySidebarSection = document.getElementById('scrcpy-sidebar-section');
-  scrcpyContainer = document.getElementById('scrcpy-container');
-  scrcpyPlaceholder = document.getElementById('scrcpy-placeholder');
-  scrcpyActive = document.getElementById('scrcpy-active');
 }
 
 function setupEventListeners() {
@@ -167,18 +155,6 @@ function setupEventListeners() {
     });
   }
 
-  if (ejectScrcpyBtn) {
-    ejectScrcpyBtn.addEventListener('click', () => {
-      vscode.postMessage({ type: 'ejectScrcpySidebar' });
-    });
-  }
-
-  if (closeScrcpyBtn) {
-    closeScrcpyBtn.addEventListener('click', () => {
-      vscode.postMessage({ type: 'stopScrcpy' });
-    });
-  }
-
   setupHistoryEventListeners();
 }
 
@@ -246,39 +222,6 @@ function updateConnectionHistory(history) {
   }).join('');
 
   connectionHistoryContainer.innerHTML = historyHtml;
-}
-
-/**
- * @param {{isRunning?: boolean, processId?: number, windowId?: string}} scrcpySidebarState
- */
-function updateScrcpySidebarSection(scrcpySidebarState) {
-  if (!scrcpySidebarSection) {
-    return;
-  }
-
-  const isRunning = !!scrcpySidebarState?.isRunning;
-  
-  if (isRunning) {
-    if (scrcpyPlaceholder) {
-      scrcpyPlaceholder.style.display = 'none';
-    }
-    if (scrcpyActive) {
-      scrcpyActive.style.display = 'flex';
-    }
-    
-    if (ejectScrcpyBtn) ejectScrcpyBtn.disabled = false;
-    if (closeScrcpyBtn) closeScrcpyBtn.disabled = false;
-  } else {
-    if (scrcpyPlaceholder) {
-      scrcpyPlaceholder.style.display = 'flex';
-    }
-    if (scrcpyActive) {
-      scrcpyActive.style.display = 'none';
-    }
-    
-    if (ejectScrcpyBtn) ejectScrcpyBtn.disabled = true;
-    if (closeScrcpyBtn) closeScrcpyBtn.disabled = true;
-  }
 }
 
 function updateButtonStates() {
@@ -389,7 +332,6 @@ function updateUIState(state) {
     updateConnectionHistory(state.connectionHistory);
   }
 
-  updateScrcpySidebarSection(state.scrcpySidebar);
 
   updateButtonStates();
 }
@@ -400,7 +342,6 @@ function saveState() {
     ...currentState,
     currentIp: ipInput?.value.trim() || "",
     currentPort: portInput?.value.trim() || "",
-    scrcpySidebar: currentState?.scrcpySidebar,
   };
   vscode.setState(newState);
 }
@@ -416,7 +357,6 @@ window.addEventListener("message", (event) => {
         currentIp: message.currentIp,
         currentPort: message.currentPort,
         connectionHistory: message.connectionHistory,
-        scrcpySidebar: message.scrcpySidebar,
       };
       vscode.setState(newState);
       updateUIState(newState);
@@ -442,17 +382,6 @@ window.addEventListener("message", (event) => {
       console.log("Theme changed to:", message.themeCssClass);
       break;
 
-    case "scrcpySidebarUpdate":
-      {
-        const state = vscode.getState() || {};
-        const newState = {
-          ...state,
-          scrcpySidebar: message.state,
-        };
-        vscode.setState(newState);
-        updateScrcpySidebarSection(message.state);
-      }
-      break;
   }
 });
 

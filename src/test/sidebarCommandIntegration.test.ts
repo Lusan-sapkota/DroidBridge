@@ -45,6 +45,7 @@ suite("Sidebar-Command Integration Tests", () => {
 
     mockWebviewView = {
       webview: mockWebview,
+      onDidDispose: () => ({ dispose: () => undefined }),
     };
 
     mockConfigManager.getConfigWithDefaults.returns({

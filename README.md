@@ -11,7 +11,7 @@
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/Lusan-sapkota/DroidBridge)
 [![Author](https://img.shields.io/badge/Author-Lusan%20Sapkota-brightgreen.svg)](https://www.lusansapkota.com.np)
 
-[Install](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge) | [Documentation](https://lusan-sapkota.github.io/DroidBridge/) | [Issues](https://github.com/Lusan-sapkota/DroidBridge/issues) | [Portfolio](https://www.lusansapkota.com.np)
+[Install](https://marketplace.visualstudio.com/items?itemName=lusansapkota.droidbridge) | [Documentation](https://lusan-sapkota.github.io/DroidBridge/) | [Issues](https://github.com/Lusan-sapkota/DroidBridge/issues) | [Portfolio](https://www.lusansapkota.com.np)
 
 </div>
 
@@ -27,11 +27,14 @@ DroidBridge transforms your VS Code into a powerful Android development hub with
 - **Smart Pairing**: Simplified pairing process for wireless debugging
 - **Real-time Status**: Live connection status with detailed feedback
 
-### **Integrated Screen Mirroring**
-- **Phones and Tablets**: The mirror window follows the device aspect ratio and rotation, so portrait phones and landscape tablets both fit
-- **Resizable Window**: Resize or move the mirror window freely; it keeps the correct proportions
-- **Configurable Quality**: Set the maximum resolution and bitrate to match your device and network
-- **Always-on-Top Mode**: Keep device screen visible while coding, release it with one click
+### **Live Screen Mirror Inside VS Code**
+- **In the Sidebar**: The device screen streams live into the DroidBridge sidebar, no external window needed
+- **Fully Interactive**: Click to tap, drag to swipe, scroll wheel to scroll, type to send text, right click for Back
+- **Phones and Tablets**: Keeps the device aspect ratio at any sidebar width and follows rotation live
+- **Pop Out**: Move the mirror into a resizable editor tab (or drag that tab into its own window), and back again
+- **Device Controls**: Back, Home, Recent apps and Rotate buttons
+- **Native Window Option**: Open the classic scrcpy window when you want it, with always-on-top
+- **Nothing Extra to Install**: The scrcpy server is bundled; the embedded mirror only needs ADB
 
 ### **Smart Binary Management**
 - **Auto-Detection**: Finds existing ADB/scrcpy installations automatically
@@ -42,7 +45,6 @@ DroidBridge transforms your VS Code into a powerful Android development hub with
 ### **Native VS Code Integration**
 - **Theme Adaptive**: Automatically matches VS Code's light/dark themes
 - **Command Palette**: Access all features via `Ctrl+Shift+P`
-- **Status Bar**: Quick status indicators and controls
 - **Comprehensive Logging**: Detailed logs for troubleshooting
 
 ## Quick Start
@@ -53,7 +55,7 @@ DroidBridge transforms your VS Code into a powerful Android development hub with
 ```bash
 # Search for "DroidBridge" in Extensions (Ctrl+Shift+X)
 # Or install via command line
-code --install-extension LusanSapkota.droidbridge
+code --install-extension lusansapkota.droidbridge
 ```
 
 #### **Manual Installation**
@@ -81,8 +83,9 @@ code --install-extension LusanSapkota.droidbridge
 
 1. **Open DroidBridge**: Click the icon in VS Code's Activity Bar
 2. **Connect Device**: Enter IP address and port, click "Connect Device"
-3. **Start Mirroring**: Click "Launch Scrcpy" to open the mirror window
-4. **Control the Window**: Use the Screen Mirror controls to release always-on-top or close it
+3. **Start Mirroring**: Click "Start Mirror" in the Screen Mirror section (or the play button in the view title)
+4. **Interact**: Click, drag, scroll and type on the mirror; use the toolbar for Back, Home, Recents and Rotate
+5. **Pop Out**: Use the external link button to move the mirror into an editor tab, or the window button for a native scrcpy window
 
 > **Pro Tip**: DroidBridge automatically handles ADB and scrcpy binaries - no manual installation needed!
 
@@ -91,23 +94,22 @@ code --install-extension LusanSapkota.droidbridge
 ### Sidebar Sections
 
 #### **Screen Mirror**
-- **Active State**: Shows when a mirror window is running
-- **Release Button**: Relaunch the mirror as a normal window (not always-on-top)
-- **Close Button**: Stop mirroring session
-- **Status Indicator**: Real-time connection status
+- **Live View**: Interactive device screen that resizes with the sidebar
+- **Toolbar**: Back, Home, Recent apps, Rotate, open in editor tab, open native window, stop
+- **Keyboard**: Click the mirror, then type; Enter, Backspace, arrows and Escape (Back) are supported
 
 #### **Device Connection**
 - **IP/Port Fields**: Pre-filled with your last successful connection
 - **Connect/Disconnect**: One-click connection management
 - **Status Display**: Connection state with helpful error messages
 
-#### **Scrcpy Controls**
-- **Launch Scrcpy**: Start screen mirroring (sidebar mode by default)
+#### **Native Window**
+- **Launch Scrcpy**: Open the device in a separate scrcpy window (requires scrcpy installed)
 - **Launch Screen Off**: Mirror with device screen off (battery saving)
-- **Stop Scrcpy**: Terminate current mirroring session
+- **Stop Scrcpy**: Close the native window
 
 #### **Connection History**
-- **Recent Devices**: Quick access to your last 5 connections
+- **Recent Devices**: Quick access to your last 10 connections
 - **One-Click Reconnect**: Click the plug icon to instantly reconnect
 - **Manage History**: Remove unwanted entries with trash icon
 
@@ -125,8 +127,10 @@ DroidBridge: Disconnect Device
 DroidBridge: Launch Scrcpy
 DroidBridge: Launch Scrcpy Screen Off
 DroidBridge: Stop Scrcpy
-DroidBridge: Eject Scrcpy from Sidebar
-DroidBridge: Embed Scrcpy in Sidebar
+DroidBridge: Start Screen Mirror
+DroidBridge: Stop Screen Mirror
+DroidBridge: Open Screen Mirror in Editor Tab
+DroidBridge: Open Screen Mirror in Native Window
 DroidBridge: Show Logs
 DroidBridge: Check Binary Status
 DroidBridge: Download Missing Binaries
@@ -256,10 +260,11 @@ No internet? No problem:
 - Close other device apps
 - Check WiFi bandwidth
 
-### Mirror Window Problems
-- Close the mirror window and launch it again
-- Stop and restart scrcpy
-- Check if external window is hidden
+### Mirror Problems
+- If the mirror freezes, stop and start it again from the toolbar
+- Lower `droidbridge.scrcpy.maxSize` or the bitrate on slow Wi-Fi
+- Taps not registering: click inside the device image, not the border
+- For the native window, check that it is not hidden behind other windows
 
 </details>
 
@@ -307,7 +312,7 @@ No internet? No problem:
 | **VS Code** | 1.104.0+ |
 | **OS** | Windows 10+ / macOS 10.14+ / Linux (Ubuntu 18.04+) |
 | **Android** | 5.0+ with Developer Options |
-| **Network** | Same WiFi network for device & computer |
+| **Network** | Same WiFi network for device & computer (or USB) |
 
 ### Dependencies
 
@@ -414,5 +419,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- [scrcpy](https://github.com/Genymobile/scrcpy) - Screen mirroring tool
+- [scrcpy](https://github.com/Genymobile/scrcpy) - Screen mirroring; the scrcpy server (Apache-2.0) is bundled unmodified, see `resources/scrcpy-server.LICENSE`
 - [Android Debug Bridge (ADB)](https://developer.android.com/studio/command-line/adb) - Android debugging tool
