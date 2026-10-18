@@ -275,7 +275,7 @@ suite('End-to-End Test Suite', () => {
       sidebarProvider.resolveWebviewView(mockWebviewView as any, {} as any, {} as any);
       
       assert.ok(mockWebview.html.length > 0, 'Should set webview HTML');
-      assert.ok(mockWebview.html.includes('--vscode-'), 'Should use VSCode CSS variables for theming');
+      assert.ok(mockWebview.html.includes('--theme-kind'), 'Should inject theme variables');
     });
   });
 

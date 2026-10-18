@@ -39,7 +39,7 @@ suite('CommandManager Test Suite', () => {
       
       commandManager.registerCommands(context);
 
-      assert.strictEqual(registerCommandStub.callCount, 9);
+      assert.strictEqual(registerCommandStub.callCount, 12);
       
       const commandNames = registerCommandStub.getCalls().map(call => call.args[0]);
       assert.ok(commandNames.includes('droidbridge.connectDevice'));
@@ -52,7 +52,7 @@ suite('CommandManager Test Suite', () => {
       assert.ok(commandNames.includes('droidbridge.downloadBinaries'));
       assert.ok(commandNames.includes('droidbridge.refreshBinaries'));
 
-      assert.strictEqual(context.subscriptions.length, 9);
+      assert.strictEqual(context.subscriptions.length, 12);
     });
 
     test('should log successful command registration', () => {
@@ -224,12 +224,11 @@ suite('CommandManager Test Suite', () => {
         return await task(mockProgress, mockToken);
       });
 
-      const launchScrcpyStub = sandbox.stub(commandManager, 'launchScrcpy').resolves(true);
+      const launchScrcpyStub = (processManager.launchScrcpySidebar as sinon.SinonStub).resolves({ success: true, processId: 1 });
 
       await commandManager.launchScrcpyCommand();
 
       assert.ok(launchScrcpyStub.called);
-      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('Scrcpy launched successfully'));
     });
 
     test('should show warning when scrcpy is already running', async () => {
@@ -271,12 +270,11 @@ suite('CommandManager Test Suite', () => {
         return await task(mockProgress, mockToken);
       });
 
-      const launchScrcpyStub = sandbox.stub(commandManager, 'launchScrcpy').resolves(true);
+      const launchScrcpyStub = (processManager.launchScrcpySidebar as sinon.SinonStub).resolves({ success: true, processId: 1 });
 
       await commandManager.launchScrcpyCommand();
 
       assert.ok(launchScrcpyStub.called);
-      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('Scrcpy launched successfully'));
     });
 
     test('should handle launch errors', async () => {

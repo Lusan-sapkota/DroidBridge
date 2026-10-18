@@ -380,6 +380,7 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should cancel specific progress operation', () => {
+      (errorHandler as any).activeProgressOperations.set('test-operation', new vscode.CancellationTokenSource());
       errorHandler.cancelProgress('test-operation');
       assert.ok(loggedMessages.some(msg => msg.includes('Cancelled progress operation: test-operation')));
     });

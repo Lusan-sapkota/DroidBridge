@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import * as os from 'os';
+import os = require('os');
 import * as path from 'path';
 import * as sinon from 'sinon';
 import { BinaryManager } from '../managers/binaryManager';
@@ -40,8 +40,8 @@ suite('Platform Integration Test Suite', () => {
       mockConfigManager.getCustomAdbPath.returns(undefined);
       mockConfigManager.getCustomScrcpyPath.returns(undefined);
 
-      const adbPath = await binaryManager.getAdbPath();
-      const scrcpyPath = await binaryManager.getScrcpyPath();
+      const adbPath = binaryManager.getBundledBinaryPath('adb');
+      const scrcpyPath = binaryManager.getBundledBinaryPath('scrcpy');
 
       assert.ok(adbPath.endsWith('adb.exe'));
       assert.ok(scrcpyPath.endsWith('scrcpy.exe'));
@@ -81,8 +81,8 @@ suite('Platform Integration Test Suite', () => {
       mockConfigManager.getCustomAdbPath.returns(undefined);
       mockConfigManager.getCustomScrcpyPath.returns(undefined);
 
-      const adbPath = await binaryManager.getAdbPath();
-      const scrcpyPath = await binaryManager.getScrcpyPath();
+      const adbPath = binaryManager.getBundledBinaryPath('adb');
+      const scrcpyPath = binaryManager.getBundledBinaryPath('scrcpy');
 
       assert.ok(!adbPath.endsWith('.exe'));
       assert.ok(!scrcpyPath.endsWith('.exe'));
@@ -123,8 +123,8 @@ suite('Platform Integration Test Suite', () => {
       mockConfigManager.getCustomAdbPath.returns(undefined);
       mockConfigManager.getCustomScrcpyPath.returns(undefined);
 
-      const adbPath = await binaryManager.getAdbPath();
-      const scrcpyPath = await binaryManager.getScrcpyPath();
+      const adbPath = binaryManager.getBundledBinaryPath('adb');
+      const scrcpyPath = binaryManager.getBundledBinaryPath('scrcpy');
 
       assert.ok(!adbPath.endsWith('.exe'));
       assert.ok(!scrcpyPath.endsWith('.exe'));
@@ -220,9 +220,7 @@ suite('Platform Integration Test Suite', () => {
         sinon.restore();
         sinon.stub(os, 'platform').returns(platform as NodeJS.Platform);
         
-        mockConfigManager.getCustomAdbPath.returns(undefined);
-        
-        const adbPath = await binaryManager.getAdbPath();
+        const adbPath = binaryManager.getBundledBinaryPath('adb');
         const expectedPath = path.join(mockExtensionPath, 'binaries', platform);
         
         assert.ok(adbPath.startsWith(expectedPath), `ADB path should start with ${expectedPath} for platform ${platform}`);

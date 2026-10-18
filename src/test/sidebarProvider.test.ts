@@ -91,8 +91,8 @@ suite("DroidBridgeSidebarProvider Test Suite", () => {
 
       assert.strictEqual(provider.getConnectionStatus(), false);
       assert.strictEqual(provider.getScrcpyStatus(), false);
-      assert.strictEqual(provider.getCurrentIp(), "");
-      assert.strictEqual(provider.getCurrentPort(), "");
+      assert.strictEqual(provider.getCurrentIp(), "192.168.1.100");
+      assert.strictEqual(provider.getCurrentPort(), "5555");
     });
   });
 

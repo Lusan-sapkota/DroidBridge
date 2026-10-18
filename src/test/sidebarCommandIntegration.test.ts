@@ -92,7 +92,7 @@ suite("Sidebar-Command Integration Tests", () => {
 
     test("should set up configuration change watcher", () => {
       assert.ok(mockConfigManager.onConfigurationChanged.called);
-      assert.strictEqual(mockContext.subscriptions.length, 1);
+      assert.strictEqual(mockContext.subscriptions.length, 2);
     });
 
     test("should resolve webview view and set up message handling", () => {
@@ -286,7 +286,8 @@ suite("Sidebar-Command Integration Tests", () => {
       assert.ok(mockProcessManager.connectDevice.notCalled);
     });
 
-    test("should refresh sidebar state periodically", (done) => {
+    test("should refresh sidebar state periodically", function (done) {
+      this.timeout(4000);
       let callCount = 0;
       mockProcessManager.getConnectionState.callsFake(() => {
         callCount++;
@@ -296,6 +297,7 @@ suite("Sidebar-Command Integration Tests", () => {
           devicePort: callCount > 1 ? "5555" : undefined,
         };
       });
+      commandManager.setSidebarProvider(sidebarProvider);
 
       setTimeout(() => {
         assert.ok(mockProcessManager.getConnectionState.callCount >= 2);

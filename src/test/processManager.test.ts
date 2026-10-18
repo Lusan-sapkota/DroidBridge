@@ -43,6 +43,7 @@ suite("ProcessManager Tests", () => {
     sinon.stub(childProcessModule, "spawn").callsFake(spawnStub);
 
     processManager = new ProcessManager(mockBinaryManager, mockLogger);
+    sinon.stub(processManager as any, "getDeviceSelectionArgs").resolves([]);
   });
 
   teardown(() => {

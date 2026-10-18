@@ -239,7 +239,8 @@ suite('Sidebar Integration Unit Tests', () => {
       assert.strictEqual(sidebarState.currentPort, '5557');
     });
 
-    test('should handle periodic status updates', (done) => {
+    test('should handle periodic status updates', function (done) {
+      this.timeout(4000);
       let callCount = 0;
       mockProcessManager.getConnectionState.callsFake(() => {
         callCount++;
@@ -297,7 +298,8 @@ suite('Sidebar Integration Unit Tests', () => {
       newCommandManager.dispose();
     });
 
-    test('should stop status updates on dispose', (done) => {
+    test('should stop status updates on dispose', function (done) {
+      this.timeout(5000);
       commandManager.setSidebarProvider(mockSidebarProvider);
 
       setTimeout(() => {

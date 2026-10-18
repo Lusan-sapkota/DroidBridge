@@ -115,23 +115,25 @@ function setupConfigurationWatchers(context: vscode.ExtensionContext): void {
 }
 
 function validateBinariesAsync(): void {
+  const log = logger;
+  const state = extensionState;
   binaryManager.setDownloadProgressCallback((progress) => {
-    logger.info(`Downloading ${progress.binary}: ${progress.percentage}% (${progress.downloaded}/${progress.total} bytes)`);
+    log.info(`Downloading ${progress.binary}: ${progress.percentage}% (${progress.downloaded}/${progress.total} bytes)`);
   });
 
   binaryManager.validateBinaries()
     .then((result: any) => {
-      extensionState.binariesValidated = result.adbValid && result.scrcpyValid;
+      state.binariesValidated = result.adbValid && result.scrcpyValid;
       
-      if (extensionState.binariesValidated) {
-        logger.info('All binaries validated successfully');
+      if (state.binariesValidated) {
+        log.info('All binaries validated successfully');
         
         binaryManager.getBinaryInfo().then((info) => {
-          logger.info(`ADB: ${info.adb.path} (${info.adb.source}${info.adb.version ? `, v${info.adb.version}` : ''})`);
-          logger.info(`Scrcpy: ${info.scrcpy.path} (${info.scrcpy.source}${info.scrcpy.version ? `, v${info.scrcpy.version}` : ''})`);
+          log.info(`ADB: ${info.adb.path} (${info.adb.source}${info.adb.version ? `, v${info.adb.version}` : ''})`);
+          log.info(`Scrcpy: ${info.scrcpy.path} (${info.scrcpy.source}${info.scrcpy.version ? `, v${info.scrcpy.version}` : ''})`);
         });
       } else {
-        logger.error('Binary validation failed', new Error(result.errors.join(', ')));
+        log.error('Binary validation failed', new Error(result.errors.join(', ')));
         
         binaryManager.needsDownload().then((downloadInfo) => {
           if (downloadInfo.needed) {
@@ -140,7 +142,7 @@ function validateBinariesAsync(): void {
               'Show Logs'
             ).then(selection => {
               if (selection === 'Show Logs') {
-                logger.show();
+                log.show();
               }
             });
           } else {
@@ -149,7 +151,7 @@ function validateBinariesAsync(): void {
               'Show Logs'
             ).then(selection => {
               if (selection === 'Show Logs') {
-                logger.show();
+                log.show();
               }
             });
           }
@@ -157,8 +159,8 @@ function validateBinariesAsync(): void {
       }
     })
     .catch((error: any) => {
-      logger.error('Failed to validate binaries', error);
-      extensionState.binariesValidated = false;
+      log.error('Failed to validate binaries', error);
+      state.binariesValidated = false;
     });
 }
 

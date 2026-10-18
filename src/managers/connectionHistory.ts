@@ -22,8 +22,8 @@ export class ConnectionHistoryManager {
   }
 
   private loadHistory(): void {
-    const stored = this.context.globalState.get<ConnectionHistoryEntry[]>(ConnectionHistoryManager.STORAGE_KEY, []);
-    this.history = stored.map(entry => ({
+    const stored = this.context.globalState.get<ConnectionHistoryEntry[]>(ConnectionHistoryManager.STORAGE_KEY);
+    this.history = (Array.isArray(stored) ? stored : []).map(entry => ({
       ...entry,
       lastConnected: new Date(entry.lastConnected)
     }));

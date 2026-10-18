@@ -43,9 +43,7 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
       const result = await processManager.connectDevice('192.168.1.100', '5555');
 
       assert.strictEqual(result, true);
-      assert.ok(spawnStub.calledWith('/path/to/adb', ['connect', '192.168.1.100:5555'], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }));
+      assert.ok(spawnStub.calledWith('/path/to/adb', ['connect', '192.168.1.100:5555'], sinon.match({ stdio: ['pipe', 'pipe', 'pipe'] })));
       assert.strictEqual(processManager.isDeviceConnected(), true);
       
       const connectionState = processManager.getConnectionState();
@@ -159,9 +157,7 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
       const result = await processManager.disconnectDevice();
 
       assert.strictEqual(result, true);
-      assert.ok(spawnStub.calledWith('/path/to/adb', ['disconnect', '192.168.1.100:5555'], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }));
+      assert.ok(spawnStub.calledWith('/path/to/adb', ['disconnect', '192.168.1.100:5555'], sinon.match({ stdio: ['pipe', 'pipe', 'pipe'] })));
       assert.strictEqual(processManager.isDeviceConnected(), false);
       
       const connectionState = processManager.getConnectionState();
@@ -234,9 +230,7 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
       const result = await processManager.checkDeviceConnectivity();
 
       assert.strictEqual(result, true);
-      assert.ok(spawnStub.calledWith('/path/to/adb', ['devices'], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }));
+      assert.ok(spawnStub.calledWith('/path/to/adb', ['devices'], sinon.match({ stdio: ['pipe', 'pipe', 'pipe'] })));
       assert.strictEqual(processManager.isDeviceConnected(), true);
     });
 

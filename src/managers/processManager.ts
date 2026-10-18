@@ -101,7 +101,7 @@ export class ProcessManager {
         return false;
       }
 
-      const portValidation = this.errorHandler.validateAndHandleInput(port, 'port', 'Port number');
+      const portValidation = this.errorHandler.validateAndHandleInput(port, 'port', 'port number');
       if (!portValidation.isValid) {
         this.connectionState = {
           connected: false,
