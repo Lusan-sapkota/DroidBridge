@@ -5,10 +5,6 @@ import { Logger } from './logger';
 import { BinaryManager } from './binaryManager';
 import { ErrorHandler, ProgressContext } from '../utils/errorHandler';
 
-/**
- * Manages all VSCode commands for the DroidBridge extension
- * Implements requirements 4.1, 4.2, 4.3, 4.4, 4.5, 4.6
- */
 export class CommandManager {
   private processManager: ProcessManager;
   private configManager: ConfigManager;
@@ -26,71 +22,49 @@ export class CommandManager {
     this.errorHandler = new ErrorHandler(logger);
     this.sidebarProvider = sidebarProvider;
     
-    // Start periodic status updates if sidebar provider is available
     if (this.sidebarProvider) {
       this.startStatusUpdates();
     }
   }
 
-  /**
-   * Register all DroidBridge commands with VSCode
-   * Requirement 4.6: Register all commands with VSCode
-   */
   registerCommands(context: vscode.ExtensionContext): void {
     const commands = [
-      // Requirement 4.1: Connect to Device command
       vscode.commands.registerCommand('droidbridge.connectDevice', (ip?: string, port?: string) => this.connectDeviceCommand(ip, port)),
       
-      // Requirement 4.2: Disconnect Device command
       vscode.commands.registerCommand('droidbridge.disconnectDevice', () => this.disconnectDeviceCommand()),
       
-      // Requirement 4.3: Launch Scrcpy command
       vscode.commands.registerCommand('droidbridge.launchScrcpy', () => this.launchScrcpyCommand()),
       
-      // Launch Scrcpy Screen Off command (additional functionality)
       vscode.commands.registerCommand('droidbridge.launchScrcpyScreenOff', () => this.launchScrcpyScreenOffCommand()),
       
-      // Requirement 4.4: Stop Scrcpy command
       vscode.commands.registerCommand('droidbridge.stopScrcpy', () => this.stopScrcpyCommand()),
       
-      // Requirement 4.5: Show Logs command
       vscode.commands.registerCommand('droidbridge.showLogs', () => this.showLogsCommand()),
       
-      // Binary management commands
       vscode.commands.registerCommand('droidbridge.checkBinaries', () => this.checkBinariesCommand()),
       vscode.commands.registerCommand('droidbridge.downloadBinaries', () => this.downloadBinariesCommand()),
       vscode.commands.registerCommand('droidbridge.refreshBinaries', () => this.refreshBinariesCommand())
       ,
-      // Pairing support
       vscode.commands.registerCommand('droidbridge.pairDevice', (hostPort?: string, code?: string) => this.pairDeviceCommand(hostPort, code)),
       
-      // Scrcpy sidebar commands
       vscode.commands.registerCommand('droidbridge.ejectScrcpySidebar', () => this.ejectScrcpySidebarCommand()),
       vscode.commands.registerCommand('droidbridge.embedScrcpySidebar', () => this.embedScrcpySidebarCommand())
     ];
 
-    // Add all command disposables to the extension context
     commands.forEach(command => context.subscriptions.push(command));
     
     this.logger.info('All DroidBridge commands registered successfully');
   }
 
-  /**
-   * Connect to Android device via ADB
-   * Requirement 4.1: Provide "DroidBridge: Connect to Device" command
-   */
   async connectDeviceCommand(providedIp?: string, providedPort?: string): Promise<void> {
     try {
       this.logger.info('Connect Device command executed');
 
-      // Get default values from configuration
       const config = this.configManager.getConfigWithDefaults();
       let ip = providedIp || config.ip;
       let port = providedPort || config.port;
 
-      // If no IP/port provided, prompt user for input
       if (!providedIp || !providedPort) {
-        // Prompt user for IP address with default value
         const inputIp = await vscode.window.showInputBox({
           prompt: 'Enter the IP address of your Android device',
           value: ip,
@@ -112,7 +86,6 @@ export class CommandManager {
 
         ip = inputIp.trim();
 
-        // Prompt user for port with default value
         const inputPort = await vscode.window.showInputBox({
           prompt: 'Enter the port number for ADB connection',
           value: port,
@@ -135,7 +108,6 @@ export class CommandManager {
         port = inputPort.trim();
       }
 
-      // Enhanced validation with better error handling
       const ipValidation = this.errorHandler.validateAndHandleInput(ip, 'ip', 'IP address');
       if (!ipValidation.isValid) {
         return; // Error already handled by validator
@@ -146,9 +118,8 @@ export class CommandManager {
         return; // Error already handled by validator
       }
 
-      // Show progress notification with enhanced error handling
       const progressContext: ProgressContext = {
-        title: `🔌 Connecting to ${ip}:${port}...`,
+        title: `Connecting to ${ip}:${port}...`,
         cancellable: true,
         location: vscode.ProgressLocation.Notification
       };
@@ -164,7 +135,7 @@ export class CommandManager {
           
           if (success) {
             progress.report({ message: 'Connected successfully', increment: 100 });
-            this.logger.showSuccess(`✅ Device connected to ${ip}:${port}`);
+            this.logger.showSuccess(`Device connected to ${ip}:${port}`);
           }
           
           return success;
@@ -172,7 +143,6 @@ export class CommandManager {
         progressContext,
         'connect-device'
       );
-
     } catch (error) {
       if (error instanceof Error && error.message.includes('cancelled')) {
         this.logger.info('Connect Device command cancelled by user');
@@ -184,15 +154,10 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Disconnect from Android device
-   * Requirement 4.2: Provide "DroidBridge: Disconnect Device" command
-   */
   async disconnectDeviceCommand(): Promise<void> {
     try {
       this.logger.info('Disconnect Device command executed');
 
-      // Check if device is connected
       if (!this.processManager.isDeviceConnected()) {
         this.logger.showWarning('No device is currently connected');
         return;
@@ -203,9 +168,8 @@ export class CommandManager {
         ? `${connectionState.deviceIp}:${connectionState.devicePort}` 
         : 'device';
 
-      // Show progress notification with enhanced error handling
       const progressContext: ProgressContext = {
-        title: `🔌 Disconnecting from ${target}...`,
+        title: `Disconnecting from ${target}...`,
         cancellable: false,
         location: vscode.ProgressLocation.Notification
       };
@@ -217,7 +181,7 @@ export class CommandManager {
           
           if (success) {
             progress.report({ message: 'Disconnected successfully', increment: 100 });
-            this.logger.showSuccess(`✅ Device disconnected from ${target}`);
+            this.logger.showSuccess(`Device disconnected from ${target}`);
           }
           
           return success;
@@ -225,28 +189,21 @@ export class CommandManager {
         progressContext,
         'disconnect-device'
       );
-
     } catch (error) {
       this.logger.error('Failed to execute Disconnect Device command', error instanceof Error ? error : undefined);
       this.logger.showError('Failed to execute Disconnect Device command');
     }
   }
 
-  /**
-   * Launch scrcpy screen mirroring
-   * Requirement 4.3: Provide "DroidBridge: Launch Scrcpy" command
-   */
   async launchScrcpyCommand(): Promise<void> {
     try {
       this.logger.info('Launch Scrcpy command executed');
 
-      // Check if scrcpy is already running
       if (this.processManager.isScrcpyRunning()) {
         this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
         return;
       }
 
-      // Check if device is connected
       if (!this.processManager.isDeviceConnected()) {
         const shouldConnect = await vscode.window.showWarningMessage(
           'No device is connected. Would you like to connect to a device first?',
@@ -256,16 +213,14 @@ export class CommandManager {
 
         if (shouldConnect?.title === 'Connect Device') {
           await this.connectDeviceCommand();
-          // Check again if connection was successful
           if (!this.processManager.isDeviceConnected()) {
             return;
           }
         }
       }
 
-      // Show progress notification with enhanced error handling
       const progressContext: ProgressContext = {
-        title: '📱 Launching scrcpy...',
+        title: 'Launching scrcpy...',
         cancellable: true,
         location: vscode.ProgressLocation.Notification
       };
@@ -277,10 +232,9 @@ export class CommandManager {
           }
           
           progress.report({ message: 'Starting screen mirroring in sidebar...' });
-          const result = await this.processManager.launchScrcpySidebar();
+          const result = await this.processManager.launchScrcpySidebar(this.configManager.getScrcpyOptions());
           
           if (result.success) {
-            // Update sidebar to show scrcpy is embedded
             if (this.sidebarProvider) {
               this.sidebarProvider.showScrcpySidebar(true, result.processId, result.windowId);
             }
@@ -293,7 +247,6 @@ export class CommandManager {
         progressContext,
         'launch-scrcpy'
       );
-
     } catch (error) {
       if (error instanceof Error && error.message.includes('cancelled')) {
         this.logger.info('Launch Scrcpy command cancelled by user');
@@ -305,21 +258,15 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Launch scrcpy with screen off functionality
-   * Additional command for enhanced functionality
-   */
   async launchScrcpyScreenOffCommand(): Promise<void> {
     try {
       this.logger.info('Launch Scrcpy Screen Off command executed');
 
-      // Check if scrcpy is already running
       if (this.processManager.isScrcpyRunning()) {
         this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
         return;
       }
 
-      // Check if device is connected
       if (!this.processManager.isDeviceConnected()) {
         const shouldConnect = await vscode.window.showWarningMessage(
           'No device is connected. Would you like to connect to a device first?',
@@ -329,16 +276,14 @@ export class CommandManager {
 
         if (shouldConnect?.title === 'Connect Device') {
           await this.connectDeviceCommand();
-          // Check again if connection was successful
           if (!this.processManager.isDeviceConnected()) {
             return;
           }
         }
       }
 
-      // Show progress notification with enhanced error handling
       const progressContext: ProgressContext = {
-        title: '📱 Launching scrcpy with screen off...',
+        title: 'Launching scrcpy with screen off...',
         cancellable: true,
         location: vscode.ProgressLocation.Notification
       };
@@ -354,7 +299,7 @@ export class CommandManager {
           
           if (success) {
             progress.report({ message: 'Screen mirroring started with screen off', increment: 100 });
-            this.logger.showSuccess('✅ Scrcpy launched successfully with screen off');
+            this.logger.showSuccess('Scrcpy launched successfully with screen off');
           }
           
           return success;
@@ -362,7 +307,6 @@ export class CommandManager {
         progressContext,
         'launch-scrcpy-screen-off'
       );
-
     } catch (error) {
       if (error instanceof Error && error.message.includes('cancelled')) {
         this.logger.info('Launch Scrcpy Screen Off command cancelled by user');
@@ -374,23 +318,17 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Stop scrcpy screen mirroring
-   * Requirement 4.4: Provide "DroidBridge: Stop Scrcpy" command
-   */
   async stopScrcpyCommand(): Promise<void> {
     try {
       this.logger.info('Stop Scrcpy command executed');
 
-      // Check if scrcpy is running
       if (!this.processManager.isScrcpyRunning()) {
         this.logger.showWarning('Scrcpy is not currently running');
         return;
       }
 
-      // Show progress notification with enhanced error handling
       const progressContext: ProgressContext = {
-        title: '📱 Stopping scrcpy...',
+        title: 'Stopping scrcpy...',
         cancellable: false,
         location: vscode.ProgressLocation.Notification
       };
@@ -402,9 +340,8 @@ export class CommandManager {
           
           if (success) {
             progress.report({ message: 'Screen mirroring stopped', increment: 100 });
-            this.logger.showSuccess('✅ Scrcpy stopped successfully');
+            this.logger.showSuccess('Scrcpy stopped successfully');
             
-            // Update sidebar to show scrcpy is no longer running
             if (this.sidebarProvider) {
               this.sidebarProvider.showScrcpySidebar(false);
             }
@@ -419,14 +356,8 @@ export class CommandManager {
       this.logger.error('Failed to execute Stop Scrcpy command', error instanceof Error ? error : undefined);
       this.logger.showError('Failed to execute Stop Scrcpy command');
     }
-
-
   }
 
-  /**
-   * Show the DroidBridge logs output channel
-   * Requirement 4.5: Provide "DroidBridge: Show Logs" command
-   */
   showLogsCommand(): void {
     try {
       this.logger.info('Show Logs command executed');
@@ -437,19 +368,12 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Connect to device with validation and error handling
-   * Internal method used by command and sidebar
-   */
   async connectDevice(ip?: string, port?: string): Promise<boolean> {
-    // Use provided values or get from configuration
     const config = this.configManager.getConfigWithDefaults();
     const targetIp = ip || config.ip;
     const targetPort = port || config.port;
 
     try {
-
-      // Validate inputs
       const validation = this.configManager.validateConnection(targetIp, targetPort);
       if (!validation.isValid) {
         const errorMessage = `Invalid connection parameters: ${validation.errors.join(', ')}`;
@@ -457,15 +381,13 @@ export class CommandManager {
         return false;
       }
 
-      // Attempt connection
       const success = await this.processManager.connectDevice(targetIp, targetPort);
       
       if (!success) {
         const connectionState = this.processManager.getConnectionState();
         const errorMessage = connectionState.connectionError || 'Failed to connect to device';
-        this.logger.showError(`❌ ${errorMessage}`);
+        this.logger.showError(`${errorMessage}`);
         
-        // Update sidebar UI
         if (this.sidebarProvider) {
           this.sidebarProvider.updateConnectionStatus(false);
         }
@@ -473,13 +395,11 @@ export class CommandManager {
         return false;
       }
 
-      // Update sidebar UI on success
       if (this.sidebarProvider) {
         this.sidebarProvider.updateConnectionStatus(true, targetIp, targetPort);
       }
 
       return true;
-
     } catch (error) {
       this.errorHandler.handleConnectionError(
         error instanceof Error ? error : new Error('Unknown connection error'),
@@ -489,10 +409,6 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Disconnect from device with error handling
-   * Internal method used by command and sidebar
-   */
   async disconnectDevice(): Promise<boolean> {
     try {
       const success = await this.processManager.disconnectDevice();
@@ -500,9 +416,8 @@ export class CommandManager {
       if (!success) {
         const connectionState = this.processManager.getConnectionState();
         const errorMessage = connectionState.connectionError || 'Failed to disconnect from device';
-        this.logger.showError(`❌ ${errorMessage}`);
+        this.logger.showError(`${errorMessage}`);
         
-        // Update sidebar UI
         if (this.sidebarProvider) {
           this.sidebarProvider.updateConnectionStatus(false);
         }
@@ -510,13 +425,11 @@ export class CommandManager {
         return false;
       }
 
-      // Update sidebar UI on success
       if (this.sidebarProvider) {
         this.sidebarProvider.updateConnectionStatus(false);
       }
 
       return true;
-
     } catch (error) {
       this.errorHandler.handleConnectionError(
         error instanceof Error ? error : new Error('Unknown disconnection error')
@@ -525,26 +438,19 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Launch scrcpy with error handling
-   * Internal method used by command and sidebar
-   */
   async launchScrcpy(): Promise<boolean> {
     try {
-      // Check for duplicate instances with enhanced error handling
       if (this.processManager.isScrcpyRunning()) {
         this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
         return false;
       }
 
-      const process = await this.processManager.launchScrcpy();
+      const process = await this.processManager.launchScrcpy(this.configManager.getScrcpyOptions());
       
-      // If we get here, the process was launched successfully
       if (!process || !process.pid) {
         const processError = new Error('Failed to launch scrcpy - invalid process');
         this.errorHandler.handleProcessError(processError, 'scrcpy');
         
-        // Update sidebar UI
         if (this.sidebarProvider) {
           this.sidebarProvider.updateScrcpyStatus(false);
         }
@@ -552,13 +458,11 @@ export class CommandManager {
         return false;
       }
 
-      // Update sidebar UI on success
       if (this.sidebarProvider) {
         this.sidebarProvider.updateScrcpyStatus(true);
       }
 
       return true;
-
     } catch (error) {
       this.errorHandler.handleProcessError(
         error instanceof Error ? error : new Error('Unknown scrcpy launch error'),
@@ -568,26 +472,19 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Launch scrcpy with screen off functionality
-   * Internal method used by command and sidebar
-   */
   async launchScrcpyScreenOff(): Promise<boolean> {
     try {
-      // Check for duplicate instances with enhanced error handling
       if (this.processManager.isScrcpyRunning()) {
         this.logger.showWarning('Scrcpy is already running. Stop the current instance first.');
         return false;
       }
 
-      const process = await this.processManager.launchScrcpyScreenOff();
+      const process = await this.processManager.launchScrcpyScreenOff(this.configManager.getScrcpyOptions());
       
-      // If we get here, the process was launched successfully
       if (!process || !process.pid) {
         const processError = new Error('Failed to launch scrcpy with screen off - invalid process');
         this.errorHandler.handleProcessError(processError, 'scrcpy screen off');
         
-        // Update sidebar UI
         if (this.sidebarProvider) {
           this.sidebarProvider.updateScrcpyStatus(false);
         }
@@ -595,13 +492,11 @@ export class CommandManager {
         return false;
       }
 
-      // Update sidebar UI on success
       if (this.sidebarProvider) {
         this.sidebarProvider.updateScrcpyStatus(true);
       }
 
       return true;
-
     } catch (error) {
       this.errorHandler.handleProcessError(
         error instanceof Error ? error : new Error('Unknown scrcpy screen off launch error'),
@@ -611,26 +506,20 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Stop scrcpy with error handling
-   * Internal method used by command and sidebar
-   */
   async stopScrcpy(): Promise<boolean> {
     try {
       const success = await this.processManager.stopScrcpy();
       
       if (!success) {
-        this.logger.showError('❌ Failed to stop scrcpy');
+        this.logger.showError('Failed to stop scrcpy');
         return false;
       }
 
-      // Update sidebar UI on success
       if (this.sidebarProvider) {
         this.sidebarProvider.updateScrcpyStatus(false);
       }
 
       return true;
-
     } catch (error) {
       this.errorHandler.handleProcessError(
         error instanceof Error ? error : new Error('Unknown scrcpy stop error'),
@@ -640,66 +529,42 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Get current connection status for UI updates
-   */
   isDeviceConnected(): boolean {
     return this.processManager.isDeviceConnected();
   }
 
-  /**
-   * Get current scrcpy status for UI updates
-   */
   isScrcpyRunning(): boolean {
     return this.processManager.isScrcpyRunning();
   }
 
-  /**
-   * Get connection state for UI updates
-   */
   getConnectionState() {
     return this.processManager.getConnectionState();
   }
 
-  /**
-   * Get scrcpy state for UI updates
-   */
   getScrcpyState() {
     return this.processManager.getScrcpyState();
   }
 
-  /**
-   * Set the sidebar provider for real-time updates
-   */
   setSidebarProvider(sidebarProvider: any): void {
     this.sidebarProvider = sidebarProvider;
     
-    // Start status updates if not already running
     if (!this.statusUpdateInterval) {
       this.startStatusUpdates();
     }
     
-    // Immediately sync current state
     this.updateSidebarState();
   }
 
-  /**
-   * Start periodic status updates to keep sidebar in sync
-   */
   private startStatusUpdates(): void {
     if (this.statusUpdateInterval) {
       return; // Already running
     }
 
-    // Update sidebar state every 2 seconds
     this.statusUpdateInterval = setInterval(() => {
       this.updateSidebarState();
     }, 2000);
   }
 
-  /**
-   * Stop periodic status updates
-   */
   private stopStatusUpdates(): void {
     if (this.statusUpdateInterval) {
       clearInterval(this.statusUpdateInterval);
@@ -707,9 +572,6 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Update sidebar state with current process states
-   */
   private updateSidebarState(): void {
     if (!this.sidebarProvider) {
       return;
@@ -719,24 +581,16 @@ export class CommandManager {
       const connectionState = this.processManager.getConnectionState();
       const scrcpyState = this.processManager.getScrcpyState();
       
-      // Synchronize sidebar with actual process states
       this.sidebarProvider.synchronizeState(connectionState, scrcpyState);
     } catch (error) {
-      // Log error but don't throw to avoid breaking the interval
       this.logger.error('Failed to update sidebar state', error instanceof Error ? error : undefined);
     }
   }
 
-  /**
-   * Force immediate sidebar state update
-   */
   refreshSidebarState(): void {
     this.updateSidebarState();
   }
 
-  /**
-   * Check binary status and show information
-   */
   async checkBinariesCommand(): Promise<void> {
     try {
       this.logger.info('Check Binaries command executed');
@@ -754,13 +608,11 @@ export class CommandManager {
 
         progress.report({ message: 'Analysis complete', increment: 100 });
 
-        // Create status report
         const statusLines: string[] = [];
         statusLines.push('=== DroidBridge Binary Status ===\n');
 
-        // ADB Status
         const adbStatus = detectionStatus.get('adb');
-        statusLines.push(`ADB: ${adbStatus?.found ? '✅ Found' : '❌ Not Found'}`);
+        statusLines.push(`ADB: ${adbStatus?.found ? 'Found' : 'Not Found'}`);
         if (adbStatus?.found) {
           statusLines.push(`  Path: ${adbStatus.path}`);
           statusLines.push(`  Source: ${this.getSourceDescription(adbStatus.source)}`);
@@ -769,9 +621,8 @@ export class CommandManager {
           }
         }
 
-        // Scrcpy Status
         const scrcpyStatus = detectionStatus.get('scrcpy');
-        statusLines.push(`\nScrcpy: ${scrcpyStatus?.found ? '✅ Found' : '❌ Not Found'}`);
+        statusLines.push(`\nScrcpy: ${scrcpyStatus?.found ? 'Found' : 'Not Found'}`);
         if (scrcpyStatus?.found) {
           statusLines.push(`  Path: ${scrcpyStatus.path}`);
           statusLines.push(`  Source: ${this.getSourceDescription(scrcpyStatus.source)}`);
@@ -780,19 +631,17 @@ export class CommandManager {
           }
         }
 
-        // Download status
         if (downloadInfo.needed) {
-          statusLines.push(`\n⚠️  Missing binaries: ${downloadInfo.binaries.join(', ')}`);
+          statusLines.push(`\n Missing binaries: ${downloadInfo.binaries.join(', ')}`);
           statusLines.push('Use "DroidBridge: Download Binaries" to download missing binaries.');
         } else {
-          statusLines.push('\n✅ All required binaries are available');
+          statusLines.push('\nAll required binaries are available');
         }
 
         const statusReport = statusLines.join('\n');
         this.logger.info('Binary status check completed');
         this.logger.info(statusReport);
 
-        // Show status in information message
         const action = downloadInfo.needed ? 'Download Missing' : 'Show Logs';
         const selection = await vscode.window.showInformationMessage(
           downloadInfo.needed 
@@ -808,7 +657,6 @@ export class CommandManager {
           this.logger.show();
         }
       });
-
     } catch (error) {
       this.errorHandler.handleSystemError(
         error instanceof Error ? error : new Error('Unknown binary check error'),
@@ -817,9 +665,6 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Download missing binaries
-   */
   async downloadBinariesCommand(): Promise<void> {
     try {
       this.logger.info('Download Binaries command executed');
@@ -848,7 +693,6 @@ export class CommandManager {
         title: 'Downloading binaries...',
         cancellable: false
       }, async (progress) => {
-        // Set up progress callback
         this.binaryManager.setDownloadProgressCallback((downloadProgress) => {
           progress.report({ 
             message: `Downloading ${downloadProgress.binary}: ${downloadProgress.percentage}%`,
@@ -862,7 +706,6 @@ export class CommandManager {
           progress.report({ message: 'Download completed successfully', increment: 100 });
           this.errorHandler.showSuccess('All binaries downloaded successfully');
           
-          // Refresh sidebar state
           if (this.sidebarProvider) {
             this.sidebarProvider.refresh();
           }
@@ -870,7 +713,6 @@ export class CommandManager {
           throw new Error(`Download failed: ${result.errors.join(', ')}`);
         }
       });
-
     } catch (error) {
       this.errorHandler.handleSystemError(
         error instanceof Error ? error : new Error('Unknown download error'),
@@ -879,9 +721,6 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Refresh binary detection (clear cache and re-detect)
-   */
   async refreshBinariesCommand(): Promise<void> {
     try {
       this.logger.info('Refresh Binaries command executed');
@@ -911,12 +750,10 @@ export class CommandManager {
             : 'Binary detection refreshed. No binaries found.'
         );
 
-        // Refresh sidebar state
         if (this.sidebarProvider) {
           this.sidebarProvider.refresh();
         }
       });
-
     } catch (error) {
       this.errorHandler.handleSystemError(
         error instanceof Error ? error : new Error('Unknown refresh error'),
@@ -925,9 +762,6 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Get user-friendly description for binary source
-   */
   private getSourceDescription(source: string): string {
     switch (source) {
       case 'system': return 'System PATH';
@@ -939,7 +773,6 @@ export class CommandManager {
     }
   }
 
-  /** Pair device via host:port + 6-digit code */
   private async pairDeviceCommand(hostPortArg?: string, codeArg?: string): Promise<void> {
     try {
       let hostPort = hostPortArg;
@@ -970,7 +803,6 @@ export class CommandManager {
         vscode.window.showInformationMessage(result.message);
         this.logger.info(result.message);
         
-        // Attempt auto-connection after successful pairing
         vscode.window.withProgress(
           { location: vscode.ProgressLocation.Notification, title: "Attempting auto-connection..." },
           async () => {
@@ -980,13 +812,11 @@ export class CommandManager {
               vscode.window.showInformationMessage(autoConnectResult.message);
               this.logger.info(`Auto-connection successful: ${autoConnectResult.message}`);
               
-              // Update sidebar with successful connection info
               if (this.sidebarProvider) {
                 this.sidebarProvider.updateIpAddress(host);
                 this.sidebarProvider.updatePort(autoConnectResult.connectedPort || '5555');
               }
             } else {
-              // Update sidebar inputs with common ADB port for manual connection
               if (this.sidebarProvider) {
                 this.sidebarProvider.updateIpAddress(host);
                 this.sidebarProvider.updatePort('5555'); // Common ADB port
@@ -998,7 +828,7 @@ export class CommandManager {
           }
         );
       } else {
-        const errorMessage = `❌ Pairing failed: ${result.message}`;
+        const errorMessage = `Pairing failed: ${result.message}`;
         vscode.window.showErrorMessage(errorMessage);
         this.logger.error(errorMessage);
       }
@@ -1008,9 +838,6 @@ export class CommandManager {
     }
   }
 
-    /**
-   * Eject scrcpy from sidebar to external window
-   */
   private async ejectScrcpySidebarCommand(): Promise<void> {
     try {
       this.logger.info('Ejecting scrcpy from sidebar to external window');
@@ -1018,7 +845,6 @@ export class CommandManager {
       const result = await this.processManager.ejectScrcpyFromSidebar();
       
       if (result.success) {
-        // Update sidebar to show scrcpy is no longer embedded
         if (this.sidebarProvider) {
           this.sidebarProvider.showScrcpySidebar(false);
         }
@@ -1033,30 +859,23 @@ export class CommandManager {
     }
   }
 
-  /**
-   * Embed scrcpy into sidebar
-   */
   private async embedScrcpySidebarCommand(): Promise<void> {
     try {
       this.logger.info('Embedding scrcpy into sidebar');
       
-      // Check if device is connected
       if (!this.processManager.isDeviceConnected()) {
         vscode.window.showWarningMessage('Please connect to a device first');
         return;
       }
       
-      // Stop any existing scrcpy instance
       if (this.processManager.isScrcpyRunning()) {
         await this.stopScrcpyCommand();
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for cleanup
       }
       
-      // Launch scrcpy with sidebar-specific options (smaller window, embedded mode)
-      const result = await this.processManager.launchScrcpySidebar();
+      const result = await this.processManager.launchScrcpySidebar(this.configManager.getScrcpyOptions());
       
       if (result.success) {
-        // Update sidebar to show scrcpy is embedded
         if (this.sidebarProvider) {
           this.sidebarProvider.showScrcpySidebar(true, result.processId, result.windowId);
         }
@@ -1071,11 +890,6 @@ export class CommandManager {
     }
   }
 
-
-
-  /**
-   * Clean up resources
-   */
   dispose(): void {
     this.stopStatusUpdates();
     this.errorHandler.dispose();

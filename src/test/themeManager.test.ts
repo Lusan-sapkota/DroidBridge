@@ -11,7 +11,6 @@ suite('ThemeManager Tests', () => {
     sandbox = sinon.createSandbox();
     mockExtensionUri = vscode.Uri.file('/test/extension');
     
-    // Reset the singleton instance before each test
     ThemeManager.resetInstance();
   });
 
@@ -22,7 +21,6 @@ suite('ThemeManager Tests', () => {
 
   suite('Theme Detection', () => {
     test('should detect light theme correctly', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -37,7 +35,6 @@ suite('ThemeManager Tests', () => {
     });
 
     test('should detect dark theme correctly', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Dark
       };
@@ -52,7 +49,6 @@ suite('ThemeManager Tests', () => {
     });
 
     test('should detect high contrast theme correctly', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.HighContrast
       };
@@ -67,7 +63,6 @@ suite('ThemeManager Tests', () => {
     });
 
     test('should detect high contrast light theme correctly', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.HighContrastLight
       };
@@ -86,7 +81,6 @@ suite('ThemeManager Tests', () => {
     test('should register and call theme change listeners', (done) => {
       let onDidChangeCallback: (theme: vscode.ColorTheme) => void = () => {};
       
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -98,14 +92,12 @@ suite('ThemeManager Tests', () => {
 
       const themeManager = ThemeManager.getInstance();
       
-      // Register a theme change listener
       const disposable = themeManager.onThemeChanged((theme) => {
         assert.strictEqual(theme, ThemeKind.Dark);
         disposable.dispose();
         done();
       });
 
-      // Simulate theme change
       onDidChangeCallback({
         kind: vscode.ColorThemeKind.Dark
       } as vscode.ColorTheme);
@@ -115,7 +107,6 @@ suite('ThemeManager Tests', () => {
       let onDidChangeCallback: (theme: vscode.ColorTheme) => void = () => {};
       let listenerCalled = false;
       
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -127,12 +118,10 @@ suite('ThemeManager Tests', () => {
 
       const themeManager = ThemeManager.getInstance();
       
-      // Register a theme change listener
       const disposable = themeManager.onThemeChanged(() => {
         listenerCalled = true;
       });
 
-      // Simulate same theme change (should not trigger listener)
       onDidChangeCallback({
         kind: vscode.ColorThemeKind.Light
       } as vscode.ColorTheme);
@@ -144,7 +133,6 @@ suite('ThemeManager Tests', () => {
     test('should handle listener errors gracefully', () => {
       let onDidChangeCallback: (theme: vscode.ColorTheme) => void = () => {};
       
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -156,7 +144,6 @@ suite('ThemeManager Tests', () => {
 
       const themeManager = ThemeManager.getInstance();
       
-      // Register a listener that throws an error
       const disposable1 = themeManager.onThemeChanged(() => {
         throw new Error('Test error');
       });
@@ -166,7 +153,6 @@ suite('ThemeManager Tests', () => {
         secondListenerCalled = true;
       });
 
-      // Simulate theme change - should not crash and should call second listener
       assert.doesNotThrow(() => {
         onDidChangeCallback({
           kind: vscode.ColorThemeKind.Dark
@@ -182,7 +168,6 @@ suite('ThemeManager Tests', () => {
 
   suite('Icon Path Resolution', () => {
     test('should return correct light theme icon path', () => {
-      // Mock VSCode API for light theme
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -196,7 +181,6 @@ suite('ThemeManager Tests', () => {
     });
 
     test('should return correct dark theme icon path', () => {
-      // Mock VSCode API for dark theme
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Dark
       };
@@ -210,7 +194,6 @@ suite('ThemeManager Tests', () => {
     });
 
     test('should return webview icon URI correctly', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -231,7 +214,6 @@ suite('ThemeManager Tests', () => {
 
   suite('CSS Class Generation', () => {
     test('should return correct CSS class for light theme', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -244,7 +226,6 @@ suite('ThemeManager Tests', () => {
     });
 
     test('should return correct CSS class for dark theme', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Dark
       };
@@ -257,7 +238,6 @@ suite('ThemeManager Tests', () => {
     });
 
     test('should return correct CSS class for high contrast theme', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.HighContrast
       };
@@ -270,7 +250,6 @@ suite('ThemeManager Tests', () => {
     });
 
     test('should return correct CSS class for high contrast light theme', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.HighContrastLight
       };
@@ -285,7 +264,6 @@ suite('ThemeManager Tests', () => {
 
   suite('Theme Variables', () => {
     test('should generate theme variables correctly', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Dark
       };
@@ -303,7 +281,6 @@ suite('ThemeManager Tests', () => {
 
   suite('Singleton Pattern', () => {
     test('should return same instance on multiple calls', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -317,7 +294,6 @@ suite('ThemeManager Tests', () => {
     });
 
     test('should create new instance after reset', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -334,7 +310,6 @@ suite('ThemeManager Tests', () => {
 
   suite('Disposal', () => {
     test('should dispose resources correctly', () => {
-      // Mock VSCode API
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -353,7 +328,6 @@ suite('ThemeManager Tests', () => {
     test('should refresh theme and notify listeners', (done) => {
       let onDidChangeCallback: (theme: vscode.ColorTheme) => void;
       
-      // Mock VSCode API - start with light theme
       const mockColorTheme = {
         kind: vscode.ColorThemeKind.Light
       };
@@ -364,22 +338,18 @@ suite('ThemeManager Tests', () => {
 
       const themeManager = ThemeManager.getInstance();
       
-      // Verify initial theme
       assert.strictEqual(themeManager.getCurrentTheme(), ThemeKind.Light);
       
-      // Register listener for theme change
       const disposable = themeManager.onThemeChanged((theme) => {
         assert.strictEqual(theme, ThemeKind.Dark);
         disposable.dispose();
         done();
       });
 
-      // Change the mock to return dark theme
       activeColorThemeStub.value({
         kind: vscode.ColorThemeKind.Dark
       });
 
-      // Manually refresh theme
       themeManager.refreshTheme();
     });
   });

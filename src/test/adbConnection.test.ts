@@ -14,33 +14,27 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
   let spawnStub: sinon.SinonStub;
 
   setup(() => {
-    // Create stubbed instances
     mockConfigManager = sinon.createStubInstance(ConfigManager);
     mockBinaryManager = sinon.createStubInstance(BinaryManager);
     mockLogger = sinon.createStubInstance(Logger);
     
-    // Stub child_process.spawn
     spawnStub = sinon.stub(require('child_process'), 'spawn');
 
-    // Setup default mock implementations
     mockBinaryManager.getAdbPath.resolves('/path/to/adb');
 
     processManager = new ProcessManager(mockBinaryManager as any, mockLogger as any);
   });
 
   teardown(async () => {
-    // Clean up any processes
     await processManager.cleanup();
     sinon.restore();
   });
 
   suite('connectDevice', () => {
     test('should successfully connect to a valid device', async () => {
-      // Mock successful ADB connect process
       const mockProcess = createMockProcess();
       spawnStub.returns(mockProcess);
 
-      // Simulate successful connection
       setTimeout(() => {
         mockProcess.stdout.emit('data', Buffer.from('connected to 192.168.1.100:5555'));
         mockProcess.emit('close', 0);
@@ -141,7 +135,6 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
 
   suite('disconnectDevice', () => {
     setup(async () => {
-      // Set up a connected state first
       const mockProcess = createMockProcess();
       spawnStub.returns(mockProcess);
 
@@ -177,7 +170,6 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
     });
 
     test('should handle disconnect when no device is connected', async () => {
-      // First disconnect to clear state - need to mock this too
       const firstMockProcess = createMockProcess();
       spawnStub.returns(firstMockProcess);
 
@@ -189,7 +181,6 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
       await processManager.disconnectDevice();
       spawnStub.resetHistory();
 
-      // Now test disconnecting when no device is connected
       const result = await processManager.disconnectDevice();
 
       assert.strictEqual(result, true);
@@ -219,7 +210,6 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
 
   suite('checkDeviceConnectivity', () => {
     test('should detect connected device', async () => {
-      // First connect a device
       const connectProcess = createMockProcess();
       spawnStub.returns(connectProcess);
 
@@ -231,7 +221,6 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
       await processManager.connectDevice('192.168.1.100', '5555');
       spawnStub.resetHistory();
 
-      // Mock devices command
       const devicesProcess = createMockProcess();
       spawnStub.returns(devicesProcess);
 
@@ -252,7 +241,6 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
     });
 
     test('should detect disconnected device', async () => {
-      // First connect a device
       const connectProcess = createMockProcess();
       spawnStub.returns(connectProcess);
 
@@ -264,7 +252,6 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
       await processManager.connectDevice('192.168.1.100', '5555');
       spawnStub.resetHistory();
 
-      // Mock devices command showing no devices
       const devicesProcess = createMockProcess();
       spawnStub.returns(devicesProcess);
 
@@ -352,9 +339,6 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
   });
 });
 
-/**
- * Helper function to create a mock ChildProcess
- */
 function createMockProcess(): any {
   const mockProcess = {
     stdout: {
@@ -372,7 +356,6 @@ function createMockProcess(): any {
     pid: 12345,
   };
 
-  // Setup event emitter behavior
   const events: { [key: string]: Function[] } = {};
   const stdoutEvents: { [key: string]: Function[] } = {};
   const stderrEvents: { [key: string]: Function[] } = {};

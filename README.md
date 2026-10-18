@@ -1,4 +1,4 @@
-# 🤖 DroidBridge
+# DroidBridge
 
 <div align="center">
 
@@ -11,41 +11,41 @@
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/Lusan-sapkota/DroidBridge)
 [![Author](https://img.shields.io/badge/Author-Lusan%20Sapkota-brightgreen.svg)](https://www.lusansapkota.com.np)
 
-[📥 Install](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge) • [📖 Documentation](https://lusan-sapkota.github.io/DroidBridge/) • [🐛 Issues](https://github.com/Lusan-sapkota/DroidBridge/issues) • [💼 Portfolio](https://www.lusansapkota.com.np)
+[Install](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge) • [Documentation](https://lusan-sapkota.github.io/DroidBridge/) • [Issues](https://github.com/Lusan-sapkota/DroidBridge/issues) • [Portfolio](https://www.lusansapkota.com.np)
 
 </div>
 
 ---
 
-## ✨ Features
+## Features
 
 DroidBridge transforms your VS Code into a powerful Android development hub with these key features:
 
-### 🔌 **Wireless Device Management**
+### **Wireless Device Management**
 - **One-Click Connection**: Connect to Android devices over WiFi using IP address and port
 - **Connection History**: Remember and quickly reconnect to recent devices
 - **Smart Pairing**: Simplified pairing process for wireless debugging
 - **Real-time Status**: Live connection status with detailed feedback
 
-### 📱 **Integrated Screen Mirroring**
-- **Sidebar Embedding**: Screen mirroring appears directly in the VS Code sidebar
-- **Eject & Embed**: Switch between sidebar and external window modes
-- **Optimized Performance**: Smart resolution and bitrate adjustments for smooth mirroring
-- **Always-on-Top Mode**: Keep device screen visible while coding
+### **Integrated Screen Mirroring**
+- **Phones and Tablets**: The mirror window follows the device aspect ratio and rotation, so portrait phones and landscape tablets both fit
+- **Resizable Window**: Resize or move the mirror window freely; it keeps the correct proportions
+- **Configurable Quality**: Set the maximum resolution and bitrate to match your device and network
+- **Always-on-Top Mode**: Keep device screen visible while coding, release it with one click
 
-### 🛠️ **Smart Binary Management**
+### **Smart Binary Management**
 - **Auto-Detection**: Finds existing ADB/scrcpy installations automatically
 - **Zero-Config Setup**: Downloads required binaries when not found
 - **Cross-Platform**: Works seamlessly on Windows, macOS, and Linux
 - **Custom Paths**: Support for custom binary locations
 
-### 🎨 **Native VS Code Integration**
+### **Native VS Code Integration**
 - **Theme Adaptive**: Automatically matches VS Code's light/dark themes
 - **Command Palette**: Access all features via `Ctrl+Shift+P`
 - **Status Bar**: Quick status indicators and controls
 - **Comprehensive Logging**: Detailed logs for troubleshooting
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -79,39 +79,39 @@ code --install-extension LusanSapkota.droidbridge
 
 ### Connect & Mirror
 
-1. **Open DroidBridge**: Click the 🤖 icon in VS Code's Activity Bar
+1. **Open DroidBridge**: Click the icon in VS Code's Activity Bar
 2. **Connect Device**: Enter IP address and port, click "Connect Device"
-3. **Start Mirroring**: Click "Launch Scrcpy" - screen appears in sidebar!
-4. **Eject/Embed**: Use controls to switch between sidebar and external window modes
+3. **Start Mirroring**: Click "Launch Scrcpy" to open the mirror window
+4. **Control the Window**: Use the Screen Mirror controls to release always-on-top or close it
 
-> 💡 **Pro Tip**: DroidBridge automatically handles ADB and scrcpy binaries - no manual installation needed!
+> **Pro Tip**: DroidBridge automatically handles ADB and scrcpy binaries - no manual installation needed!
 
-## 🖥️ Interface Overview
+## Interface Overview
 
 ### Sidebar Sections
 
-#### **📱 Screen Mirror**
-- **Live Preview**: Device screen embedded directly in sidebar
-- **Eject Button**: Move to external window for larger view
+#### **Screen Mirror**
+- **Active State**: Shows when a mirror window is running
+- **Release Button**: Relaunch the mirror as a normal window (not always-on-top)
 - **Close Button**: Stop mirroring session
 - **Status Indicator**: Real-time connection status
 
-#### **🔌 Device Connection**
+#### **Device Connection**
 - **IP/Port Fields**: Pre-filled with your last successful connection
 - **Connect/Disconnect**: One-click connection management
 - **Status Display**: Connection state with helpful error messages
 
-#### **🔄 Scrcpy Controls**
+#### **Scrcpy Controls**
 - **Launch Scrcpy**: Start screen mirroring (sidebar mode by default)
 - **Launch Screen Off**: Mirror with device screen off (battery saving)
 - **Stop Scrcpy**: Terminate current mirroring session
 
-#### **🕐 Connection History**
+#### **Connection History**
 - **Recent Devices**: Quick access to your last 5 connections
 - **One-Click Reconnect**: Click the plug icon to instantly reconnect
 - **Manage History**: Remove unwanted entries with trash icon
 
-#### **⚙️ Wireless Pairing**
+#### **Wireless Pairing**
 - **Manual Pairing**: Enter host, port, and 6-digit code from device
 - **Quick Setup**: Streamlined pairing for first-time connections
 
@@ -133,7 +133,7 @@ DroidBridge: Download Missing Binaries
 DroidBridge: Refresh Binary Detection
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 ### VS Code Settings
 
@@ -145,11 +145,14 @@ Configure DroidBridge via `Settings` → `Extensions` → `DroidBridge`:
 | `droidbridge.defaultPort` | Default port for ADB connection | `"5555"` |
 | `droidbridge.adbPath` | Custom ADB binary path (optional) | `""` |
 | `droidbridge.scrcpyPath` | Custom scrcpy binary path (optional) | `""` |
+| `droidbridge.scrcpy.maxSize` | Longest side of the mirror in pixels, `0` for native | `1024` |
+| `droidbridge.scrcpy.bitrate` | Video bitrate, raise for high resolution tablets | `"8M"` |
+| `droidbridge.scrcpy.alwaysOnTop` | Keep the mirror window above other windows | `true` |
 
 ### Configuration Examples
 
 <details>
-<summary><strong>📱 Basic Setup</strong></summary>
+<summary><strong>Basic Setup</strong></summary>
 
 ```json
 {
@@ -160,7 +163,7 @@ Configure DroidBridge via `Settings` → `Extensions` → `DroidBridge`:
 </details>
 
 <details>
-<summary><strong>🛠️ Custom Binary Paths</strong></summary>
+<summary><strong>Custom Binary Paths</strong></summary>
 
 ```json
 {
@@ -171,7 +174,7 @@ Configure DroidBridge via `Settings` → `Extensions` → `DroidBridge`:
 </details>
 
 <details>
-<summary><strong>🏢 Development Environment</strong></summary>
+<summary><strong>Development Environment</strong></summary>
 
 ```json
 {
@@ -183,18 +186,18 @@ Configure DroidBridge via `Settings` → `Extensions` → `DroidBridge`:
 ```
 </details>
 
-## 🔧 Binary Management
+## Binary Management
 
 DroidBridge features an intelligent binary management system that handles ADB and scrcpy automatically:
 
-### 🔍 Smart Detection Process
+### Smart Detection Process
 
 1. **Custom Paths** → Your configured binary locations
 2. **System PATH** → Homebrew, apt, chocolatey installations  
 3. **Common Directories** → Platform-specific standard locations
 4. **Auto-Download** → Fetches latest binaries from [droidbridge-binaries](https://github.com/Lusan-sapkota/droidbridge-binaries)
 
-### 🛠️ Management Commands
+### Management Commands
 
 | Command | Description |
 |---------|-------------|
@@ -202,7 +205,7 @@ DroidBridge features an intelligent binary management system that handles ADB an
 | `Download Missing Binaries` | Download any missing ADB/scrcpy binaries |
 | `Refresh Binary Detection` | Re-scan system for existing installations |
 
-### 📦 Supported Platforms
+### Supported Platforms
 
 | Platform | ADB Source | Scrcpy Source |
 |----------|-----------|---------------|
@@ -210,58 +213,58 @@ DroidBridge features an intelligent binary management system that handles ADB an
 | **macOS** | Android SDK, Homebrew, Xcode | Homebrew, GitHub Releases |
 | **Linux** | Android SDK, apt/yum/pacman | Package Manager, AppImage |
 
-### 🌐 Offline Usage
+### Offline Usage
 
 No internet? No problem:
 1. Install binaries manually via package manager
 2. Add them to your system PATH
 3. Or configure custom paths in settings
 
-> 💡 **Binary hosting**: All binaries are securely hosted at [github.com/Lusan-sapkota/droidbridge-binaries](https://github.com/Lusan-sapkota/droidbridge-binaries)
+> **Binary hosting**: All binaries are securely hosted at [github.com/Lusan-sapkota/droidbridge-binaries](https://github.com/Lusan-sapkota/droidbridge-binaries)
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 <details>
-<summary><strong>🔌 Connection Issues</strong></summary>
+<summary><strong>Connection Issues</strong></summary>
 
 ### Device Won't Connect
-- ✅ Both device and computer on same WiFi network
-- ✅ Wireless debugging enabled in Developer Options
-- ✅ Correct IP address and port entered
-- ✅ Try: `adb kill-server && adb start-server`
+- Both device and computer on same WiFi network
+- Wireless debugging enabled in Developer Options
+- Correct IP address and port entered
+- Try: `adb kill-server && adb start-server`
 
 ### "Device Offline" Error
-- 🔄 Disconnect and reconnect device
-- 🌐 Check network connectivity
-- 📱 Restart wireless debugging on device
-- 🛡️ Check firewall/VPN settings
+- Disconnect and reconnect device
+- Check network connectivity
+- Restart wireless debugging on device
+- Check firewall/VPN settings
 
 </details>
 
 <details>
-<summary><strong>📱 Screen Mirroring Issues</strong></summary>
+<summary><strong>Screen Mirroring Issues</strong></summary>
 
 ### Scrcpy Won't Launch
-- ✅ Device connected via ADB first
-- ✅ USB debugging enabled
-- ✅ Device authorization prompt accepted
-- 🧪 Test manually: `scrcpy --help`
+- Device connected via ADB first
+- USB debugging enabled
+- Device authorization prompt accepted
+- Test manually: `scrcpy --help`
 
 ### Poor Performance
-- 📐 Lower resolution (max-size parameter)
-- 📊 Reduce bitrate
-- 🚫 Close other device apps
-- 🌐 Check WiFi bandwidth
+- Lower resolution (max-size parameter)
+- Reduce bitrate
+- Close other device apps
+- Check WiFi bandwidth
 
 ### Sidebar Embedding Problems
-- 🔄 Try eject → embed cycle
+- Try eject → embed cycle
 - ⏹️ Stop and restart scrcpy
-- 🪟 Check if external window is hidden
+- Check if external window is hidden
 
 </details>
 
 <details>
-<summary><strong>💾 Binary Issues</strong></summary>
+<summary><strong>Binary Issues</strong></summary>
 
 ### "Binary Not Found" Errors
 1. Run `Check Binary Status` command
@@ -279,26 +282,26 @@ No internet? No problem:
    ```
 
 ### Download Failures
-- 🌐 Check internet connection
-- 🛡️ Verify firewall/proxy settings
-- 🔄 Try `Refresh Binary Detection`
-- ⚙️ Configure custom paths
+- Check internet connection
+- Verify firewall/proxy settings
+- Try `Refresh Binary Detection`
+- Configure custom paths
 
 </details>
 
 <details>
-<summary><strong>🆘 Getting Help</strong></summary>
+<summary><strong>Getting Help</strong></summary>
 
-1. **📋 Check Logs**: `DroidBridge: Show Logs`
-2. **🔄 Reset Settings**: Clear custom paths
-3. **♻️ Restart Extension**: `Developer: Reload Window`
-4. **🐛 Report Issues**: [GitHub Issues](https://github.com/Lusan-sapkota/DroidBridge/issues)
+1. **Check Logs**: `DroidBridge: Show Logs`
+2. **Reset Settings**: Clear custom paths
+3. **Restart Extension**: `Developer: Reload Window`
+4. **Report Issues**: [GitHub Issues](https://github.com/Lusan-sapkota/DroidBridge/issues)
 
 </details>
 
-## 📋 Requirements
+## Requirements
 
-### 💻 System Requirements
+### System Requirements
 | Component | Requirement |
 |-----------|-------------|
 | **VS Code** | 1.104.0+ |
@@ -306,7 +309,7 @@ No internet? No problem:
 | **Android** | 5.0+ with Developer Options |
 | **Network** | Same WiFi network for device & computer |
 
-### 🔧 Dependencies
+### Dependencies
 
 DroidBridge automatically manages these essential tools:
 
@@ -314,7 +317,7 @@ DroidBridge automatically manages these essential tools:
 <tr>
 <td>
 
-**🔌 ADB (Android Debug Bridge)**
+**ADB (Android Debug Bridge)**
 - Device connection & communication
 - Auto-downloaded if missing
 - Custom paths configurable
@@ -322,7 +325,7 @@ DroidBridge automatically manages these essential tools:
 </td>
 <td>
 
-**📱 Scrcpy**
+**Scrcpy**
 - High-performance screen mirroring
 - Lightweight & efficient
 - Optimized settings included
@@ -331,22 +334,22 @@ DroidBridge automatically manages these essential tools:
 </tr>
 </table>
 
-> 💡 **Smart Binary Management**: Extension automatically detects, downloads, and configures all required tools. No manual setup needed!
+> **Smart Binary Management**: Extension automatically detects, downloads, and configures all required tools. No manual setup needed!
 
-## ⚠️ Known Issues
+## Known Issues
 
 | Issue | Description | Workaround |
 |-------|-------------|------------|
-| 🔄 **Multiple Instances** | Scrcpy instances may conflict | Stop existing sessions first |
-| 📱 **Device Setup** | Some devices need extra wireless setup | Follow device-specific guides |
-| 🌐 **WiFi Latency** | Network can affect performance | Use 5GHz WiFi or USB debugging |
-| 🪟 **Windows Paths** | Custom binaries need `.exe` extension | Include full path with extension |
+| **Multiple Instances** | Scrcpy instances may conflict | Stop existing sessions first |
+| **Device Setup** | Some devices need extra wireless setup | Follow device-specific guides |
+| **WiFi Latency** | Network can affect performance | Use 5GHz WiFi or USB debugging |
+| **Windows Paths** | Custom binaries need `.exe` extension | Include full path with extension |
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Help make DroidBridge even better.
 
-### 🚀 Quick Start
+### Quick Start
 ```bash
 # 1. Fork the repository
 git clone https://github.com/yourusername/DroidBridge.git
@@ -361,14 +364,14 @@ npm run watch
 npm test
 ```
 
-### 📝 Contribution Guidelines
-- 🌿 Create feature branches from `main`
-- ✅ Add tests for new functionality  
-- 📚 Update documentation
-- 🧹 Follow existing code style
-- 📋 Submit detailed pull requests
+### Contribution Guidelines
+- Create feature branches from `main`
+- Add tests for new functionality  
+- Update documentation
+- Follow existing code style
+- Submit detailed pull requests
 
-### 🐛 Bug Reports
+### Bug Reports
 Found a bug? [Create an issue](https://github.com/Lusan-sapkota/DroidBridge/issues) with:
 - Steps to reproduce
 - Expected vs actual behavior
@@ -376,29 +379,29 @@ Found a bug? [Create an issue](https://github.com/Lusan-sapkota/DroidBridge/issu
 
 ---
 
-## 👨‍💻 About
+## About
 
 **Created by [Lusan Sapkota](https://lusansapkota.com.np)**
 
 DroidBridge combines modern Android development tools with VS Code's powerful interface, making device management effortless and productive.
 
-- 🌟 **Binaries Repository**: [DroidBridge-Binaries](https://github.com/Lusan-sapkota/DroidBridge-Binaries)
-- 💼 **Portfolio**: [lusansapkota.com.np](https://lusansapkota.com.np)
-- 📧 **Contact**: Available through GitHub or portfolio site
+- **Binaries Repository**: [DroidBridge-Binaries](https://github.com/Lusan-sapkota/DroidBridge-Binaries)
+- **Portfolio**: [lusansapkota.com.np](https://lusansapkota.com.np)
+- **Contact**: Available through GitHub or portfolio site
 
-### 💝 Support This Project
+### Support This Project
 
 If DroidBridge has improved your development workflow:
-- ⭐ Star this repository
-- 🐛 Report bugs and suggest features
-- 🤝 Contribute code or documentation
-- 🗣️ Share with other developers
+- Star this repository
+- Report bugs and suggest features
+- Contribute code or documentation
+- Share with other developers
 
 ---
 
 <div align="center">
 
-**Made with ❤️ for the Android development community**
+**Made with for the Android development community**
 
 [![VS Code](https://img.shields.io/badge/Made%20for-VS%20Code-blue.svg?style=for-the-badge&logo=visual-studio-code)](https://code.visualstudio.com/)
 [![Android](https://img.shields.io/badge/Supports-Android-green.svg?style=for-the-badge&logo=android)](https://developer.android.com/)

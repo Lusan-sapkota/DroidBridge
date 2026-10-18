@@ -1,5 +1,3 @@
-/* Main styles for DroidBridge sidebar */
-/* Theme-specific root variables */
 :root {
   --droidbridge-icon-color: var(--vscode-foreground);
   --droidbridge-section-border: var(--vscode-sideBarSectionHeader-background);
@@ -8,7 +6,6 @@
   --droidbridge-warning-color: var(--vscode-charts-orange, #FF9800);
 }
 
-/* Theme-specific overrides */
 .vscode-light {
   --droidbridge-icon-color: #424242;
   --droidbridge-section-border: #E0E0E0;
@@ -38,7 +35,6 @@
   max-width: 100%;
 }
 
-/* Section styles */
 .section {
   margin-bottom: 24px;
 }
@@ -74,28 +70,6 @@
   padding-left: 4px;
 }
 
-.help-text {
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-  margin-bottom: 12px;
-  line-height: 1.4;
-}
-
-.input-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.input-group.small {
-  flex: 1 1 120px;
-}
-
-
-
-
-
-/* Status indicator styles */
 .status-indicator {
   display: flex;
   align-items: center;
@@ -115,7 +89,6 @@
   font-weight: 500;
 }
 
-/* Connected status */
 .status-indicator.connected .status-icon {
   color: var(--droidbridge-success-color);
 }
@@ -124,7 +97,6 @@
   color: var(--droidbridge-success-color);
 }
 
-/* Disconnected status */
 .status-indicator.disconnected .status-icon {
   color: var(--droidbridge-error-color);
 }
@@ -133,15 +105,14 @@
   color: var(--droidbridge-error-color);
 }
 
-/* Running status */
 .status-indicator.running .status-icon {
   color: var(--droidbridge-success-color);
 }
 
 .status-indicator.running .status-text {
   color: var(--droidbridge-success-color);
-}/*
- Stopped status */
+}
+
 .status-indicator.stopped .status-icon {
   color: var(--vscode-foreground);
   opacity: 0.7;
@@ -152,7 +123,6 @@
   opacity: 0.7;
 }
 
-/* Input group styles */
 .input-group {
   margin-bottom: 12px;
 }
@@ -185,14 +155,12 @@
   color: var(--vscode-input-placeholderForeground);
 }
 
-/* Button group styles */
 .button-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* Button base styles */
 button {
   display: flex;
   align-items: center;
@@ -218,7 +186,6 @@ button .codicon {
   font-size: 14px;
 }
 
-/* Primary button styles */
 .primary-button {
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
@@ -228,7 +195,6 @@ button .codicon {
   background-color: var(--vscode-button-hoverBackground);
 }
 
-/* Secondary button styles */
 .secondary-button {
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
@@ -238,13 +204,11 @@ button .codicon {
   background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-/* Disabled button styles */
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Connection History styles */
 .history-empty {
   color: var(--vscode-foreground);
   opacity: 0.7;
@@ -332,8 +296,6 @@ button:disabled {
   font-size: 12px;
 }
 
-
-
 .help-text {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
@@ -343,12 +305,14 @@ button:disabled {
 
 .input-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
 }
 
 .input-group.small {
-  flex: 1;
+  flex: 1 1 80px;
+  min-width: 0;
   margin-bottom: 0;
 }
 
@@ -357,7 +321,6 @@ button:disabled {
   padding: 4px 6px;
 }
 
-/* Responsive design */
 @media (max-width: 300px) {
   .container {
     padding: 12px;
@@ -387,15 +350,24 @@ button:disabled {
     gap: 4px;
   }
 
-  .scrcpy-mirror-container {
-    min-height: 200px;
+}
+
+@media (pointer: coarse) {
+  button,
+  .icon-button,
+  .input-group input {
+    min-height: 36px;
+  }
+
+  .history-connect-btn,
+  .history-remove-btn {
+    width: 36px;
+    min-height: 36px;
   }
 }
 
-/* Scrcpy Sidebar Styles */
 .scrcpy-mirror-container {
   width: 100%;
-  min-height: 300px;
   border: 1px solid var(--vscode-sideBarSectionHeader-background);
   border-radius: 4px;
   background: var(--vscode-editor-background);
@@ -408,15 +380,14 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  min-height: 300px;
+  padding: 24px 12px;
   color: var(--vscode-descriptionForeground);
   text-align: center;
   gap: 12px;
 }
 
 .scrcpy-placeholder .codicon {
-  font-size: 48px;
+  font-size: 32px;
   opacity: 0.6;
 }
 
@@ -463,8 +434,7 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  min-height: 300px;
+  padding: 24px 12px;
   color: var(--droidbridge-success-color);
   text-align: center;
   gap: 12px;

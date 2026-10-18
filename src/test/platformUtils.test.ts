@@ -9,12 +9,10 @@ suite('PlatformUtils Test Suite', () => {
   let fsStub: any;
 
   setup(() => {
-    // Stub os.platform and os.arch
     osStub = sinon.stub(os, 'platform');
     sinon.stub(os, 'arch');
     sinon.stub(os, 'tmpdir');
 
-    // Create fs stubs
     const fs = require('fs/promises');
     fsStub = {
       stat: sinon.stub(fs, 'stat'),

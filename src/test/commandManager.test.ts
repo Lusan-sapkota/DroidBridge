@@ -18,7 +18,6 @@ suite('CommandManager Test Suite', () => {
   setup(() => {
     sandbox = sinon.createSandbox();
     
-    // Create mock instances
     binaryManager = sandbox.createStubInstance(BinaryManager);
     logger = sandbox.createStubInstance(Logger);
     processManager = sandbox.createStubInstance(ProcessManager);
@@ -40,7 +39,6 @@ suite('CommandManager Test Suite', () => {
       
       commandManager.registerCommands(context);
 
-      // Verify all required commands are registered (6 original + 3 binary management)
       assert.strictEqual(registerCommandStub.callCount, 9);
       
       const commandNames = registerCommandStub.getCalls().map(call => call.args[0]);
@@ -54,7 +52,6 @@ suite('CommandManager Test Suite', () => {
       assert.ok(commandNames.includes('droidbridge.downloadBinaries'));
       assert.ok(commandNames.includes('droidbridge.refreshBinaries'));
 
-      // Verify commands are added to context subscriptions
       assert.strictEqual(context.subscriptions.length, 9);
     });
 
@@ -99,7 +96,7 @@ suite('CommandManager Test Suite', () => {
 
       assert.ok(showInputBoxStub.calledTwice);
       assert.ok(connectDeviceStub.calledWith('192.168.1.100', '5555'));
-      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('✅ Device connected to 192.168.1.100:5555'));
+      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('Device connected to 192.168.1.100:5555'));
     });
 
     test('should handle user cancellation during IP input', async () => {
@@ -193,7 +190,7 @@ suite('CommandManager Test Suite', () => {
       await commandManager.disconnectDeviceCommand();
 
       assert.ok(disconnectDeviceStub.called);
-      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('✅ Device disconnected from 192.168.1.100:5555'));
+      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('Device disconnected from 192.168.1.100:5555'));
     });
 
     test('should show warning when no device is connected', async () => {
@@ -232,7 +229,7 @@ suite('CommandManager Test Suite', () => {
       await commandManager.launchScrcpyCommand();
 
       assert.ok(launchScrcpyStub.called);
-      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('✅ Scrcpy launched successfully'));
+      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('Scrcpy launched successfully'));
     });
 
     test('should show warning when scrcpy is already running', async () => {
@@ -252,7 +249,6 @@ suite('CommandManager Test Suite', () => {
 
       const connectDeviceCommandStub = sandbox.stub(commandManager, 'connectDeviceCommand').resolves();
       
-      // After connection attempt, device is still not connected
       (processManager.isDeviceConnected as sinon.SinonStub).returns(false);
 
       await commandManager.launchScrcpyCommand();
@@ -280,7 +276,7 @@ suite('CommandManager Test Suite', () => {
       await commandManager.launchScrcpyCommand();
 
       assert.ok(launchScrcpyStub.called);
-      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('✅ Scrcpy launched successfully'));
+      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('Scrcpy launched successfully'));
     });
 
     test('should handle launch errors', async () => {
@@ -311,7 +307,7 @@ suite('CommandManager Test Suite', () => {
       await commandManager.launchScrcpyScreenOffCommand();
 
       assert.ok(launchScrcpyScreenOffStub.called);
-      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('✅ Scrcpy launched successfully with screen off'));
+      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('Scrcpy launched successfully with screen off'));
     });
 
     test('should show warning when scrcpy is already running', async () => {
@@ -339,7 +335,7 @@ suite('CommandManager Test Suite', () => {
       await commandManager.stopScrcpyCommand();
 
       assert.ok(stopScrcpyStub.called);
-      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('✅ Scrcpy stopped successfully'));
+      assert.ok((logger.showSuccess as sinon.SinonStub).calledWith('Scrcpy stopped successfully'));
     });
 
     test('should show warning when scrcpy is not running', async () => {
@@ -426,7 +422,7 @@ suite('CommandManager Test Suite', () => {
       const result = await commandManager.connectDevice('192.168.1.100', '5555');
 
       assert.strictEqual(result, false);
-      assert.ok((logger.showError as sinon.SinonStub).calledWith('❌ Connection refused'));
+      assert.ok((logger.showError as sinon.SinonStub).calledWith('Connection refused'));
     });
 
     test('disconnectDevice should disconnect successfully', async () => {
@@ -447,7 +443,7 @@ suite('CommandManager Test Suite', () => {
       const result = await commandManager.disconnectDevice();
 
       assert.strictEqual(result, false);
-      assert.ok((logger.showError as sinon.SinonStub).calledWith('❌ Disconnection failed'));
+      assert.ok((logger.showError as sinon.SinonStub).calledWith('Disconnection failed'));
     });
 
     test('launchScrcpy should prevent duplicate instances', async () => {
@@ -491,7 +487,7 @@ suite('CommandManager Test Suite', () => {
       const result = await commandManager.stopScrcpy();
 
       assert.strictEqual(result, false);
-      assert.ok((logger.showError as sinon.SinonStub).calledWith('❌ Failed to stop scrcpy'));
+      assert.ok((logger.showError as sinon.SinonStub).calledWith('Failed to stop scrcpy'));
     });
   });
 

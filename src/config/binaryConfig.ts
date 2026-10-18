@@ -1,6 +1,3 @@
-/**
- * Configuration for binary downloads and sources
- */
 
 export interface BinarySource {
   name: "adb" | "scrcpy";
@@ -15,20 +12,12 @@ export interface BinarySource {
   };
 }
 
-/**
- * Binary download configuration
- * Update these URLs to point to your hosted binaries
- */
 export const BINARY_CONFIG: BinarySource[] = [
   {
     name: "adb",
     downloadUrls: {
-      // GitHub releases - repository
       github:
         "https://github.com/Lusan-sapkota/droidbridge-binaries/releases/latest/download",
-      // Direct download URLs - CDN (optional, not ready yet)
-      // direct: 'https://lusansapkota.com.np/droidbridge/binaries',
-      // Fallback to official sources (may require extraction)
       fallback:
         "https://dl.google.com/android/repository/platform-tools-latest",
     },
@@ -37,30 +26,20 @@ export const BINARY_CONFIG: BinarySource[] = [
   {
     name: "scrcpy",
     downloadUrls: {
-      // GitHub releases - repository
       github:
         "https://github.com/Lusan-sapkota/droidbridge-binaries/releases/latest/download",
-      // Direct download URLs - CDN (optional, not ready yet)
-      // direct: 'https://lusansapkota.com.np/droidbridge/binaries',
-      // Fallback to official releases
       fallback: "https://github.com/Genymobile/scrcpy/releases/latest/download",
     },
     version: "latest",
   },
 ];
 
-/**
- * Get binary configuration by name
- */
 export function getBinaryConfig(
   name: "adb" | "scrcpy"
 ): BinarySource | undefined {
   return BINARY_CONFIG.find((config) => config.name === name);
 }
 
-/**
- * Get download URL for a binary based on preference
- */
 export function getDownloadUrl(
   name: "adb" | "scrcpy",
   preference: "github" | "direct" | "fallback" = "github"
@@ -77,9 +56,6 @@ export function getDownloadUrl(
   );
 }
 
-/**
- * Platform-specific binary file patterns
- */
 export const BINARY_PATTERNS = {
   adb: {
     win32: "adb-windows-{arch}.exe",
@@ -93,9 +69,6 @@ export const BINARY_PATTERNS = {
   },
 };
 
-/**
- * Get binary filename pattern for platform
- */
 export function getBinaryPattern(
   name: "adb" | "scrcpy",
   platform: string,

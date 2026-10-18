@@ -3,18 +3,8 @@ import { CommandManager, ConfigManager, ProcessManager, BinaryManager, Logger } 
 import { DroidBridgeSidebarProvider } from './providers';
 import { ExtensionState } from './types';
 import { ThemeManager } from './utils/themeManager';
-// Explicit side-effect import to keep provider in bundle
 import './providers/sidebarProvider';
 
-// Debug helper: simple tree provider to verify container renders something.
-// class DebugTreeDataProvider implements vscode.TreeDataProvider<string> {
-//   private _onDidChangeTreeData = new vscode.EventEmitter<string | undefined | null | void>();
-//   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-//   getTreeItem(element: string): vscode.TreeItem { return new vscode.TreeItem(element); }
-//   getChildren(): string[] { return ['DroidBridge Debug: Webview not resolving', 'If you see this, container works']; }
-// }
-
-// Global extension state
 let extensionState: ExtensionState;
 let logger: Logger;
 let commandManager: CommandManager;
@@ -24,35 +14,23 @@ let binaryManager: BinaryManager;
 let sidebarProvider: DroidBridgeSidebarProvider;
 let themeManager: ThemeManager;
 
-/**
- * This method is called when the extension is activated
- * Implements requirements 1.1, 4.6, 6.1
- */
 export function activate(context: vscode.ExtensionContext) {
-  // Initialize logger first - Requirement 6.1: Create OutputChannel
   logger = new Logger();
   logger.info('DroidBridge extension is activating...');
 
   try {
-    // Initialize all manager classes in proper order
     initializeManagers(context);
     
-    // Initialize extension state
     initializeExtensionState();
     
-    // Register all VSCode components
     registerVSCodeComponents(context);
     
-    // Set up configuration watchers
     setupConfigurationWatchers(context);
     
-    // Validate binaries asynchronously
     validateBinariesAsync();
     
-    // Mark as initialized
     extensionState.initialized = true;
     logger.info('DroidBridge extension activated successfully');
-
   } catch (error) {
     logger.error('Failed to activate DroidBridge extension', error as Error);
     vscode.window.showErrorMessage('Failed to activate DroidBridge extension. Check the logs for details.');
@@ -60,29 +38,21 @@ export function activate(context: vscode.ExtensionContext) {
   }
 }
 
-/**
- * Initialize all manager classes with proper dependencies
- */
 function initializeManagers(context: vscode.ExtensionContext): void {
   logger.info('Initializing manager classes...');
   
-  // Initialize configuration manager first (no dependencies)
   configManager = new ConfigManager();
   logger.debug('ConfigManager initialized');
   
-  // Initialize theme manager (no dependencies)
   themeManager = ThemeManager.getInstance();
   logger.debug('ThemeManager initialized');
   
-  // Initialize binary manager (depends on config manager)
   binaryManager = new BinaryManager(context.extensionPath, configManager);
   logger.debug('BinaryManager initialized');
   
-  // Initialize process manager (depends on binary manager and logger)
   processManager = new ProcessManager(binaryManager, logger);
   logger.debug('ProcessManager initialized');
   
-  // Initialize sidebar provider (depends on config manager)
   sidebarProvider = new DroidBridgeSidebarProvider(
     vscode.Uri.file(context.extensionPath), 
     context, 
@@ -91,18 +61,13 @@ function initializeManagers(context: vscode.ExtensionContext): void {
   logger.debug('DroidBridgeSidebarProvider initialized');
     logger.info(`Sidebar provider class loaded with viewType=${DroidBridgeSidebarProvider.viewType}`);
   
-  // Initialize command manager last (depends on all other managers)
   commandManager = new CommandManager(processManager, configManager, logger, binaryManager, sidebarProvider);
   logger.debug('CommandManager initialized');
   
-  // Set up bidirectional integration between sidebar and command manager
   commandManager.setSidebarProvider(sidebarProvider);
   logger.debug('Manager cross-references established');
 }
 
-/**
- * Initialize the extension state
- */
 function initializeExtensionState(): void {
   extensionState = {
     connection: {
@@ -117,14 +82,9 @@ function initializeExtensionState(): void {
   logger.debug('Extension state initialized');
 }
 
-/**
- * Register all VSCode components (commands, views, providers)
- * Implements requirements 1.1, 4.6
- */
 function registerVSCodeComponents(context: vscode.ExtensionContext): void {
   logger.info('Registering VSCode components...');
   
-  // Register webview provider for sidebar - Requirement 1.1: Display DroidBridge sidebar
   const sidebarDisposable = vscode.window.registerWebviewViewProvider(
     DroidBridgeSidebarProvider.viewType, // Keep in sync with package.json
     sidebarProvider
@@ -134,27 +94,19 @@ function registerVSCodeComponents(context: vscode.ExtensionContext): void {
   context.subscriptions.push(sidebarDisposable);
   logger.debug('Sidebar webview provider registered');
 
-    // Debug: removed tree view registration
-  
-  // Register all commands - Requirement 4.6: Register all commands with VSCode
   commandManager.registerCommands(context);
   logger.debug('All commands registered');
   
   logger.info('All VSCode components registered successfully');
 }
 
-/**
- * Set up configuration change watchers
- */
 function setupConfigurationWatchers(context: vscode.ExtensionContext): void {
   logger.info('Setting up configuration watchers...');
   
-  // Register configuration change listener
   const configDisposable = configManager.onConfigurationChanged(() => {
     logger.info('Configuration changed, refreshing extension state');
     sidebarProvider.refresh();
     
-    // Re-validate binaries if paths changed
     validateBinariesAsync();
   });
   context.subscriptions.push(configDisposable);
@@ -162,16 +114,11 @@ function setupConfigurationWatchers(context: vscode.ExtensionContext): void {
   logger.debug('Configuration watchers set up');
 }
 
-/**
- * Validate binaries asynchronously without blocking activation
- */
 function validateBinariesAsync(): void {
-  // Set up download progress callback
   binaryManager.setDownloadProgressCallback((progress) => {
     logger.info(`Downloading ${progress.binary}: ${progress.percentage}% (${progress.downloaded}/${progress.total} bytes)`);
   });
 
-  // Run binary validation in background
   binaryManager.validateBinaries()
     .then((result: any) => {
       extensionState.binariesValidated = result.adbValid && result.scrcpyValid;
@@ -179,7 +126,6 @@ function validateBinariesAsync(): void {
       if (extensionState.binariesValidated) {
         logger.info('All binaries validated successfully');
         
-        // Show binary info
         binaryManager.getBinaryInfo().then((info) => {
           logger.info(`ADB: ${info.adb.path} (${info.adb.source}${info.adb.version ? `, v${info.adb.version}` : ''})`);
           logger.info(`Scrcpy: ${info.scrcpy.path} (${info.scrcpy.source}${info.scrcpy.version ? `, v${info.scrcpy.version}` : ''})`);
@@ -187,7 +133,6 @@ function validateBinariesAsync(): void {
       } else {
         logger.error('Binary validation failed', new Error(result.errors.join(', ')));
         
-        // Check if downloads are needed
         binaryManager.needsDownload().then((downloadInfo) => {
           if (downloadInfo.needed) {
             vscode.window.showWarningMessage(
@@ -217,10 +162,6 @@ function validateBinariesAsync(): void {
     });
 }
 
-/**
- * This method is called when the extension is deactivated
- * Implements proper cleanup and process termination
- */
 export async function deactivate(): Promise<void> {
   if (logger) {
     logger.info('DroidBridge extension is deactivating...');
@@ -229,34 +170,28 @@ export async function deactivate(): Promise<void> {
   const cleanupTasks: Promise<void>[] = [];
 
   try {
-    // Clean up command manager (stops status updates)
     if (commandManager) {
       logger.debug('Disposing command manager...');
       commandManager.dispose();
     }
 
-    // Clean up sidebar provider
     if (sidebarProvider) {
       logger.debug('Disposing sidebar provider...');
       sidebarProvider.dispose();
     }
 
-    // Clean up processes (most important - terminate any running processes)
     if (processManager) {
       logger.debug('Cleaning up process manager...');
       cleanupTasks.push(processManager.cleanup());
     }
 
-    // Wait for all cleanup tasks to complete
     await Promise.all(cleanupTasks);
 
-    // Clean up theme manager
     if (themeManager) {
       logger.debug('Disposing theme manager...');
       themeManager.dispose();
     }
 
-    // Reset extension state
     if (extensionState) {
       extensionState.initialized = false;
       extensionState.binariesValidated = false;
@@ -268,9 +203,7 @@ export async function deactivate(): Promise<void> {
       logger.info('DroidBridge extension deactivated successfully');
       logger.dispose();
     }
-
   } catch (error) {
-    // Use console.error as fallback since logger might be disposed
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error during extension deactivation:', errorMessage);
     
@@ -278,14 +211,10 @@ export async function deactivate(): Promise<void> {
       try {
         logger.error('Error during extension deactivation', error instanceof Error ? error : undefined);
       } catch (logError) {
-        // Logger might already be disposed, ignore
         console.error('Failed to log deactivation error:', logError);
       }
     }
-    
-    // Don't throw the error - deactivation should always complete
   } finally {
-    // Ensure all global references are cleared
     extensionState = undefined as any;
     logger = undefined as any;
     commandManager = undefined as any;
@@ -297,23 +226,14 @@ export async function deactivate(): Promise<void> {
   }
 }
 
-/**
- * Get the current extension state (for testing purposes)
- */
 export function getExtensionState(): ExtensionState | undefined {
   return extensionState;
 }
 
-/**
- * Get the logger instance (for testing purposes)
- */
 export function getLogger(): Logger | undefined {
   return logger;
 }
 
-/**
- * Check if the extension is properly initialized
- */
 export function isExtensionInitialized(): boolean {
   return extensionState?.initialized === true;
 }

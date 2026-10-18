@@ -13,10 +13,8 @@ suite('BinaryManager Test Suite', () => {
   const mockExtensionPath = '/mock/extension/path';
 
   setup(() => {
-    // Create stubbed ConfigManager
     mockConfigManager = sinon.createStubInstance(ConfigManager);
     
-    // Stub PlatformUtils methods
     platformUtilsStub = sinon.stub(PlatformUtils, 'getCurrentPlatform');
     sinon.stub(PlatformUtils, 'getBinaryExtension');
     sinon.stub(PlatformUtils, 'makeExecutable');
@@ -25,7 +23,6 @@ suite('BinaryManager Test Suite', () => {
     sinon.stub(PlatformUtils, 'getCurrentArchitecture');
     sinon.stub(PlatformUtils, 'supportsFeature');
 
-    // Create fs stubs
     const fs = require('fs/promises');
     fsStub = {
       stat: sinon.stub(fs, 'stat'),
@@ -111,7 +108,6 @@ suite('BinaryManager Test Suite', () => {
     });
 
     test('should return valid result when both binaries exist and are executable', async () => {
-      // Mock file stats to indicate files exist
       const mockStats = { isFile: () => true };
       fsStub.stat.resolves(mockStats);
       fsStub.access.resolves(undefined);
@@ -142,7 +138,6 @@ suite('BinaryManager Test Suite', () => {
       const mockStats = { isFile: () => true };
       fsStub.stat.resolves(mockStats);
 
-      // Mock the binary detection to avoid fs.access calls
       const mockDetection = { found: true, path: '/mock/path', source: 'system' as const };
       sinon.stub(binaryManager as any, 'getOrDetectBinary').resolves(mockDetection);
 
@@ -150,7 +145,6 @@ suite('BinaryManager Test Suite', () => {
 
       assert.strictEqual(result.adbValid, true);
       assert.strictEqual(result.scrcpyValid, true);
-      // The key test is that supportsFeature returns false, not that fs.access isn't called
       assert.ok((PlatformUtils.supportsFeature as sinon.SinonStub).calledWith('executable-permissions'));
     });
   });
@@ -162,7 +156,6 @@ suite('BinaryManager Test Suite', () => {
       (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('linux');
       (PlatformUtils.getBinaryExtension as sinon.SinonStub).returns('');
 
-      // Mock the detection to return bundled binaries
       const mockAdbDetection = {
         found: true,
         path: path.join(mockExtensionPath, 'binaries', 'linux', 'adb'),
@@ -194,7 +187,6 @@ suite('BinaryManager Test Suite', () => {
       (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('win32');
       (PlatformUtils.getBinaryExtension as sinon.SinonStub).returns('.exe');
 
-      // Mock detection (won't be called for custom paths but still needed for version info)
       const mockDetection = { found: true, path: '/mock/path', source: 'custom' as const, version: '1.0.0' };
       const getOrDetectBinaryStub = sinon.stub(binaryManager as any, 'getOrDetectBinary').resolves(mockDetection);
 
@@ -206,52 +198,6 @@ suite('BinaryManager Test Suite', () => {
       assert.strictEqual(result.scrcpy.path, customScrcpyPath);
     });
   });
-
-  // Commented out - extractBinaries method was removed in favor of smart binary management
-  // suite('extractBinaries', () => {
-  //   test('should create binaries directory if it does not exist', async () => {
-  //     (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('linux');
-  //     (PlatformUtils.getBinaryExtension as sinon.SinonStub).returns('');
-  //     (PlatformUtils.supportsFeature as sinon.SinonStub).returns(true);
-  //     (PlatformUtils.isExecutable as sinon.SinonStub).resolves(true);
-      
-  //     fsStub.mkdir.resolves();
-  //     fsStub.access.resolves();
-
-  //     await binaryManager.extractBinaries();
-
-  //     assert.ok(fsStub.mkdir.calledWith(path.join(mockExtensionPath, 'binaries', 'linux'), { recursive: true }));
-  //   });
-
-  //   test('should make binaries executable on Unix systems', async () => {
-  //     (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('linux');
-  //     (PlatformUtils.getBinaryExtension as sinon.SinonStub).returns('');
-  //     (PlatformUtils.supportsFeature as sinon.SinonStub).returns(true);
-  //     (PlatformUtils.isExecutable as sinon.SinonStub).resolves(false);
-  //     (PlatformUtils.makeExecutable as sinon.SinonStub).resolves();
-      
-  //     fsStub.mkdir.resolves();
-  //     fsStub.access.resolves();
-
-  //     await binaryManager.extractBinaries();
-
-  //     assert.ok((PlatformUtils.makeExecutable as sinon.SinonStub).calledTwice);
-  //   });
-
-  //   test('should handle missing binaries gracefully', async () => {
-  //     (PlatformUtils.getCurrentPlatform as sinon.SinonStub).returns('win32');
-  //     (PlatformUtils.getBinaryExtension as sinon.SinonStub).returns('.exe');
-  //     (PlatformUtils.supportsFeature as sinon.SinonStub).returns(false);
-      
-  //     fsStub.mkdir.resolves();
-  //     fsStub.access.rejects(new Error('File not found'));
-
-  //     // Should not throw
-  //     await binaryManager.extractBinaries();
-
-  //     assert.ok(fsStub.mkdir.calledOnce);
-  //   });
-  // });
 
   suite('checkBinaryIntegrity', () => {
     setup(() => {

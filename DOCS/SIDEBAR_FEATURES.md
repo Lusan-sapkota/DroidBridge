@@ -6,21 +6,21 @@ The DroidBridge sidebar provides a comprehensive interface for managing Android 
 
 ## Features
 
-### 🔌 Device Connection
+### Device Connection
 
 - **IP Address & Port Input**: Enter your Android device's IP address and port for wireless ADB connection
 - **Connect/Disconnect Buttons**: One-click connection management
 - **Connection Status**: Real-time status indicator showing connection state
 - **Input Validation**: Automatic validation of IP addresses and port numbers
 
-### 📱 Screen Mirroring (Scrcpy)
+### Screen Mirroring (Scrcpy)
 
 - **Launch Scrcpy**: Start screen mirroring with default settings
 - **Launch with Screen Off**: Start mirroring while keeping the device screen off (saves battery)
 - **Stop Scrcpy**: Terminate the screen mirroring session
 - **Status Indicator**: Shows whether scrcpy is currently running
 
-### 📚 Connection History
+### Connection History
 
 - **Recent Connections**: Displays the last 5 device connections
 - **Quick Connect**: Click the plug icon to instantly connect to a previous device
@@ -28,14 +28,14 @@ The DroidBridge sidebar provides a comprehensive interface for managing Android 
 - **Remove Entries**: Delete unwanted entries from history with the trash icon
 - **Persistent Storage**: History is saved across VSCode sessions
 
-### 🎨 Theme Integration
+### Theme Integration
 
 - **Automatic Theme Detection**: Adapts to VSCode's current theme (light/dark/high contrast)
 - **Theme-Specific Icons**: Uses appropriate icons for each theme
 - **CSS Variables**: Leverages VSCode's CSS variables for consistent styling
 - **Real-time Updates**: Automatically updates when theme changes
 
-### 📋 Logs & Debugging
+### Logs & Debugging
 
 - **Show Logs**: Quick access to the DroidBridge output channel
 - **Error Notifications**: Clear error messages with suggested actions

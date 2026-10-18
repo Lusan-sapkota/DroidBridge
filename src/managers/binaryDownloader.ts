@@ -21,9 +21,6 @@ export interface DownloadResult {
   error?: string;
 }
 
-/**
- * Downloads and manages binary files from external sources
- */
 export class BinaryDownloader {
   private downloadDir: string;
   private progressCallback?: (progress: DownloadProgress) => void;
@@ -32,20 +29,13 @@ export class BinaryDownloader {
     this.downloadDir = downloadDir;
   }
 
-  /**
-   * Set progress callback for download updates
-   */
   setProgressCallback(callback: (progress: DownloadProgress) => void): void {
     this.progressCallback = callback;
   }
 
-  /**
-   * Download multiple binaries
-   */
   async downloadBinaries(requirements: BinaryRequirement[]): Promise<DownloadResult[]> {
     const results: DownloadResult[] = [];
 
-    // Ensure download directory exists
     await this.ensureDownloadDirectory();
 
     for (const requirement of requirements) {
@@ -56,9 +46,6 @@ export class BinaryDownloader {
     return results;
   }
 
-  /**
-   * Download a single binary
-   */
   async downloadSingleBinary(requirement: BinaryRequirement): Promise<DownloadResult> {
     try {
       if (!requirement.downloadUrl) {
@@ -72,13 +59,10 @@ export class BinaryDownloader {
       const downloadUrl = this.getDownloadUrl(requirement);
       const outputPath = this.getOutputPath(requirement.name);
 
-      // Ensure output directory exists
       await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
-      // Download the binary
       await this.downloadFile(downloadUrl, outputPath, requirement.name);
 
-      // Make executable on Unix systems
       if (PlatformUtils.supportsFeature('executable-permissions')) {
         await PlatformUtils.makeExecutable(outputPath);
       }
@@ -97,15 +81,11 @@ export class BinaryDownloader {
     }
   }
 
-  /**
-   * Check if a binary is already downloaded
-   */
   async isBinaryDownloaded(binaryName: string): Promise<boolean> {
     try {
       const outputPath = this.getOutputPath(binaryName);
       await fs.access(outputPath);
       
-      // Check if it's executable on Unix systems
       if (PlatformUtils.supportsFeature('executable-permissions')) {
         return await PlatformUtils.isExecutable(outputPath);
       }
@@ -116,39 +96,27 @@ export class BinaryDownloader {
     }
   }
 
-  /**
-   * Get the path where a binary would be downloaded
-   */
   getDownloadedBinaryPath(binaryName: string): string {
     return this.getOutputPath(binaryName);
   }
 
-  /**
-   * Clean up downloaded binaries
-   */
   async cleanupDownloads(): Promise<void> {
     try {
       await fs.rm(this.downloadDir, { recursive: true, force: true });
     } catch (error) {
-      // Ignore errors if directory doesn't exist
     }
   }
 
-  /**
-   * Get download URLs based on platform and binary
-   */
   private getDownloadUrl(requirement: BinaryRequirement): string {
     const platform = PlatformUtils.getCurrentPlatform();
     const arch = PlatformUtils.getCurrentArchitecture();
     
-    // Try to get configured download URL
     const configUrl = getDownloadUrl(requirement.name, 'github');
     if (configUrl) {
       const fileName = getBinaryPattern(requirement.name, platform, arch);
       return `${configUrl}/${fileName}`;
     }
     
-    // Fallback to requirement URL
     if (requirement.downloadUrl) {
       const extension = PlatformUtils.getBinaryExtension();
       const fileName = `${requirement.name}-${platform}-${arch}${extension}`;
@@ -163,34 +131,24 @@ export class BinaryDownloader {
     throw new Error(`No download URL configured for ${requirement.name}`);
   }
 
-  /**
-   * Get the output path for a binary
-   */
   private getOutputPath(binaryName: string): string {
     const platform = PlatformUtils.getCurrentPlatform();
     const extension = PlatformUtils.getBinaryExtension();
     return path.join(this.downloadDir, platform, `${binaryName}${extension}`);
   }
 
-  /**
-   * Ensure download directory exists
-   */
   private async ensureDownloadDirectory(): Promise<void> {
     const platform = PlatformUtils.getCurrentPlatform();
     const platformDir = path.join(this.downloadDir, platform);
     await fs.mkdir(platformDir, { recursive: true });
   }
 
-  /**
-   * Download a file from URL to local path
-   */
   private async downloadFile(url: string, outputPath: string, binaryName: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const client = url.startsWith('https:') ? https : http;
       
       const request = client.get(url, (response) => {
         if (response.statusCode === 302 || response.statusCode === 301) {
-          // Handle redirects
           const redirectUrl = response.headers.location;
           if (redirectUrl) {
             this.downloadFile(redirectUrl, outputPath, binaryName)

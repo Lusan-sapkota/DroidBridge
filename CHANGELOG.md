@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Preparation for marketplace publication
+- Tablet support: the mirror window follows the device aspect ratio and rotation
+- Settings for mirror resolution, bitrate and always-on-top
+
+### Fixed
+- Mirror window was locked to a fixed 280x350 borderless size and could not be resized
+- Use `--video-bit-rate` for scrcpy 2.x and later
+- Codicon icons not rendering in the sidebar
+- Pairing inputs squeezing instead of wrapping in narrow sidebars
 
 ## [0.1.0] - 2024-12-27
 

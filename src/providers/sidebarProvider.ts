@@ -9,11 +9,7 @@ interface ScrcpySidebarState {
   windowId?: string;
 }
 
-/**
- * Provides the webview content for the DroidBridge sidebar view
- */
 export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
-  // Must match the view id in package.json (contributes.views["droidbridge"][0].id)
   public static readonly viewType = 'droidbridge-sidebar';
 
   private _view?: vscode.WebviewView;
@@ -37,49 +33,33 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     this.themeManager = ThemeManager.getInstance();
     this.connectionHistory = new ConnectionHistoryManager(_context);
     
-    // Load default values from configuration
     this.loadDefaultValues();
     
-    // Listen for configuration changes
     this.setupConfigurationWatcher();
     
-    // Listen for theme changes
     this.setupThemeChangeListener();
   }
 
-  /**
-   * Load default IP and port values from configuration
-   */
   private loadDefaultValues(): void {
     const config = this.configManager.getConfigWithDefaults();
     this.currentIp = config.ip;
     this.currentPort = config.port;
   }
 
-  /**
-   * Set up configuration change watcher to update defaults
-   */
   private setupConfigurationWatcher(): void {
     this.configChangeListener = this.configManager.onConfigurationChanged(() => {
       this.loadDefaultValues();
       this._updateWebviewState();
     });
     
-    // Add to context subscriptions for proper cleanup
     this._context.subscriptions.push(this.configChangeListener);
   }
 
-  /**
-   * Set up theme change listener to refresh webview on theme changes
-   * Implements requirements 10.3: Theme change listeners and UI updates
-   */
   private setupThemeChangeListener(): void {
     this.themeChangeListener = this.themeManager.onThemeChanged((theme: ThemeKind) => {
-      // Refresh the webview when theme changes to update icons and styling
       if (this._view) {
         this._view.webview.html = this._getHtmlForWebview(this._view.webview);
         
-        // Also notify the webview about the theme change
         this._view.webview.postMessage({
           type: 'themeChanged',
           theme: theme,
@@ -90,13 +70,9 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       }
     });
     
-    // Add to context subscriptions for proper cleanup
     this._context.subscriptions.push(this.themeChangeListener);
   }
 
-  /**
-   * Resolves the webview view and sets up the content
-   */
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
@@ -115,11 +91,9 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       console.log('DroidBridge: Webview HTML set successfully');
     } catch (error) {
       console.error('DroidBridge: Error setting webview HTML:', error);
-      // Fallback to simple HTML
       webviewView.webview.html = this._getSimpleHtmlForWebview(webviewView.webview);
     }
 
-    // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(
       message => {
         switch (message.type) {
@@ -177,30 +151,23 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     );
   }
 
-  /**
-   * Generate the HTML content for the webview
-   * Implements requirements 10.4: Theme-specific icon usage
-   */
   private _getHtmlForWebview(webview: vscode.Webview) {
-    // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.js'));
     const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'reset.css'));
     const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css'));
     const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
+    const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'codicons', 'codicon.css'));
 
-    // Get theme-specific icons (with fallback)
     let plugIconUri, deviceIconUri;
     try {
       plugIconUri = this.themeManager.getWebviewIconUri('plug', this._extensionUri, webview);
       deviceIconUri = this.themeManager.getWebviewIconUri('device-mobile', this._extensionUri, webview);
     } catch (error) {
       console.error('DroidBridge: Error getting theme icons:', error);
-      // Fallback to simple data URIs or codicons
       plugIconUri = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTggMkM2LjkgMiA2IDIuOSA2IDRWNkg0VjhIMTJWNkgxMFY0QzEwIDIuOSA5LjEgMiA4IDJaTTggNEM4LjYgNCA5IDQuNCA5IDVWNkg3VjVDNyA0LjQgNy40IDQgOCA0WiIgZmlsbD0iY3VycmVudENvbG9yIi8+Cjwvc3ZnPgo=';
       deviceIconUri = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQgMkMzLjQ0NzcyIDIgMyAyLjQ0NzcyIDMgM1YxM0MzIDEzLjU1MjMgMy40NDc3MiAxNCA0IDE0SDEyQzEyLjU1MjMgMTQgMTMgMTMuNTUyMyAxMyAxM1YzQzEzIDIuNDQ3NzIgMTIuNTUyMyAyIDEyIDJINFpNNSA0SDExVjEwSDVWNFoiIGZpbGw9ImN1cnJlbnRDb2xvciIvPgo8L3N2Zz4K';
     }
 
-    // Get current theme information (with fallback)
     let themeCssClass, themeVariables;
     try {
       themeCssClass = this.themeManager.getThemeCssClass();
@@ -211,15 +178,15 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       themeVariables = ''; // Empty fallback
     }
 
-    // Use a nonce to only allow a specific script to be run.
     const nonce = getNonce();
 
     return `<!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:;">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="${codiconsUri}" rel="stylesheet">
         <link href="${styleResetUri}" rel="stylesheet">
         <link href="${styleVSCodeUri}" rel="stylesheet">
         <link href="${styleMainUri}" rel="stylesheet">
@@ -300,7 +267,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
               <span class="codicon codicon-device-mobile section-icon"></span>
               <h3>Screen Mirror</h3>
               <div class="section-actions">
-                <button id="eject-scrcpy-btn" class="icon-button" title="Eject to External Window" ${this.scrcpySidebarState.isRunning ? '' : 'disabled'}>
+                <button id="eject-scrcpy-btn" class="icon-button" title="Release from always-on-top" ${this.scrcpySidebarState.isRunning ? '' : 'disabled'}>
                   <span class="codicon codicon-window"></span>
                 </button>
                 <button id="close-scrcpy-btn" class="icon-button" title="Close Scrcpy" ${this.scrcpySidebarState.isRunning ? '' : 'disabled'}>
@@ -320,7 +287,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
                     <span class="codicon codicon-eye"></span>
                     <span>Screen mirroring active</span>
                   </div>
-                  <p class="help-text">Scrcpy window should appear positioned near the sidebar. Use the buttons above to eject or close.</p>
+                  <p class="help-text">The mirror window follows the device aspect ratio and rotation, and can be resized freely. Use the buttons above to release it from always-on-top or close it.</p>
                 </div>
               </div>
             </div>
@@ -335,9 +302,9 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             <div class="section-content">
               <p class="help-text">
                 <strong>Quick Steps:</strong>
-                <br />1. On Android: <em>Developer options → Wireless debugging → Pair device with pairing code</em>
+                <br />1. On Android: <em>Developer options &gt; Wireless debugging &gt; Pair device with pairing code</em>
                 <br />2. Enter the <strong>IP address</strong>, <strong>Port</strong>, and <strong>6-digit code</strong> shown on device
-                <br />3. Click <strong>Pair (Manual)</strong> - pairing expires in ~60 seconds
+                <br />3. Click <strong>Pair (Manual)</strong>, pairing expires in ~60 seconds
                 <br />4. After pairing, use <strong>Connect</strong> section with device's ADB port (usually 5555)
               </p>
               <div class="input-row">
@@ -392,18 +359,12 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       </html>`;
   }
 
-  /**
-   * Refresh the webview content
-   */
   refresh(): void {
     if (this._view) {
       this._view.webview.html = this._getHtmlForWebview(this._view.webview);
     }
   }
 
-  /**
-   * Update the webview state without full refresh
-   */
   private _updateWebviewState(): void {
     if (this._view) {
       this._view.webview.postMessage({
@@ -434,11 +395,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
-
-
-  /**
-   * Generate simple HTML for webview (fallback)
-   */
   private _getSimpleHtmlForWebview(webview: vscode.Webview) {
     const nonce = getNonce();
     
@@ -508,7 +464,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       </head>
       <body>
         <div class="section">
-          <h3>🔌 Connect</h3>
+          <h3>Connect</h3>
           <div class="status disconnected" id="connection-status">Disconnected</div>
           <input type="text" id="ip-input" placeholder="IP Address (e.g., 192.168.1.100)" value="${this.currentIp}">
           <input type="text" id="port-input" placeholder="Port (e.g., 5555)" value="${this.currentPort}">
@@ -517,7 +473,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         </div>
         
         <div class="section">
-          <h3>📱 Scrcpy</h3>
+          <h3>Scrcpy</h3>
           <div class="status disconnected" id="scrcpy-status">Stopped</div>
           <button id="launch-scrcpy-btn" disabled>Launch Scrcpy</button>
           <button id="launch-scrcpy-screen-off-btn" disabled>Launch (Screen Off)</button>
@@ -531,7 +487,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           
-          // Get elements
           const ipInput = document.getElementById('ip-input');
           const portInput = document.getElementById('port-input');
           const connectBtn = document.getElementById('connect-btn');
@@ -543,7 +498,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
           const connectionStatus = document.getElementById('connection-status');
           const scrcpyStatus = document.getElementById('scrcpy-status');
           
-          // Event listeners
           connectBtn.addEventListener('click', () => {
             const ip = ipInput.value.trim();
             const port = portInput.value.trim();
@@ -572,7 +526,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'showLogs' });
           });
           
-          // Input change handlers
           ipInput.addEventListener('input', (e) => {
             vscode.postMessage({ type: 'ipChanged', value: e.target.value });
           });
@@ -581,7 +534,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'portChanged', value: e.target.value });
           });
           
-          // Listen for state updates
           window.addEventListener('message', event => {
             const message = event.data;
             if (message.type === 'updateState') {
@@ -590,7 +542,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
           });
           
           function updateUI(state) {
-            // Update connection status
             if (state.connectionStatus) {
               connectionStatus.textContent = 'Connected';
               connectionStatus.className = 'status connected';
@@ -603,7 +554,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
               disconnectBtn.disabled = true;
             }
             
-            // Update scrcpy status
             if (state.scrcpyStatus) {
               scrcpyStatus.textContent = 'Running';
               scrcpyStatus.className = 'status connected';
@@ -618,7 +568,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
               stopScrcpyBtn.disabled = true;
             }
             
-            // Update input values
             if (state.currentIp !== undefined) {
               ipInput.value = state.currentIp;
             }
@@ -631,9 +580,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       </html>`;
   }
 
-  /**
-   * Generate HTML for connection history
-   */
   private generateHistoryHtml(): string {
     const history = this.connectionHistory.getRecentConnections();
     
@@ -665,9 +611,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     }).join('');
   }
 
-  /**
-   * Update the connection status and refresh the view
-   */
   updateConnectionStatus(connected: boolean, ip?: string, port?: string): void {
     this.connectionStatus = connected;
     if (ip) {
@@ -677,7 +620,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       this.currentPort = port;
     }
     
-    // Add to history if successfully connected
     if (connected && ip && port) {
       this.connectionHistory.addConnection(ip, port);
     }
@@ -685,61 +627,37 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     this._updateWebviewState();
   }
 
-  /**
-   * Update the scrcpy status and refresh the view
-   */
   updateScrcpyStatus(running: boolean): void {
     this.scrcpyStatus = running;
     this._updateWebviewState();
   }
 
-  /**
-   * Update the IP address and refresh the view
-   */
   updateIpAddress(ip: string): void {
     this.currentIp = ip;
     this._updateWebviewState();
   }
 
-  /**
-   * Update the port and refresh the view
-   */
   updatePort(port: string): void {
     this.currentPort = port;
     this._updateWebviewState();
   }
 
-  /**
-   * Get the current connection status
-   */
   getConnectionStatus(): boolean {
     return this.connectionStatus;
   }
 
-  /**
-   * Get the current scrcpy status
-   */
   getScrcpyStatus(): boolean {
     return this.scrcpyStatus;
   }
 
-  /**
-   * Get the current IP address
-   */
   getCurrentIp(): string {
     return this.currentIp;
   }
 
-  /**
-   * Get the current port
-   */
   getCurrentPort(): string {
     return this.currentPort;
   }
 
-  /**
-   * Reset all status to initial state
-   */
   reset(): void {
     this.connectionStatus = false;
     this.scrcpyStatus = false;
@@ -748,20 +666,14 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     this._updateWebviewState();
   }
 
-  /**
-   * Synchronize sidebar state with actual process states
-   * This method should be called periodically or when state changes are detected
-   */
   synchronizeState(connectionState: any, scrcpyState: any): void {
     let stateChanged = false;
 
-    // Update connection status
     if (this.connectionStatus !== connectionState.connected) {
       this.connectionStatus = connectionState.connected;
       stateChanged = true;
     }
 
-    // Update connection details if connected
     if (connectionState.connected && connectionState.deviceIp && connectionState.devicePort) {
       if (this.currentIp !== connectionState.deviceIp || this.currentPort !== connectionState.devicePort) {
         this.currentIp = connectionState.deviceIp;
@@ -770,29 +682,21 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       }
     }
 
-    // Update scrcpy status
     if (this.scrcpyStatus !== scrcpyState.running) {
       this.scrcpyStatus = scrcpyState.running;
       stateChanged = true;
     }
 
-    // Only update webview if state actually changed
     if (stateChanged) {
       this._updateWebviewState();
     }
   }
 
-  /**
-   * Force refresh the sidebar state from configuration and process managers
-   */
   forceRefresh(): void {
     this.loadDefaultValues();
     this.refresh();
   }
 
-  /**
-   * Get current sidebar state for external synchronization
-   */
   getCurrentState(): { connectionStatus: boolean; scrcpyStatus: boolean; currentIp: string; currentPort: string; scrcpySidebar: ScrcpySidebarState } {
     return {
       connectionStatus: this.connectionStatus,
@@ -803,9 +707,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     };
   }
 
-  /**
-   * Dispose of resources
-   */
   dispose(): void {
     if (this.configChangeListener) {
       this.configChangeListener.dispose();
@@ -816,9 +717,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   }
 }
 
-/**
- * Generate a nonce for Content Security Policy
- */
 function getNonce() {
   let text = '';
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

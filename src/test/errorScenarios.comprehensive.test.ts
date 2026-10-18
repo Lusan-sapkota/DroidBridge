@@ -8,11 +8,6 @@ import { BinaryManager } from '../managers/binaryManager';
 import { Logger } from '../managers/logger';
 import { DroidBridgeSidebarProvider } from '../providers/sidebarProvider';
 
-/**
- * Comprehensive Error Scenario Tests
- * Tests all possible error conditions with mocked failures
- * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6 - Complete error handling coverage
- */
 suite('Comprehensive Error Scenarios', () => {
   let commandManager: CommandManager;
   let processManager: ProcessManager;
@@ -26,21 +21,18 @@ suite('Comprehensive Error Scenarios', () => {
   setup(() => {
     sandbox = sinon.createSandbox();
     
-    // Create mock context
     mockContext = {
       subscriptions: [],
       extensionUri: vscode.Uri.file('/mock/extension'),
       extensionPath: '/mock/extension'
     };
 
-    // Create mock instances with comprehensive error scenarios
     binaryManager = sandbox.createStubInstance(BinaryManager);
     logger = sandbox.createStubInstance(Logger);
     configManager = sandbox.createStubInstance(ConfigManager);
     processManager = sandbox.createStubInstance(ProcessManager);
     sidebarProvider = sandbox.createStubInstance(DroidBridgeSidebarProvider);
 
-    // Setup default behaviors
     (configManager as any).getConfigWithDefaults.returns({ ip: '192.168.1.100', port: '5555' });
     (configManager as any).validateConnection.returns({ isValid: true, errors: [] });
     (processManager as any).getConnectionState.returns({ connected: false });
@@ -63,7 +55,6 @@ suite('Comprehensive Error Scenarios', () => {
 
   suite('Binary Management Error Scenarios', () => {
     test('should handle missing ADB binary gracefully', async () => {
-      // Mock binary validation failure
       (binaryManager as any).validateBinaries.resolves({
         adbValid: false,
         scrcpyValid: true,
@@ -238,7 +229,6 @@ suite('Comprehensive Error Scenarios', () => {
     test('should handle configuration file corruption', async () => {
       (configManager as any).getConfigWithDefaults.throws(new Error('Configuration file is corrupted'));
 
-      // Should handle gracefully and use fallback defaults
       assert.doesNotThrow(() => {
         commandManager.getConnectionState();
       });
@@ -247,7 +237,6 @@ suite('Comprehensive Error Scenarios', () => {
     test('should handle missing configuration sections', async () => {
       (configManager as any).getConfigWithDefaults.returns({});
 
-      // Should handle missing configuration gracefully
       const success = await commandManager.connectDevice(undefined as any, undefined as any);
 
       assert.strictEqual(success, false);
@@ -309,7 +298,6 @@ suite('Comprehensive Error Scenarios', () => {
 
   suite('User Interface Error Scenarios', () => {
     test('should handle VSCode API failures gracefully', async () => {
-      // Mock VSCode API failure
       sandbox.stub(vscode.window, 'showInputBox').rejects(new Error('VSCode API error'));
 
       await assert.doesNotReject(async () => {
@@ -320,31 +308,24 @@ suite('Comprehensive Error Scenarios', () => {
     });
 
     test('should handle progress notification failures', async () => {
-      // Mock progress API failure
       sandbox.stub(vscode.window, 'withProgress').rejects(new Error('Progress API error'));
 
       const success = await commandManager.connectDevice('192.168.1.100', '5555');
 
-      // Should still attempt connection even if progress fails
       assert.ok((processManager as any).connectDevice.called || (logger as any).error.called);
     });
 
     test('should handle sidebar update failures', async () => {
-      // Mock sidebar provider failure
       (sidebarProvider as any).synchronizeState.throws(new Error('Sidebar update failed'));
 
-      // Should not prevent command execution
       const success = await commandManager.connectDevice('192.168.1.100', '5555');
 
-      // Command should still execute, error should be logged
       assert.ok((logger as any).error.called);
     });
 
     test('should handle notification display failures', async () => {
-      // Mock notification failure
       (logger as any).showError.throws(new Error('Notification failed'));
 
-      // Should not crash the application
       await assert.doesNotReject(async () => {
         await commandManager.connectDevice('invalid', 'invalid');
       }, 'Should handle notification failures gracefully');
@@ -353,13 +334,11 @@ suite('Comprehensive Error Scenarios', () => {
 
   suite('Concurrent Operation Error Scenarios', () => {
     test('should handle multiple simultaneous connection attempts', async () => {
-      // Setup slow connection
       (processManager as any).connectDevice.callsFake(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
         return true;
       });
 
-      // Start multiple connections simultaneously
       const promises = [
         commandManager.connectDevice('192.168.1.100', '5555'),
         commandManager.connectDevice('192.168.1.101', '5555'),
@@ -368,17 +347,14 @@ suite('Comprehensive Error Scenarios', () => {
 
       const results = await Promise.allSettled(promises);
 
-      // Should handle concurrent operations gracefully
       results.forEach(result => {
         if (result.status === 'rejected') {
-          // Rejections are acceptable for concurrent operations
           assert.ok(true, 'Concurrent operations may be rejected');
         }
       });
     });
 
     test('should handle scrcpy launch while connection is in progress', async () => {
-      // Setup slow connection
       (processManager as any).connectDevice.callsFake(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
         return true;
@@ -387,13 +363,11 @@ suite('Comprehensive Error Scenarios', () => {
       (processManager as any).isDeviceConnected.returns(false);
       (processManager as any).isScrcpyRunning.returns(false);
 
-      // Start connection and immediately try to launch scrcpy
       const connectionPromise = commandManager.connectDevice('192.168.1.100', '5555');
       const scrcpyPromise = commandManager.launchScrcpy();
 
       const [connectionResult, scrcpyResult] = await Promise.allSettled([connectionPromise, scrcpyPromise]);
 
-      // Should handle concurrent operations appropriately
       assert.ok(connectionResult.status === 'fulfilled' || connectionResult.status === 'rejected');
       assert.ok(scrcpyResult.status === 'fulfilled' || scrcpyResult.status === 'rejected');
     });
@@ -401,21 +375,17 @@ suite('Comprehensive Error Scenarios', () => {
 
   suite('Recovery and Cleanup Error Scenarios', () => {
     test('should handle cleanup failures gracefully', async () => {
-      // Mock cleanup failure
       (processManager as any).cleanup.rejects(new Error('Cleanup failed'));
 
-      // Should not prevent disposal
       await assert.doesNotReject(async () => {
         commandManager.dispose();
       }, 'Should handle cleanup failures gracefully');
     });
 
     test('should handle partial state recovery', async () => {
-      // Setup partial failure scenario
       (processManager as any).getConnectionState.throws(new Error('State corrupted'));
       (processManager as any).getScrcpyState.returns({ running: false });
 
-      // Should handle partial state gracefully
       assert.doesNotThrow(() => {
         commandManager.refreshSidebarState();
       }, 'Should handle partial state recovery');
@@ -424,11 +394,9 @@ suite('Comprehensive Error Scenarios', () => {
     });
 
     test('should handle logger failures during error reporting', async () => {
-      // Mock logger failure
       (logger as any).error.throws(new Error('Logger failed'));
       (logger as any).showError.throws(new Error('Logger failed'));
 
-      // Should not crash when trying to log errors
       await assert.doesNotReject(async () => {
         await commandManager.connectDevice('invalid', 'invalid');
       }, 'Should handle logger failures gracefully');
@@ -437,15 +405,12 @@ suite('Comprehensive Error Scenarios', () => {
 
   suite('Edge Case Error Scenarios', () => {
     test('should handle null and undefined inputs gracefully', async () => {
-      // Test null inputs
       const nullResult = await commandManager.connectDevice(null as any, null as any);
       assert.strictEqual(nullResult, false);
 
-      // Test undefined inputs
       const undefinedResult = await commandManager.connectDevice(undefined as any, undefined as any);
       assert.strictEqual(undefinedResult, false);
 
-      // Should have logged validation errors
       assert.ok((logger as any).showError.called);
     });
 
@@ -455,7 +420,6 @@ suite('Comprehensive Error Scenarios', () => {
       const result = await commandManager.connectDevice(longString, longString);
       assert.strictEqual(result, false);
 
-      // Should handle long inputs without crashing
       assert.ok((logger as any).showError.called);
     });
 
@@ -465,17 +429,15 @@ suite('Comprehensive Error Scenarios', () => {
       const result = await commandManager.connectDevice(specialChars, specialChars);
       assert.strictEqual(result, false);
 
-      // Should validate and reject special characters appropriately
       assert.ok((logger as any).showError.called);
     });
 
     test('should handle unicode and international characters', async () => {
-      const unicodeString = '测试🚀🔥💻📱';
+      const unicodeString = '测试';
       
       const result = await commandManager.connectDevice(unicodeString, '5555');
       assert.strictEqual(result, false);
 
-      // Should handle unicode gracefully
       assert.ok((logger as any).showError.called);
     });
   });

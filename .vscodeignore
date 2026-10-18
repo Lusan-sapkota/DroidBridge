@@ -60,3 +60,10 @@ pids
 # Binary folders (binaries are downloaded at runtime)
 binaries/**
 **/binaries/**
+
+# Repo only
+DOCS/**
+scripts/**
+_config.yml
+CLAUDE.md
+.claude/**

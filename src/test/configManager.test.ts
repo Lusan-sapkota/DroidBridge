@@ -204,13 +204,11 @@ suite('ConfigManager Test Suite', () => {
     test('should provide fallback defaults for invalid configuration', () => {
       const config = configManager.getConfigWithDefaults();
       
-      // Should return valid defaults
       assert.ok(configManager.validateIpAddress(config.ip));
       assert.ok(configManager.validatePort(config.port));
     });
 
     test('should handle empty string configurations', () => {
-      // Test that empty strings are handled properly
       assert.strictEqual(configManager.validateIpAddress(''), false);
       assert.strictEqual(configManager.validatePort(''), false);
     });
@@ -218,39 +216,31 @@ suite('ConfigManager Test Suite', () => {
 
   suite('Edge Cases', () => {
     test('should handle special IP addresses', () => {
-      // Test broadcast address
       assert.strictEqual(configManager.validateIpAddress('255.255.255.255'), true);
       
-      // Test network address
       assert.strictEqual(configManager.validateIpAddress('0.0.0.0'), true);
       
-      // Test private network ranges
       assert.strictEqual(configManager.validateIpAddress('10.0.0.1'), true);
       assert.strictEqual(configManager.validateIpAddress('172.16.0.1'), true);
       assert.strictEqual(configManager.validateIpAddress('192.168.0.1'), true);
     });
 
     test('should handle edge case ports', () => {
-      // Test minimum valid port
       assert.strictEqual(configManager.validatePort('1'), true);
       assert.strictEqual(configManager.validatePort(1), true);
       
-      // Test maximum valid port
       assert.strictEqual(configManager.validatePort('65535'), true);
       assert.strictEqual(configManager.validatePort(65535), true);
       
-      // Test common ports
       assert.strictEqual(configManager.validatePort('80'), true);
       assert.strictEqual(configManager.validatePort('443'), true);
       assert.strictEqual(configManager.validatePort('5555'), true);
     });
 
     test('should handle type coercion correctly', () => {
-      // Test that string numbers are handled correctly
       assert.strictEqual(configManager.validatePort('123'), true);
       assert.strictEqual(configManager.validatePort('0123'), false); // Leading zeros should be rejected
       
-      // Test that non-string, non-number inputs fail
       assert.strictEqual(configManager.validatePort({} as any), false);
       assert.strictEqual(configManager.validatePort([] as any), false);
       assert.strictEqual(configManager.validatePort(true as any), false);
@@ -259,8 +249,6 @@ suite('ConfigManager Test Suite', () => {
 
   suite('Configuration Integration', () => {
     test('should validate complete configuration', () => {
-      // This test would need to mock vscode.workspace.getConfiguration
-      // For now, we'll test the validation logic directly
       const mockConfig = {
         defaultIp: '192.168.1.100',
         defaultPort: '5555',
@@ -270,7 +258,6 @@ suite('ConfigManager Test Suite', () => {
         errors: []
       };
 
-      // Test that our validation logic would work with this config
       assert.ok(configManager.validateIpAddress(mockConfig.defaultIp));
       assert.ok(configManager.validatePort(mockConfig.defaultPort));
     });

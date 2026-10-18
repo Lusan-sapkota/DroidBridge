@@ -7,12 +7,10 @@ import { BinaryManager } from "../managers/binaryManager.js";
 import { Logger } from "../managers/logger.js";
 import { ProcessResult, ScrcpyOptions } from "../types/index.js";
 
-// Mock child_process module
 const mockChildProcess = {
   spawn: sinon.stub(),
 };
 
-// Mock ChildProcess class
 class MockChildProcess extends EventEmitter {
   public killed = false;
   public exitCode: number | null = null;
@@ -21,7 +19,6 @@ class MockChildProcess extends EventEmitter {
 
   kill(signal?: string): boolean {
     this.killed = true;
-    // Simulate process termination
     setTimeout(() => this.emit("close", 0), 10);
     return true;
   }
@@ -34,18 +31,14 @@ suite("ProcessManager Tests", () => {
   let spawnStub: sinon.SinonStub;
 
   setup(() => {
-    // Create mocked dependencies
     mockBinaryManager = sinon.createStubInstance(BinaryManager);
     mockLogger = sinon.createStubInstance(Logger);
 
-    // Set up default binary paths
     mockBinaryManager.getAdbPath.resolves("/path/to/adb");
     mockBinaryManager.getScrcpyPath.resolves("/path/to/scrcpy");
 
-    // Mock spawn function
     spawnStub = sinon.stub();
 
-    // Replace the actual spawn with our mock
     const childProcessModule = require("child_process");
     sinon.stub(childProcessModule, "spawn").callsFake(spawnStub);
 
@@ -63,7 +56,6 @@ suite("ProcessManager Tests", () => {
 
       const commandPromise = processManager.executeAdbCommand(["devices"]);
 
-      // Simulate successful command output
       setTimeout(() => {
         mockProcess.stdout.emit(
           "data",
@@ -86,10 +78,8 @@ suite("ProcessManager Tests", () => {
       );
       assert.strictEqual(result.stderr, "");
 
-      // Verify spawn was called correctly
       assert.ok(spawnStub.calledWith("/path/to/adb", ["devices"]));
 
-      // Verify logging
       assert.ok(
         mockLogger.info.calledWith(
           "Executing ADB command: /path/to/adb devices"
@@ -109,7 +99,6 @@ suite("ProcessManager Tests", () => {
         "192.168.1.100:5555",
       ]);
 
-      // Simulate command failure
       setTimeout(() => {
         mockProcess.stderr.emit(
           "data",
@@ -135,7 +124,6 @@ suite("ProcessManager Tests", () => {
 
       const commandPromise = processManager.executeAdbCommand(["devices"]);
 
-      // Simulate spawn error
       setTimeout(() => {
         mockProcess.emit(
           "error",
@@ -149,7 +137,6 @@ suite("ProcessManager Tests", () => {
       assert.strictEqual(result.exitCode, -1);
       assert.strictEqual(result.stderr, "ENOENT: no such file or directory");
 
-      // Verify error logging
       assert.ok(
         mockLogger.error.calledWith(
           sinon.match.string,
@@ -172,7 +159,6 @@ suite("ProcessManager Tests", () => {
 
       await commandPromise;
 
-      // Verify process output logging
       assert.ok(
         mockLogger.logProcessOutput.calledWith("adb", "device output\n")
       );
@@ -189,7 +175,6 @@ suite("ProcessManager Tests", () => {
 
       const launchPromise = processManager.launchScrcpy();
 
-      // Simulate successful scrcpy startup
       setTimeout(() => {
         mockProcess.stdout.emit("data", Buffer.from("scrcpy started\n"));
       }, 10);
@@ -199,10 +184,8 @@ suite("ProcessManager Tests", () => {
       assert.ok(childProcess);
       assert.strictEqual(processManager.isScrcpyRunning(), true);
 
-      // Verify spawn was called correctly
       assert.ok(spawnStub.calledWith("/path/to/scrcpy", []));
 
-      // Verify logging
       assert.ok(
         mockLogger.info.calledWith("Launching scrcpy: /path/to/scrcpy ")
       );
@@ -227,9 +210,8 @@ suite("ProcessManager Tests", () => {
 
       await launchPromise;
 
-      // Verify spawn was called with correct arguments
       const expectedArgs = [
-        "--bit-rate",
+        "--video-bit-rate",
         "8000000",
         "--max-size",
         "1920",
@@ -245,14 +227,12 @@ suite("ProcessManager Tests", () => {
       const mockProcess = new MockChildProcess();
       spawnStub.returns(mockProcess);
 
-      // Start first instance
       const firstLaunch = processManager.launchScrcpy();
       setTimeout(() => {
         mockProcess.stdout.emit("data", Buffer.from("scrcpy started\n"));
       }, 10);
       await firstLaunch;
 
-      // Try to start second instance
       try {
         await processManager.launchScrcpy();
         assert.fail("Should have thrown an error");
@@ -271,7 +251,6 @@ suite("ProcessManager Tests", () => {
 
       const launchPromise = processManager.launchScrcpy();
 
-      // Simulate startup error
       setTimeout(() => {
         mockProcess.emit("error", new Error("Failed to start scrcpy"));
       }, 10);
@@ -293,7 +272,6 @@ suite("ProcessManager Tests", () => {
 
       const launchPromise = processManager.launchScrcpy();
 
-      // Don't emit any data to simulate timeout
       try {
         await launchPromise;
         assert.fail("Should have thrown a timeout error");
@@ -312,7 +290,6 @@ suite("ProcessManager Tests", () => {
       const mockProcess = new MockChildProcess();
       spawnStub.returns(mockProcess);
 
-      // Start scrcpy first
       const launchPromise = processManager.launchScrcpy();
       setTimeout(() => {
         mockProcess.stdout.emit("data", Buffer.from("scrcpy started\n"));
@@ -321,13 +298,11 @@ suite("ProcessManager Tests", () => {
 
       assert.strictEqual(processManager.isScrcpyRunning(), true);
 
-      // Stop scrcpy
       const stopResult = await processManager.stopScrcpy();
 
       assert.strictEqual(stopResult, true);
       assert.strictEqual(processManager.isScrcpyRunning(), false);
 
-      // Verify logging
       assert.ok(mockLogger.info.calledWith("Stopping scrcpy process"));
     });
 
@@ -338,21 +313,17 @@ suite("ProcessManager Tests", () => {
 
     test("should force kill process if graceful termination fails", async () => {
       const mockProcess = new MockChildProcess();
-      // Override kill method to not emit close event immediately
       mockProcess.kill = sinon.stub().returns(true);
       spawnStub.returns(mockProcess);
 
-      // Start scrcpy first
       const launchPromise = processManager.launchScrcpy();
       setTimeout(() => {
         mockProcess.stdout.emit("data", Buffer.from("scrcpy started\n"));
       }, 10);
       await launchPromise;
 
-      // Stop scrcpy (should timeout and force kill)
       const stopPromise = processManager.stopScrcpy();
 
-      // Simulate timeout by not emitting close event
       setTimeout(() => {
         mockProcess.emit("close", 0);
       }, 3100); // After the 3 second timeout
@@ -403,14 +374,12 @@ suite("ProcessManager Tests", () => {
       spawnStub.onFirstCall().returns(mockProcess1);
       spawnStub.onSecondCall().returns(mockProcess2);
 
-      // Start scrcpy
       const launchPromise = processManager.launchScrcpy();
       setTimeout(() => {
         mockProcess1.stdout.emit("data", Buffer.from("scrcpy started\n"));
       }, 10);
       await launchPromise;
 
-      // Execute ADB command
       const adbPromise = processManager.executeAdbCommand(["devices"]);
       setTimeout(() => {
         mockProcess2.stdout.emit("data", Buffer.from("devices\n"));
@@ -418,12 +387,10 @@ suite("ProcessManager Tests", () => {
       }, 10);
       await adbPromise;
 
-      // Cleanup
       await processManager.cleanup();
 
       assert.strictEqual(processManager.isScrcpyRunning(), false);
 
-      // Verify logging
       assert.ok(
         mockLogger.info.calledWith("Cleaning up all managed processes")
       );
@@ -433,7 +400,6 @@ suite("ProcessManager Tests", () => {
     test("should handle cleanup when no processes are running", async () => {
       await processManager.cleanup();
 
-      // Should complete without errors
       assert.ok(
         mockLogger.info.calledWith("Cleaning up all managed processes")
       );
@@ -478,7 +444,6 @@ suite("ProcessManager Tests", () => {
       }, 10);
       await launchPromise;
 
-      // Stop scrcpy
       await processManager.stopScrcpy();
 
       const state = processManager.getScrcpyState();
@@ -503,7 +468,6 @@ suite("ProcessManager Tests", () => {
       }, 10);
       await launchPromise;
 
-      // Wait a bit to get some uptime
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const uptime = processManager.getScrcpyUptime();
@@ -541,11 +505,9 @@ suite("ProcessManager Tests", () => {
 
       assert.strictEqual(processManager.isScrcpyRunning(), true);
 
-      // Simulate process termination
       mockProcess.killed = true;
       mockProcess.exitCode = 0;
 
-      // Monitor should detect the termination
       processManager.monitorScrcpyProcess();
 
       assert.strictEqual(processManager.isScrcpyRunning(), false);
@@ -554,7 +516,6 @@ suite("ProcessManager Tests", () => {
     });
 
     test("should handle monitoring when no process exists", () => {
-      // Should not throw error
       processManager.monitorScrcpyProcess();
       assert.strictEqual(processManager.isScrcpyRunning(), false);
     });
@@ -571,7 +532,6 @@ suite("ProcessManager Tests", () => {
       }, 10);
       await launchPromise;
 
-      // Verify spawn was called with screen off argument
       assert.ok(spawnStub.calledWith("/path/to/scrcpy", ["--turn-screen-off"]));
       assert.strictEqual(processManager.isScrcpyRunning(), true);
     });
@@ -592,7 +552,7 @@ suite("ProcessManager Tests", () => {
       await launchPromise;
 
       const expectedArgs = [
-        "--bit-rate",
+        "--video-bit-rate",
         "4000000",
         "--max-size",
         "1080",
@@ -605,14 +565,12 @@ suite("ProcessManager Tests", () => {
       const mockProcess = new MockChildProcess();
       spawnStub.returns(mockProcess);
 
-      // Start first instance
       const firstLaunch = processManager.launchScrcpy();
       setTimeout(() => {
         mockProcess.stdout.emit("data", Buffer.from("scrcpy started\n"));
       }, 10);
       await firstLaunch;
 
-      // Try to start screen off instance
       try {
         await processManager.launchScrcpyScreenOff();
         assert.fail("Should have thrown an error");
@@ -637,7 +595,6 @@ suite("ProcessManager Tests", () => {
       }, 10);
       await launchPromise;
 
-      // Verify spawn was called with empty args
       assert.ok(spawnStub.calledWith("/path/to/scrcpy", []));
     });
 
@@ -659,7 +616,7 @@ suite("ProcessManager Tests", () => {
       await launchPromise;
 
       const expectedArgs = [
-        "--bit-rate",
+        "--video-bit-rate",
         "4000000",
         "--max-size",
         "1080",
@@ -686,7 +643,7 @@ suite("ProcessManager Tests", () => {
       }, 10);
       await launchPromise;
 
-      const expectedArgs = ["--bit-rate", "2000000", "--max-size", "720"];
+      const expectedArgs = ["--video-bit-rate", "2000000", "--max-size", "720"];
       assert.ok(spawnStub.calledWith("/path/to/scrcpy", expectedArgs));
     });
   });

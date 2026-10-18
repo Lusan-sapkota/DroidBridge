@@ -1,8 +1,5 @@
 import * as vscode from 'vscode';
 
-/**
- * Theme types supported by VSCode
- */
 export enum ThemeKind {
   Light = 1,
   Dark = 2,
@@ -10,10 +7,6 @@ export enum ThemeKind {
   HighContrastLight = 4
 }
 
-/**
- * Theme manager for handling theme detection and icon switching
- * Implements requirements 10.1, 10.2, 10.3, 10.4
- */
 export class ThemeManager {
   private static instance: ThemeManager;
   private currentTheme: ThemeKind;
@@ -25,9 +18,6 @@ export class ThemeManager {
     this.setupThemeChangeListener();
   }
 
-  /**
-   * Get the singleton instance of ThemeManager
-   */
   public static getInstance(): ThemeManager {
     if (!ThemeManager.instance) {
       ThemeManager.instance = new ThemeManager();
@@ -35,10 +25,6 @@ export class ThemeManager {
     return ThemeManager.instance;
   }
 
-  /**
-   * Detect the current VSCode theme
-   * Implements requirement 10.1, 10.2: Automatic theme detection
-   */
   private detectCurrentTheme(): ThemeKind {
     const colorTheme = vscode.window.activeColorTheme;
     
@@ -56,10 +42,6 @@ export class ThemeManager {
     }
   }
 
-  /**
-   * Set up listener for theme changes
-   * Implements requirement 10.3: Theme change listeners
-   */
   private setupThemeChangeListener(): void {
     const disposable = vscode.window.onDidChangeActiveColorTheme((colorTheme) => {
       const newTheme = this.mapColorThemeKindToThemeKind(colorTheme.kind);
@@ -68,7 +50,6 @@ export class ThemeManager {
         const oldTheme = this.currentTheme;
         this.currentTheme = newTheme;
         
-        // Notify all listeners about the theme change
         this.themeChangeListeners.forEach(listener => {
           try {
             listener(newTheme);
@@ -82,9 +63,6 @@ export class ThemeManager {
     this.disposables.push(disposable);
   }
 
-  /**
-   * Map VSCode ColorThemeKind to our ThemeKind
-   */
   private mapColorThemeKindToThemeKind(kind: vscode.ColorThemeKind): ThemeKind {
     switch (kind) {
       case vscode.ColorThemeKind.Light:
@@ -100,47 +78,28 @@ export class ThemeManager {
     }
   }
 
-  /**
-   * Get the current theme
-   */
   public getCurrentTheme(): ThemeKind {
     return this.currentTheme;
   }
 
-  /**
-   * Check if the current theme is dark
-   */
   public isDarkTheme(): boolean {
     return this.currentTheme === ThemeKind.Dark || this.currentTheme === ThemeKind.HighContrast;
   }
 
-  /**
-   * Check if the current theme is light
-   */
   public isLightTheme(): boolean {
     return this.currentTheme === ThemeKind.Light || this.currentTheme === ThemeKind.HighContrastLight;
   }
 
-  /**
-   * Get the appropriate icon path for the current theme
-   * Implements requirement 10.4: Automatic icon switching
-   */
   public getThemeSpecificIcon(iconName: string, extensionUri: vscode.Uri): vscode.Uri {
     const themeFolder = this.isDarkTheme() ? 'dark' : 'light';
     return vscode.Uri.joinPath(extensionUri, 'media', 'icons', themeFolder, `${iconName}.svg`);
   }
 
-  /**
-   * Get the theme-specific icon URI for webview usage
-   */
   public getWebviewIconUri(iconName: string, extensionUri: vscode.Uri, webview: vscode.Webview): vscode.Uri {
     const iconPath = this.getThemeSpecificIcon(iconName, extensionUri);
     return webview.asWebviewUri(iconPath);
   }
 
-  /**
-   * Get CSS class name for current theme
-   */
   public getThemeCssClass(): string {
     switch (this.currentTheme) {
       case ThemeKind.Light:
@@ -156,14 +115,9 @@ export class ThemeManager {
     }
   }
 
-  /**
-   * Register a listener for theme changes
-   * Implements requirement 10.3: Theme change listeners and UI updates
-   */
   public onThemeChanged(listener: (theme: ThemeKind) => void): vscode.Disposable {
     this.themeChangeListeners.push(listener);
     
-    // Return a disposable to remove the listener
     return {
       dispose: () => {
         const index = this.themeChangeListeners.indexOf(listener);
@@ -174,13 +128,7 @@ export class ThemeManager {
     };
   }
 
-  /**
-   * Get theme-specific CSS variables as a string
-   * Implements requirement 10.5: CSS variable usage for consistent theming
-   */
   public getThemeVariables(): string {
-    // These variables are automatically provided by VSCode's webview context
-    // This method can be used to add custom theme-specific variables if needed
     return `
       :root {
         --theme-kind: '${this.getThemeCssClass()}';
@@ -190,17 +138,12 @@ export class ThemeManager {
     `;
   }
 
-  /**
-   * Refresh the current theme detection
-   * Useful for manual theme refresh
-   */
   public refreshTheme(): void {
     const newTheme = this.detectCurrentTheme();
     if (newTheme !== this.currentTheme) {
       const oldTheme = this.currentTheme;
       this.currentTheme = newTheme;
       
-      // Notify listeners
       this.themeChangeListeners.forEach(listener => {
         try {
           listener(newTheme);
@@ -211,18 +154,12 @@ export class ThemeManager {
     }
   }
 
-  /**
-   * Dispose of all resources
-   */
   public dispose(): void {
     this.disposables.forEach(disposable => disposable.dispose());
     this.disposables = [];
     this.themeChangeListeners = [];
   }
 
-  /**
-   * Reset the singleton instance (for testing purposes)
-   */
   public static resetInstance(): void {
     if (ThemeManager.instance) {
       ThemeManager.instance.dispose();

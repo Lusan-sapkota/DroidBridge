@@ -29,3 +29,7 @@ dist/binaries/
 
 # Ignore packaged extension files
 *.vsix
+
+# Build output
+dist/
+coverage/

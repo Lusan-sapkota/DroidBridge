@@ -19,7 +19,8 @@
     "debugging",
     "mobile",
     "screen-mirror",
-    "wireless"
+    "wireless",
+    "tablet"
   ],
   "author": {
     "name": "Lusan Sapkota"
@@ -34,7 +35,7 @@
     "url": "https://github.com/Lusan-sapkota/DroidBridge/issues"
   },
   "homepage": "https://github.com/Lusan-sapkota/DroidBridge#readme",
-  "publisher": "Lusan Sapkota",
+  "publisher": "LusanSapkota",
   "galleryBanner": {
     "color": "#1e1e1e",
     "theme": "dark"
@@ -148,11 +149,26 @@
           "type": "string",
           "default": "5555",
           "description": "Default port for ADB connection."
+        },
+        "droidbridge.scrcpy.maxSize": {
+          "type": "number",
+          "default": 1024,
+          "minimum": 0,
+          "description": "Maximum mirror resolution (longest side, in pixels). The window keeps the device aspect ratio, so phones and tablets both fit. Use 0 for native resolution."
+        },
+        "droidbridge.scrcpy.bitrate": {
+          "type": "string",
+          "default": "8M",
+          "description": "Video bitrate passed to scrcpy (for example 4M or 16M). Raise it for high resolution tablets."
+        },
+        "droidbridge.scrcpy.alwaysOnTop": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep the mirror window above other windows."
         }
       }
     }
   },
-  "dependencies": {},
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",

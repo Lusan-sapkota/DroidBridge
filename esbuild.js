@@ -17,7 +17,7 @@ const esbuildProblemMatcherPlugin = {
 		});
 		build.onEnd((result) => {
 			result.errors.forEach(({ text, location }) => {
-				console.error(`✘ [ERROR] ${text}`);
+				console.error(`[ERROR] ${text}`);
 				console.error(`    ${location.file}:${location.line}:${location.column}:`);
 			});
 			console.log('[watch] build finished');
@@ -33,17 +33,9 @@ const copyAssetsPlugin = {
 	name: 'copy-assets',
 	setup(build) {
 		build.onEnd(() => {
-			// Ensure dist directory exists
 			if (!fs.existsSync('dist')) {
 				fs.mkdirSync('dist', { recursive: true });
 			}
-
-			// Copy media folder for webview assets
-			if (fs.existsSync('media')) {
-				copyRecursive('media', 'dist/media');
-			}
-
-			// Copy binaries folder if it exists
 			if (fs.existsSync('binaries')) {
 				copyRecursive('binaries', 'dist/binaries');
 			}
@@ -51,9 +43,6 @@ const copyAssetsPlugin = {
 	},
 };
 
-/**
- * Recursively copy directory
- */
 function copyRecursive(src, dest) {
 	if (!fs.existsSync(dest)) {
 		fs.mkdirSync(dest, { recursive: true });
@@ -104,7 +93,6 @@ async function main() {
 		await ctx.rebuild();
 		
 		if (production) {
-			// Generate bundle analysis in production
 			const result = await ctx.rebuild();
 			if (result.metafile) {
 				fs.writeFileSync('dist/meta.json', JSON.stringify(result.metafile, null, 2));

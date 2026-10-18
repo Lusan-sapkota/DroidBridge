@@ -7,7 +7,6 @@
  * @property {function(): any} getState - Get the webview state
  */
 
-// VSCode webview API is available globally in webview context
 // @ts-ignore - acquireVsCodeApi is provided by VSCode webview runtime
 const vscode = acquireVsCodeApi();
 
@@ -34,27 +33,20 @@ const vscode = acquireVsCodeApi();
 /** @type {HTMLElement | null} */ let scrcpyPlaceholder = null;
 /** @type {HTMLElement | null} */ let scrcpyActive = null;
 
-// Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", function () {
   initializeElements();
   setupEventListeners();
 
-  // Restore state from previous session
   const state = vscode.getState();
   if (state) {
     updateUIState(state);
   }
 });
 
-/**
- * Initialize DOM element references
- */
 function initializeElements() {
-  // Input elements
     ipInput = /** @type {HTMLInputElement | null} */ (document.getElementById("ip-input"));
     portInput = /** @type {HTMLInputElement | null} */ (document.getElementById("port-input"));
 
-  // Button elements
     connectBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("connect-btn"));
     disconnectBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("disconnect-btn"));
     launchScrcpyBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("launch-scrcpy-btn"));
@@ -64,20 +56,16 @@ function initializeElements() {
     stopScrcpyBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("stop-scrcpy-btn"));
     showLogsBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById("show-logs-btn"));
 
-  // Status elements
   connectionStatus = document.getElementById("connection-status");
   scrcpyStatus = document.getElementById("scrcpy-status");
   
-  // History elements
   connectionHistoryContainer = document.getElementById("connection-history");
 
-  // Pairing elements
     pairHostInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-host-input'));
     pairPortInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-port-input'));
     pairCodeInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-code-input'));
     pairManualBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('pair-manual-btn'));
 
-  // Scrcpy sidebar elements
   ejectScrcpyBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('eject-scrcpy-btn'));
   closeScrcpyBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('close-scrcpy-btn'));
   scrcpySidebarSection = document.getElementById('scrcpy-sidebar-section');
@@ -86,11 +74,7 @@ function initializeElements() {
   scrcpyActive = document.getElementById('scrcpy-active');
 }
 
-/**
- * Set up event listeners for user interactions
- */
 function setupEventListeners() {
-  // Input change listeners
   if (ipInput) {
     ipInput.addEventListener("input", function (e) {
       const value = /** @type {HTMLInputElement} */(e.target).value.trim();
@@ -115,7 +99,6 @@ function setupEventListeners() {
     });
   }
 
-  // Button click listeners
   if (connectBtn) {
     connectBtn.addEventListener("click", function () {
       const ip = ipInput?.value.trim();
@@ -171,7 +154,6 @@ function setupEventListeners() {
     });
   }
 
-  // Pairing manual button
   if (pairManualBtn) {
     pairManualBtn.addEventListener('click', () => {
       const host = pairHostInput?.value.trim();
@@ -185,7 +167,6 @@ function setupEventListeners() {
     });
   }
 
-  // Scrcpy sidebar controls
   if (ejectScrcpyBtn) {
     ejectScrcpyBtn.addEventListener('click', () => {
       vscode.postMessage({ type: 'ejectScrcpySidebar' });
@@ -198,13 +179,9 @@ function setupEventListeners() {
     });
   }
 
-  // Set up history event delegation
   setupHistoryEventListeners();
 }
 
-/**
- * Set up event listeners for connection history
- */
 function setupHistoryEventListeners() {
   if (connectionHistoryContainer) {
     connectionHistoryContainer.addEventListener("click", function (e) {
@@ -234,9 +211,6 @@ function setupHistoryEventListeners() {
   }
 }
 
-/**
- * Update connection history display
- */
 /**
  * @param {Array<any>} history
  */
@@ -285,7 +259,6 @@ function updateScrcpySidebarSection(scrcpySidebarState) {
   const isRunning = !!scrcpySidebarState?.isRunning;
   
   if (isRunning) {
-    // Show active state, hide placeholder
     if (scrcpyPlaceholder) {
       scrcpyPlaceholder.style.display = 'none';
     }
@@ -293,11 +266,9 @@ function updateScrcpySidebarSection(scrcpySidebarState) {
       scrcpyActive.style.display = 'flex';
     }
     
-    // Enable sidebar controls
     if (ejectScrcpyBtn) ejectScrcpyBtn.disabled = false;
     if (closeScrcpyBtn) closeScrcpyBtn.disabled = false;
   } else {
-    // Show placeholder, hide active state
     if (scrcpyPlaceholder) {
       scrcpyPlaceholder.style.display = 'flex';
     }
@@ -305,36 +276,28 @@ function updateScrcpySidebarSection(scrcpySidebarState) {
       scrcpyActive.style.display = 'none';
     }
     
-    // Disable sidebar controls
     if (ejectScrcpyBtn) ejectScrcpyBtn.disabled = true;
     if (closeScrcpyBtn) closeScrcpyBtn.disabled = true;
   }
 }
 
-/**
- * Update button states based on current connection and input values
- */
 function updateButtonStates() {
   const ip = ipInput?.value.trim() || "";
   const port = portInput?.value.trim() || "";
   const hasValidInputs = ip.length > 0 && port.length > 0;
 
-  // Get current state
   const state = vscode.getState() || {};
   const isConnected = state.connectionStatus || false;
   const isScrcpyRunning = state.scrcpyStatus || false;
 
-  // Update connect button
   if (connectBtn) {
     connectBtn.disabled = isConnected || !hasValidInputs;
   }
 
-  // Update disconnect button
   if (disconnectBtn) {
     disconnectBtn.disabled = !isConnected;
   }
 
-  // Update scrcpy buttons
   if (launchScrcpyBtn) {
     launchScrcpyBtn.disabled = isScrcpyRunning || !isConnected;
   }
@@ -349,13 +312,9 @@ function updateButtonStates() {
 }
 
 /**
- * Update UI state based on extension state
- */
-/**
  * @param {any} state
  */
 function updateUIState(state) {
-  // Update connection status
   if (connectionStatus) {
     const statusIcon = connectionStatus.querySelector(".status-icon");
     const statusText = connectionStatus.querySelector(".status-text");
@@ -383,7 +342,6 @@ function updateUIState(state) {
     }
   }
 
-  // Update scrcpy status
   if (scrcpyStatus) {
     const statusIcon = scrcpyStatus.querySelector(".status-icon");
     const statusText = scrcpyStatus.querySelector(".status-text");
@@ -407,13 +365,11 @@ function updateUIState(state) {
     }
   }
 
-  // Update input values only if they're different to avoid cursor jumping
   if (
     ipInput &&
     state.currentIp !== undefined &&
     ipInput.value !== state.currentIp
   ) {
-    // Only update if the input is not currently focused to avoid interrupting user input
     if (document.activeElement !== ipInput) {
       ipInput.value = state.currentIp;
     }
@@ -424,26 +380,20 @@ function updateUIState(state) {
     state.currentPort !== undefined &&
     portInput.value !== state.currentPort
   ) {
-    // Only update if the input is not currently focused to avoid interrupting user input
     if (document.activeElement !== portInput) {
       portInput.value = state.currentPort;
     }
   }
 
-  // Update connection history
   if (state.connectionHistory) {
     updateConnectionHistory(state.connectionHistory);
   }
 
   updateScrcpySidebarSection(state.scrcpySidebar);
 
-  // Update button states
   updateButtonStates();
 }
 
-/**
- * Save current state to VS Code state
- */
 function saveState() {
   const currentState = vscode.getState() || {};
   const newState = {
@@ -455,7 +405,6 @@ function saveState() {
   vscode.setState(newState);
 }
 
-// Listen for messages from the extension
 window.addEventListener("message", (event) => {
   const message = event.data;
 
@@ -474,17 +423,14 @@ window.addEventListener("message", (event) => {
       break;
 
     case "showError":
-      // Handle error messages from extension
       console.error("DroidBridge Error:", message.error);
       break;
 
     case "showSuccess":
-      // Handle success messages from extension
       console.log("DroidBridge Success:", message.message);
       break;
 
     case "refreshState":
-      // Force refresh the UI state
       const currentState = vscode.getState();
       if (currentState) {
         updateUIState(currentState);
@@ -492,7 +438,6 @@ window.addEventListener("message", (event) => {
       break;
 
     case "themeChanged":
-      // Handle theme change from extension
       updateThemeClass();
       console.log("Theme changed to:", message.themeCssClass);
       break;
@@ -511,31 +456,24 @@ window.addEventListener("message", (event) => {
   }
 });
 
-// Handle theme changes
 const observer = new MutationObserver(function (mutations) {
   mutations.forEach(function (mutation) {
     if (mutation.type === "attributes" && mutation.attributeName === "class") {
-      // Theme changed, update theme class on container
       updateThemeClass();
       console.log("Theme changed, UI updated automatically");
     }
   });
 });
 
-// Observe theme changes on document body
 observer.observe(document.body, {
   attributes: true,
   attributeFilter: ["class"],
 });
 
-/**
- * Update theme class on the container based on VSCode theme
- */
 function updateThemeClass() {
   const container = document.querySelector(".container");
   if (!container) return;
 
-  // Remove existing theme classes
   container.classList.remove(
     "vscode-light",
     "vscode-dark",
@@ -543,7 +481,6 @@ function updateThemeClass() {
     "vscode-high-contrast-light"
   );
 
-  // Detect current theme from body classes
   const bodyClasses = document.body.className;
 
   if (bodyClasses.includes("vscode-light")) {
@@ -553,12 +490,10 @@ function updateThemeClass() {
   } else if (bodyClasses.includes("vscode-high-contrast")) {
     container.classList.add("vscode-high-contrast");
   } else {
-    // Default to dark theme
     container.classList.add("vscode-dark");
   }
 }
 
-// Initialize theme class on load
 document.addEventListener("DOMContentLoaded", function () {
   updateThemeClass();
 });

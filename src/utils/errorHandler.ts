@@ -1,9 +1,6 @@
 import * as vscode from 'vscode';
 import { Logger } from '../managers/logger';
 
-/**
- * Error categories for better error handling and user feedback
- */
 export enum ErrorCategory {
   CONFIGURATION = 'configuration',
   CONNECTION = 'connection',
@@ -14,9 +11,6 @@ export enum ErrorCategory {
   UNKNOWN = 'unknown'
 }
 
-/**
- * Error severity levels
- */
 export enum ErrorSeverity {
   LOW = 'low',
   MEDIUM = 'medium',
@@ -24,9 +18,6 @@ export enum ErrorSeverity {
   CRITICAL = 'critical'
 }
 
-/**
- * Structured error information
- */
 export interface ErrorInfo {
   category: ErrorCategory;
   severity: ErrorSeverity;
@@ -37,19 +28,12 @@ export interface ErrorInfo {
   originalError?: Error;
 }
 
-/**
- * Progress operation context
- */
 export interface ProgressContext {
   title: string;
   cancellable: boolean;
   location: vscode.ProgressLocation;
 }
 
-/**
- * Comprehensive error handler for DroidBridge extension
- * Implements requirements 8.1, 8.2, 8.3, 8.4, 8.5, 8.6
- */
 export class ErrorHandler {
   private logger: Logger;
   private activeProgressOperations: Map<string, vscode.CancellationTokenSource> = new Map();
@@ -64,16 +48,11 @@ export class ErrorHandler {
 
   constructor(logger: Logger) {
     this.logger = logger;
-    // Initialize error statistics
     Object.values(ErrorCategory).forEach(category => {
       this.errorStats.set(category, 0);
     });
   }
 
-  /**
-   * Handle configuration-related errors
-   * Requirement 8.4: Handle invalid inputs
-   */
   handleConfigurationError(error: Error, setting?: string): ErrorInfo {
     const errorInfo: ErrorInfo = {
       category: ErrorCategory.CONFIGURATION,
@@ -89,7 +68,6 @@ export class ErrorHandler {
       originalError: error
     };
 
-    // Specific handling for different configuration errors
     if (error.message.includes('IP address')) {
       errorInfo.userMessage = 'Invalid IP address format';
       errorInfo.suggestedActions = [
@@ -118,10 +96,6 @@ export class ErrorHandler {
     return errorInfo;
   }
 
-  /**
-   * Handle connection-related errors
-   * Requirement 8.5: Handle offline devices and network issues
-   */
   handleConnectionError(error: Error, context?: { ip?: string; port?: string }): ErrorInfo {
     const target = context ? `${context.ip}:${context.port}` : 'device';
     
@@ -140,7 +114,6 @@ export class ErrorHandler {
       originalError: error
     };
 
-    // Specific handling for different connection errors
     const errorMessage = error.message.toLowerCase();
     
     if (errorMessage.includes('connection refused')) {
@@ -194,10 +167,6 @@ export class ErrorHandler {
     return errorInfo;
   }
 
-  /**
-   * Handle process execution errors
-   * Requirement 8.6: Handle process failures
-   */
   handleProcessError(error: Error, processName: string, context?: any): ErrorInfo {
     const errorInfo: ErrorInfo = {
       category: ErrorCategory.PROCESS,
@@ -214,7 +183,6 @@ export class ErrorHandler {
       originalError: error
     };
 
-    // Specific handling for different process types
     if (processName.toLowerCase().includes('adb')) {
       errorInfo.userMessage = 'ADB command failed';
       errorInfo.suggestedActions = [
@@ -256,9 +224,6 @@ export class ErrorHandler {
     return errorInfo;
   }
 
-  /**
-   * Handle system-level errors
-   */
   handleSystemError(error: Error, context?: string): ErrorInfo {
     const errorInfo: ErrorInfo = {
       category: ErrorCategory.SYSTEM,
@@ -275,7 +240,6 @@ export class ErrorHandler {
       originalError: error
     };
 
-    // Specific handling for system errors
     if (error.message.toLowerCase().includes('permission')) {
       errorInfo.category = ErrorCategory.BINARY;
       errorInfo.severity = ErrorSeverity.HIGH;
@@ -302,10 +266,6 @@ export class ErrorHandler {
     return errorInfo;
   }
 
-  /**
-   * Handle validation errors
-   * Requirement 8.4: Handle invalid inputs
-   */
   handleValidationError(field: string, value: string, expectedFormat?: string): ErrorInfo {
     const errorInfo: ErrorInfo = {
       category: ErrorCategory.VALIDATION,
@@ -320,7 +280,6 @@ export class ErrorHandler {
       technicalDetails: `Invalid value: ${value}`
     };
 
-    // Specific validation error messages
     if (field.toLowerCase().includes('ip')) {
       errorInfo.suggestedActions = [
         'Use format: 192.168.1.100',
@@ -339,16 +298,11 @@ export class ErrorHandler {
     return errorInfo;
   }
 
-  /**
-   * Show progress indicator for long-running operations
-   * Requirement 8.1: Show appropriate progress indicators
-   */
   async showProgress<T>(
     operation: (progress: vscode.Progress<{ message?: string; increment?: number }>, token: vscode.CancellationToken) => Promise<T>,
     context: ProgressContext,
     operationId?: string
   ): Promise<T> {
-    // Cancel any existing operation with the same ID
     if (operationId && this.activeProgressOperations.has(operationId)) {
       const existingToken = this.activeProgressOperations.get(operationId);
       existingToken?.cancel();
@@ -370,8 +324,6 @@ export class ErrorHandler {
           cancellable: context.cancellable
         },
         async (progress, token) => {
-          // Use the provided token for cancellation checking
-          
           if (token.isCancellationRequested || tokenSource.token.isCancellationRequested) {
             throw new Error('Operation cancelled by user');
           }
@@ -382,7 +334,6 @@ export class ErrorHandler {
 
       this.logger.info(`Progress operation completed: ${context.title}`);
       return result;
-
     } catch (error) {
       if (error instanceof Error && error.message.includes('cancelled')) {
         this.logger.info(`Progress operation cancelled: ${context.title}`);
@@ -391,7 +342,6 @@ export class ErrorHandler {
         this.logger.error(`Progress operation failed: ${context.title}`, error instanceof Error ? error : undefined);
       }
       throw error;
-
     } finally {
       if (operationId) {
         this.activeProgressOperations.delete(operationId);
@@ -400,9 +350,6 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Cancel a specific progress operation
-   */
   cancelProgress(operationId: string): void {
     const tokenSource = this.activeProgressOperations.get(operationId);
     if (tokenSource) {
@@ -412,9 +359,6 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Cancel all active progress operations
-   */
   cancelAllProgress(): void {
     for (const [operationId, tokenSource] of this.activeProgressOperations) {
       tokenSource.cancel();
@@ -423,47 +367,29 @@ export class ErrorHandler {
     this.activeProgressOperations.clear();
   }
 
-  /**
-   * Show success notification with consistent formatting
-   * Requirement 8.2: Show success notifications with descriptive messages
-   */
   showSuccess(message: string, details?: string): void {
     const fullMessage = details ? `${message} - ${details}` : message;
     this.logger.showSuccess(fullMessage);
   }
 
-  /**
-   * Show error notification with user-friendly message and actions
-   * Requirement 8.3: Show error notifications with specific error details
-   */
   showError(message: string, actions?: string[]): void {
     this.logger.showError(message);
     
-    // Show additional actions if provided
     if (actions && actions.length > 0) {
       const actionMessage = `Suggested actions: ${actions.join(', ')}`;
       this.logger.info(actionMessage);
     }
   }
 
-  /**
-   * Show warning notification
-   */
   showWarning(message: string): void {
     this.logger.showWarning(message);
   }
 
-  /**
-   * Show information notification
-   */
   showInfo(message: string): void {
     vscode.window.showInformationMessage(message);
     this.logger.info(message);
   }
 
-  /**
-   * Show error with action buttons
-   */
   async showErrorWithActions(message: string, actions: { title: string; action: () => void }[]): Promise<void> {
     const actionTitles = actions.map(a => a.title);
     const selectedAction = await vscode.window.showErrorMessage(message, ...actionTitles);
@@ -480,10 +406,6 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Validate and handle edge cases for user inputs
-   * Requirement 8.4: Handle edge cases like invalid inputs
-   */
   validateAndHandleInput(input: string, type: 'ip' | 'port', fieldName: string): { isValid: boolean; error?: ErrorInfo } {
     if (!input || input.trim().length === 0) {
       const error = this.handleValidationError(fieldName, input, `Non-empty ${type}`);
@@ -493,7 +415,6 @@ export class ErrorHandler {
     const trimmedInput = input.trim();
 
     if (type === 'ip') {
-      // Allow localhost and valid IP addresses
       if (trimmedInput === 'localhost' || trimmedInput === '127.0.0.1') {
         return { isValid: true };
       }
@@ -514,16 +435,12 @@ export class ErrorHandler {
     return { isValid: true };
   }
 
-  /**
-   * Handle multiple errors with categorization
-   */
   handleMultipleErrors(errors: Error[], context: string): ErrorInfo[] {
     const errorInfos: ErrorInfo[] = [];
 
     for (const error of errors) {
       let errorInfo: ErrorInfo;
 
-      // Categorize error based on message content
       if (error.message.includes('Connection failed') || error.message.includes('network')) {
         errorInfo = this.handleConnectionError(error);
       } else if (error.message.includes('Invalid configuration') || error.message.includes('config')) {
@@ -537,7 +454,6 @@ export class ErrorHandler {
       errorInfos.push(errorInfo);
     }
 
-    // Show summary if multiple errors
     if (errorInfos.length > 1) {
       const summary = `Multiple errors occurred in ${context}: ${errorInfos.length} issues found`;
       this.showError(summary);
@@ -546,15 +462,9 @@ export class ErrorHandler {
     return errorInfos;
   }
 
-
-
-  /**
-   * Categorize error based on its message and type
-   */
   categorizeError(error: Error): ErrorCategory {
     const message = error.message.toLowerCase();
     
-    // Connection errors - highest priority for network-related issues
     if (message.includes('connection') || message.includes('network') || 
         message.includes('timeout') || message.includes('refused') ||
         message.includes('unreachable') || message.includes('offline') ||
@@ -562,7 +472,6 @@ export class ErrorHandler {
       return ErrorCategory.CONNECTION;
     }
     
-    // System errors - for file system and permission issues (check first for specific system errors)
     if (message.includes('permission') || message.includes('enoent') ||
         message.includes('eacces') || message.includes('binary') ||
         message.includes('not found') || message.includes('exec format error') ||
@@ -570,14 +479,12 @@ export class ErrorHandler {
       return ErrorCategory.SYSTEM;
     }
     
-    // Process errors - for execution and runtime issues
     if (message.includes('spawn') || message.includes('process') || 
         message.includes('exited') || message.includes('emfile') ||
         message.includes('crashed') || message.includes('memory')) {
       return ErrorCategory.PROCESS;
     }
     
-    // Configuration errors - for settings and validation issues
     if (message.includes('invalid') || message.includes('format') ||
         message.includes('port out of range') || message.includes('config') ||
         message.includes('setting')) {
@@ -587,19 +494,14 @@ export class ErrorHandler {
     return ErrorCategory.UNKNOWN; // Default fallback
   }
 
-  /**
-   * Assess error severity based on its impact
-   */
   assessSeverity(error: Error): ErrorSeverity {
     const message = error.message.toLowerCase();
     
-    // Critical errors that prevent core functionality
     if (message.includes('spawn enoent') || message.includes('corrupted') ||
         message.includes('memory') || message.includes('exec format error')) {
       return ErrorSeverity.CRITICAL;
     }
     
-    // High severity errors that break main features
     if (message.includes('process exited') || message.includes('device not found') ||
         message.includes('unauthorized') || message.includes('enoent') ||
         message.includes('no such file') || message.includes('eacces') ||
@@ -607,20 +509,15 @@ export class ErrorHandler {
       return ErrorSeverity.HIGH;
     }
     
-    // Medium severity errors that cause inconvenience
     if (message.includes('timeout') || message.includes('timed out') ||
         message.includes('already running') || message.includes('invalid format') || 
         message.includes('network unreachable')) {
       return ErrorSeverity.MEDIUM;
     }
     
-    // Low severity errors that are minor issues
     return ErrorSeverity.LOW;
   }
 
-  /**
-   * Generate user-friendly error message
-   */
   getUserFriendlyMessage(error: Error): string {
     const category = this.categorizeError(error);
     const message = error.message.toLowerCase();
@@ -655,9 +552,6 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Get recovery suggestions for an error
-   */
   getRecoverySuggestions(error: Error): string[] {
     const category = this.categorizeError(error);
     const message = error.message.toLowerCase();
@@ -720,9 +614,6 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Handle error with full context and categorization
-   */
   handleError(error: Error, context?: string): ErrorInfo {
     const category = this.categorizeError(error);
     const severity = this.assessSeverity(error);
@@ -745,18 +636,12 @@ export class ErrorHandler {
     return errorInfo;
   }
 
-  /**
-   * Track error for statistics and pattern analysis
-   */
   trackError(error: Error): void {
     const category = this.categorizeError(error);
     const currentCount = this.errorStats.get(category) || 0;
     this.errorStats.set(category, currentCount + 1);
   }
 
-  /**
-   * Configure error handler behavior
-   */
   configure(options: { showNotifications?: boolean; logLevel?: string }): void {
     if (options.showNotifications !== undefined) {
       this.config.showNotifications = options.showNotifications;
@@ -766,9 +651,6 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Get error statistics for monitoring
-   */
   getErrorStatistics(): { [key in ErrorCategory]: number } {
     const stats: { [key in ErrorCategory]: number } = {} as any;
     Object.values(ErrorCategory).forEach(category => {
@@ -777,17 +659,12 @@ export class ErrorHandler {
     return stats;
   }
 
-  /**
-   * Log error and show appropriate user notification
-   */
   private logAndNotifyError(errorInfo: ErrorInfo): void {
-    // Log technical details
     this.logger.error(
       `[${errorInfo.category.toUpperCase()}] ${errorInfo.message}`,
       errorInfo.originalError
     );
 
-    // Show user-friendly notification based on severity and configuration
     if (!this.config.showNotifications) {
       return;
     }
@@ -808,27 +685,16 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Get error statistics (alias for getErrorStatistics)
-   */
   getErrorStats(): { [key in ErrorCategory]: number } {
     return this.getErrorStatistics();
   }
 
-  /**
-   * Get recurring error patterns
-   */
   getRecurringPatterns(): { pattern: string; count: number; category: ErrorCategory }[] {
     const patterns: { pattern: string; count: number; category: ErrorCategory }[] = [];
     
-    // This would analyze error patterns in a real implementation
-    // For now, return empty array
     return patterns;
   }
 
-  /**
-   * Get error summary for debugging
-   */
   getErrorSummary(): { totalErrors: number; byCategory: { [key in ErrorCategory]: number }; recentErrors: string[] } {
     const stats = this.getErrorStatistics();
     const totalErrors = Object.values(stats).reduce((sum, count) => sum + count, 0);
@@ -840,16 +706,10 @@ export class ErrorHandler {
     };
   }
 
-  /**
-   * Get current configuration
-   */
   getConfiguration(): { showNotifications: boolean; logLevel: string } {
     return { ...this.config };
   }
 
-  /**
-   * Clean up resources
-   */
   dispose(): void {
     this.cancelAllProgress();
   }

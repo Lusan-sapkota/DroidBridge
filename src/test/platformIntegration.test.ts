@@ -17,14 +17,11 @@ suite('Platform Integration Test Suite', () => {
   const mockExtensionPath = '/mock/extension/path';
 
   setup(() => {
-    // Store original platform
     originalPlatform = os.platform();
     
-    // Create stubbed dependencies
     mockConfigManager = sinon.createStubInstance(ConfigManager);
     mockLogger = sinon.createStubInstance(Logger);
     
-    // Initialize managers
     binaryManager = new BinaryManager(mockExtensionPath, mockConfigManager as any);
     processManager = new ProcessManager(binaryManager, mockLogger as any);
   });

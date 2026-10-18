@@ -2,17 +2,12 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 
-/**
- * Comprehensive Error Handling Tests
- * Tests error handling patterns across the application
- */
 suite('Comprehensive Error Handling Tests', () => {
   let sandbox: sinon.SinonSandbox;
 
   setup(() => {
     sandbox = sinon.createSandbox();
     
-    // Mock VSCode APIs
     sandbox.stub(vscode.window, 'showErrorMessage').resolves();
     sandbox.stub(vscode.window, 'showWarningMessage').resolves();
     sandbox.stub(vscode.window, 'showInformationMessage').resolves();
@@ -189,15 +184,12 @@ suite('Comprehensive Error Handling Tests', () => {
 
   suite('Error Notification Strategies', () => {
     test('should use appropriate notification type based on severity', async () => {
-      // Critical error should show error message
       await showErrorNotification('Cannot allocate memory', 'critical');
       assert.ok((vscode.window.showErrorMessage as sinon.SinonStub).called);
 
-      // Reset stubs
       (vscode.window.showErrorMessage as sinon.SinonStub).resetHistory();
       (vscode.window.showWarningMessage as sinon.SinonStub).resetHistory();
 
-      // Medium severity error might show warning
       await showErrorNotification('Connection timed out', 'medium');
       assert.ok(
         (vscode.window.showErrorMessage as sinon.SinonStub).called ||
@@ -224,9 +216,6 @@ suite('Comprehensive Error Handling Tests', () => {
   });
 });
 
-/**
- * Helper function to generate user-friendly error messages
- */
 function generateUserFriendlyMessage(error: string): string {
   const errorLower = error.toLowerCase();
   
@@ -253,9 +242,6 @@ function generateUserFriendlyMessage(error: string): string {
   return 'An unexpected error occurred. Please try again or check the logs for more details.';
 }
 
-/**
- * Helper function to get recovery suggestions
- */
 function getRecoverySuggestions(error: string): string[] {
   const errorLower = error.toLowerCase();
   
@@ -292,9 +278,6 @@ function getRecoverySuggestions(error: string): string[] {
   ];
 }
 
-/**
- * Helper function to show error notifications based on severity
- */
 async function showErrorNotification(message: string, severity: string): Promise<void> {
   switch (severity) {
     case 'critical':
@@ -314,9 +297,6 @@ async function showErrorNotification(message: string, severity: string): Promise
   }
 }
 
-/**
- * Helper function to add context to error messages
- */
 function addContextToError(error: string, context: any): string {
   let contextualMessage = error;
   

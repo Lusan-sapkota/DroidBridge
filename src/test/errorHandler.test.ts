@@ -3,10 +3,6 @@ import * as vscode from 'vscode';
 import { ErrorHandler, ErrorCategory, ErrorSeverity, ProgressContext } from '../utils/errorHandler';
 import { Logger } from '../managers/logger';
 
-/**
- * Test suite for ErrorHandler class
- * Tests requirements 8.1, 8.2, 8.3, 8.4, 8.5, 8.6
- */
 suite('ErrorHandler Tests', () => {
   let errorHandler: ErrorHandler;
   let mockLogger: Logger;
@@ -14,11 +10,9 @@ suite('ErrorHandler Tests', () => {
   let shownNotifications: { type: string; message: string }[] = [];
 
   setup(() => {
-    // Reset test state
     loggedMessages = [];
     shownNotifications = [];
 
-    // Create mock logger
     mockLogger = {
       info: (message: string) => loggedMessages.push(`INFO: ${message}`),
       error: (message: string, error?: Error) => {
@@ -46,7 +40,6 @@ suite('ErrorHandler Tests', () => {
 
   suite('Configuration Error Handling', () => {
     test('should handle invalid IP address configuration error', () => {
-      // Requirement 8.4: Handle invalid inputs
       const error = new Error('Invalid IP address format');
       const errorInfo = errorHandler.handleConfigurationError(error, 'defaultIp');
 
@@ -59,7 +52,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should handle invalid port configuration error', () => {
-      // Requirement 8.4: Handle invalid inputs
       const error = new Error('Invalid port number');
       const errorInfo = errorHandler.handleConfigurationError(error, 'defaultPort');
 
@@ -80,7 +72,6 @@ suite('ErrorHandler Tests', () => {
 
   suite('Connection Error Handling', () => {
     test('should handle connection refused error', () => {
-      // Requirement 8.5: Handle offline devices and network issues
       const error = new Error('Connection refused');
       const context = { ip: '192.168.1.100', port: '5555' };
       const errorInfo = errorHandler.handleConnectionError(error, context);
@@ -93,7 +84,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should handle connection timeout error', () => {
-      // Requirement 8.5: Handle offline devices and network issues
       const error = new Error('Connection timeout');
       const errorInfo = errorHandler.handleConnectionError(error);
 
@@ -103,7 +93,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should handle device unauthorized error', () => {
-      // Requirement 8.5: Handle offline devices and network issues
       const error = new Error('Device unauthorized');
       const errorInfo = errorHandler.handleConnectionError(error);
 
@@ -113,7 +102,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should handle device offline error', () => {
-      // Requirement 8.5: Handle offline devices and network issues
       const error = new Error('Device is offline');
       const errorInfo = errorHandler.handleConnectionError(error);
 
@@ -123,7 +111,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should handle no route to host error', () => {
-      // Requirement 8.5: Handle offline devices and network issues
       const error = new Error('No route to host');
       const errorInfo = errorHandler.handleConnectionError(error);
 
@@ -135,7 +122,6 @@ suite('ErrorHandler Tests', () => {
 
   suite('Process Error Handling', () => {
     test('should handle ADB process error', () => {
-      // Requirement 8.6: Handle process failures
       const error = new Error('ADB command failed');
       const errorInfo = errorHandler.handleProcessError(error, 'adb');
 
@@ -146,7 +132,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should handle scrcpy already running error', () => {
-      // Requirement 8.6: Handle process failures
       const error = new Error('Scrcpy is already running');
       const errorInfo = errorHandler.handleProcessError(error, 'scrcpy');
 
@@ -156,7 +141,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should handle scrcpy device not found error', () => {
-      // Requirement 8.6: Handle process failures
       const error = new Error('Device not found for scrcpy');
       const errorInfo = errorHandler.handleProcessError(error, 'scrcpy');
 
@@ -166,7 +150,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should handle generic scrcpy error', () => {
-      // Requirement 8.6: Handle process failures
       const error = new Error('Generic scrcpy error');
       const errorInfo = errorHandler.handleProcessError(error, 'scrcpy');
 
@@ -209,21 +192,18 @@ suite('ErrorHandler Tests', () => {
 
   suite('Input Validation', () => {
     test('should validate valid IP address', () => {
-      // Requirement 8.4: Handle invalid inputs
       const result = errorHandler.validateAndHandleInput('192.168.1.100', 'ip', 'IP address');
       assert.strictEqual(result.isValid, true);
       assert.strictEqual(result.error, undefined);
     });
 
     test('should validate localhost as valid IP', () => {
-      // Requirement 8.4: Handle invalid inputs
       const result = errorHandler.validateAndHandleInput('localhost', 'ip', 'IP address');
       assert.strictEqual(result.isValid, true);
       assert.strictEqual(result.error, undefined);
     });
 
     test('should reject invalid IP address', () => {
-      // Requirement 8.4: Handle invalid inputs
       const result = errorHandler.validateAndHandleInput('invalid.ip', 'ip', 'IP address');
       assert.strictEqual(result.isValid, false);
       assert.ok(result.error);
@@ -232,14 +212,12 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should validate valid port number', () => {
-      // Requirement 8.4: Handle invalid inputs
       const result = errorHandler.validateAndHandleInput('5555', 'port', 'Port number');
       assert.strictEqual(result.isValid, true);
       assert.strictEqual(result.error, undefined);
     });
 
     test('should reject invalid port number', () => {
-      // Requirement 8.4: Handle invalid inputs
       const result = errorHandler.validateAndHandleInput('99999', 'port', 'Port number');
       assert.strictEqual(result.isValid, false);
       assert.ok(result.error);
@@ -248,7 +226,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should reject empty input', () => {
-      // Requirement 8.4: Handle invalid inputs
       const result = errorHandler.validateAndHandleInput('', 'ip', 'IP address');
       assert.strictEqual(result.isValid, false);
       assert.ok(result.error);
@@ -256,7 +233,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should reject whitespace-only input', () => {
-      // Requirement 8.4: Handle invalid inputs
       const result = errorHandler.validateAndHandleInput('   ', 'port', 'Port number');
       assert.strictEqual(result.isValid, false);
       assert.ok(result.error);
@@ -265,7 +241,6 @@ suite('ErrorHandler Tests', () => {
 
   suite('User Feedback', () => {
     test('should show success notification', () => {
-      // Requirement 8.2: Show success notifications with descriptive messages
       errorHandler.showSuccess('Operation completed successfully', 'Additional details');
       
       assert.ok(shownNotifications.some(notif => 
@@ -276,7 +251,6 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should show error notification with actions', () => {
-      // Requirement 8.3: Show error notifications with specific error details
       const actions = ['Try again', 'Check settings'];
       errorHandler.showError('Operation failed', actions);
       
@@ -328,14 +302,12 @@ suite('ErrorHandler Tests', () => {
 
   suite('Progress Operations', () => {
     test('should handle progress operation completion', async () => {
-      // Requirement 8.1: Show appropriate progress indicators
       const progressContext: ProgressContext = {
         title: 'Test Operation',
         cancellable: false,
         location: vscode.ProgressLocation.Notification
       };
 
-      // Mock vscode.window.withProgress
       const originalWithProgress = vscode.window.withProgress;
       let progressTitle = '';
       vscode.window.withProgress = async (options: any, task: any) => {
@@ -369,14 +341,12 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should handle progress operation cancellation', async () => {
-      // Requirement 8.1: Show appropriate progress indicators
       const progressContext: ProgressContext = {
         title: 'Cancellable Operation',
         cancellable: true,
         location: vscode.ProgressLocation.Notification
       };
 
-      // Mock vscode.window.withProgress to simulate cancellation
       const originalWithProgress = vscode.window.withProgress;
       vscode.window.withProgress = async (options: any, task: any) => {
         const mockProgress = {
@@ -410,15 +380,12 @@ suite('ErrorHandler Tests', () => {
     });
 
     test('should cancel specific progress operation', () => {
-      // Test cancellation functionality
       errorHandler.cancelProgress('test-operation');
       assert.ok(loggedMessages.some(msg => msg.includes('Cancelled progress operation: test-operation')));
     });
 
     test('should cancel all progress operations', () => {
-      // Test cancellation functionality
       errorHandler.cancelAllProgress();
-      // This should not throw and should log appropriately
       assert.ok(true); // Basic test that method executes without error
     });
   });
@@ -439,7 +406,6 @@ suite('ErrorHandler Tests', () => {
 
   suite('Resource Cleanup', () => {
     test('should dispose resources properly', () => {
-      // Test that dispose doesn't throw
       errorHandler.dispose();
       assert.ok(true);
     });

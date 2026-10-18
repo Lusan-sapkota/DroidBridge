@@ -2,9 +2,6 @@ import * as assert from 'assert';
 import { ErrorHandler, ErrorCategory, ErrorSeverity } from '../utils/errorHandler';
 import { Logger } from '../managers/logger';
 
-/**
- * Unit tests for ErrorHandler class - simplified version for testing core functionality
- */
 suite('ErrorHandler Unit Tests', () => {
   let errorHandler: ErrorHandler;
   let mockLogger: Logger;
@@ -12,11 +9,9 @@ suite('ErrorHandler Unit Tests', () => {
   let shownNotifications: { type: string; message: string }[] = [];
 
   setup(() => {
-    // Reset test state
     loggedMessages = [];
     shownNotifications = [];
 
-    // Create mock logger
     mockLogger = {
       info: (message: string) => loggedMessages.push(`INFO: ${message}`),
       error: (message: string, error?: Error) => {
@@ -76,15 +71,12 @@ suite('ErrorHandler Unit Tests', () => {
   });
 
   test('should validate IP addresses correctly', () => {
-    // Valid IP
     let result = errorHandler.validateAndHandleInput('192.168.1.100', 'ip', 'IP address');
     assert.strictEqual(result.isValid, true);
 
-    // Valid localhost
     result = errorHandler.validateAndHandleInput('localhost', 'ip', 'IP address');
     assert.strictEqual(result.isValid, true);
 
-    // Invalid IP
     result = errorHandler.validateAndHandleInput('invalid.ip', 'ip', 'IP address');
     assert.strictEqual(result.isValid, false);
     assert.ok(result.error);
@@ -92,16 +84,13 @@ suite('ErrorHandler Unit Tests', () => {
   });
 
   test('should validate port numbers correctly', () => {
-    // Valid port
     let result = errorHandler.validateAndHandleInput('5555', 'port', 'Port number');
     assert.strictEqual(result.isValid, true);
 
-    // Invalid port (too high)
     result = errorHandler.validateAndHandleInput('99999', 'port', 'Port number');
     assert.strictEqual(result.isValid, false);
     assert.ok(result.error);
 
-    // Invalid port (non-numeric)
     result = errorHandler.validateAndHandleInput('abc', 'port', 'Port number');
     assert.strictEqual(result.isValid, false);
     assert.ok(result.error);

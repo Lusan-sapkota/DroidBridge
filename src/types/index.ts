@@ -1,8 +1,5 @@
 import { ChildProcess } from 'child_process';
 
-/**
- * Represents the connection state to an Android device via ADB
- */
 export interface ConnectionState {
   connected: boolean;
   deviceIp?: string;
@@ -11,9 +8,6 @@ export interface ConnectionState {
   connectionError?: string;
 }
 
-/**
- * Represents the state of a scrcpy screen mirroring session
- */
 export interface ScrcpyState {
   running: boolean;
   process?: ChildProcess;
@@ -21,19 +15,14 @@ export interface ScrcpyState {
   options?: ScrcpyOptions;
 }
 
-/**
- * Configuration options for scrcpy
- */
 export interface ScrcpyOptions {
-  bitrate?: number;
+  bitrate?: number | string;
   maxSize?: number;
   crop?: string;
   recordFile?: string;
+  alwaysOnTop?: boolean;
 }
 
-/**
- * Represents an item in the DroidBridge sidebar tree view
- */
 export interface SidebarItem {
   id: string;
   label: string;
@@ -44,9 +33,6 @@ export interface SidebarItem {
   command?: string;
 }
 
-/**
- * Overall extension state containing all component states
- */
 export interface ExtensionState {
   connection: ConnectionState;
   scrcpy: ScrcpyState;
@@ -54,9 +40,6 @@ export interface ExtensionState {
   binariesValidated: boolean;
 }
 
-/**
- * Result of executing a process command
- */
 export interface ProcessResult {
   success: boolean;
   stdout: string;
@@ -64,27 +47,18 @@ export interface ProcessResult {
   exitCode: number;
 }
 
-/**
- * Result of binary validation
- */
 export interface ValidationResult {
   adbValid: boolean;
   scrcpyValid: boolean;
   errors: string[];
 }
 
-/**
- * Context information for connection operations
- */
 export interface ConnectionContext {
   ip: string;
   port: string;
   timeout?: number;
 }
 
-/**
- * Information about a binary path and its source
- */
 export interface BinaryInfo {
   path: string;
   isCustom: boolean;

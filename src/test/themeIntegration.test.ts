@@ -15,10 +15,8 @@ suite('Theme Integration Tests', () => {
   setup(() => {
     sandbox = sinon.createSandbox();
     
-    // Reset theme manager singleton
     ThemeManager.resetInstance();
     
-    // Mock extension context
     mockContext = {
       subscriptions: [],
       extensionPath: '/test/extension',
@@ -34,7 +32,6 @@ suite('Theme Integration Tests', () => {
     
     mockExtensionUri = vscode.Uri.file('/test/extension');
     
-    // Mock VSCode configuration
     sandbox.stub(vscode.workspace, 'getConfiguration').returns({
       get: sandbox.stub().callsFake((key: string) => {
         switch (key) {
@@ -66,7 +63,6 @@ suite('Theme Integration Tests', () => {
   });
 
   test('should initialize with correct theme on creation', () => {
-    // Mock VSCode API for light theme
     const mockColorTheme = {
       kind: vscode.ColorThemeKind.Light
     };
@@ -75,7 +71,6 @@ suite('Theme Integration Tests', () => {
 
     sidebarProvider = new DroidBridgeSidebarProvider(mockExtensionUri, mockContext, configManager);
     
-    // Verify theme manager is initialized
     const themeManager = ThemeManager.getInstance();
     assert.strictEqual(themeManager.getCurrentTheme(), ThemeKind.Light);
     assert.strictEqual(themeManager.isLightTheme(), true);
@@ -84,7 +79,6 @@ suite('Theme Integration Tests', () => {
   test('should update webview when theme changes', (done) => {
     let onDidChangeCallback: (theme: vscode.ColorTheme) => void = () => {};
     
-    // Mock VSCode API - start with light theme
     const mockColorTheme = {
       kind: vscode.ColorThemeKind.Light
     };
@@ -96,7 +90,6 @@ suite('Theme Integration Tests', () => {
 
     sidebarProvider = new DroidBridgeSidebarProvider(mockExtensionUri, mockContext, configManager);
     
-    // Mock webview
     const mockWebview = {
       html: '',
       options: {},
@@ -112,13 +105,10 @@ suite('Theme Integration Tests', () => {
       onDidChangeVisibility: sandbox.stub().returns({ dispose: () => {} })
     } as any;
 
-    // Resolve webview view
     sidebarProvider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
     
-    // Verify initial HTML contains light theme class
     assert.strictEqual(mockWebview.html.includes('vscode-light'), true);
     
-    // Set up expectation for theme change message
     mockWebview.postMessage.callsFake((message) => {
       if (message.type === 'themeChanged') {
         assert.strictEqual(message.theme, ThemeKind.Dark);
@@ -129,14 +119,12 @@ suite('Theme Integration Tests', () => {
       }
     });
 
-    // Simulate theme change to dark
     onDidChangeCallback({
       kind: vscode.ColorThemeKind.Dark
     } as vscode.ColorTheme);
   });
 
   test('should use correct icons for light theme', () => {
-    // Mock VSCode API for light theme
     const mockColorTheme = {
       kind: vscode.ColorThemeKind.Light
     };
@@ -145,7 +133,6 @@ suite('Theme Integration Tests', () => {
 
     sidebarProvider = new DroidBridgeSidebarProvider(mockExtensionUri, mockContext, configManager);
     
-    // Mock webview
     const mockWebview = {
       html: '',
       options: {},
@@ -163,17 +150,14 @@ suite('Theme Integration Tests', () => {
       onDidChangeVisibility: sandbox.stub().returns({ dispose: () => {} })
     } as any;
 
-    // Resolve webview view
     sidebarProvider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
     
-    // Verify HTML contains light theme icons
     assert.strictEqual(mockWebview.html.includes('light/plug.svg'), true);
     assert.strictEqual(mockWebview.html.includes('light/device-mobile.svg'), true);
     assert.strictEqual(mockWebview.html.includes('vscode-light'), true);
   });
 
   test('should use correct icons for dark theme', () => {
-    // Mock VSCode API for dark theme
     const mockColorTheme = {
       kind: vscode.ColorThemeKind.Dark
     };
@@ -182,7 +166,6 @@ suite('Theme Integration Tests', () => {
 
     sidebarProvider = new DroidBridgeSidebarProvider(mockExtensionUri, mockContext, configManager);
     
-    // Mock webview
     const mockWebview = {
       html: '',
       options: {},
@@ -200,17 +183,14 @@ suite('Theme Integration Tests', () => {
       onDidChangeVisibility: sandbox.stub().returns({ dispose: () => {} })
     } as any;
 
-    // Resolve webview view
     sidebarProvider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
     
-    // Verify HTML contains dark theme icons
     assert.strictEqual(mockWebview.html.includes('dark/plug.svg'), true);
     assert.strictEqual(mockWebview.html.includes('dark/device-mobile.svg'), true);
     assert.strictEqual(mockWebview.html.includes('vscode-dark'), true);
   });
 
   test('should handle high contrast themes correctly', () => {
-    // Mock VSCode API for high contrast theme
     const mockColorTheme = {
       kind: vscode.ColorThemeKind.HighContrast
     };
@@ -226,7 +206,6 @@ suite('Theme Integration Tests', () => {
   });
 
   test('should handle high contrast light themes correctly', () => {
-    // Mock VSCode API for high contrast light theme
     const mockColorTheme = {
       kind: vscode.ColorThemeKind.HighContrastLight
     };
@@ -242,7 +221,6 @@ suite('Theme Integration Tests', () => {
   });
 
   test('should dispose theme listeners correctly', () => {
-    // Mock VSCode API
     const mockColorTheme = {
       kind: vscode.ColorThemeKind.Light
     };
@@ -252,22 +230,16 @@ suite('Theme Integration Tests', () => {
 
     sidebarProvider = new DroidBridgeSidebarProvider(mockExtensionUri, mockContext, configManager);
     
-    // Verify disposable was added to context subscriptions
     assert.strictEqual(mockContext.subscriptions.length > 0, true);
     
-    // Dispose sidebar provider
     sidebarProvider.dispose();
     
-    // Verify theme manager disposable was called
-    // Note: We can't directly verify the theme manager's dispose was called
-    // because it's a singleton, but we can verify the sidebar's dispose works
     assert.doesNotThrow(() => sidebarProvider.dispose());
   });
 
   test('should regenerate HTML with new theme on theme change', (done) => {
     let onDidChangeCallback: (theme: vscode.ColorTheme) => void = () => {};
     
-    // Mock VSCode API - start with light theme
     const mockColorTheme = {
       kind: vscode.ColorThemeKind.Light
     };
@@ -279,7 +251,6 @@ suite('Theme Integration Tests', () => {
 
     sidebarProvider = new DroidBridgeSidebarProvider(mockExtensionUri, mockContext, configManager);
     
-    // Mock webview
     const mockWebview = {
       html: '',
       options: {},
@@ -297,15 +268,12 @@ suite('Theme Integration Tests', () => {
       onDidChangeVisibility: sandbox.stub().returns({ dispose: () => {} })
     } as any;
 
-    // Resolve webview view
     sidebarProvider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
     
-    // Store initial HTML
     const initialHtml = mockWebview.html;
     assert.strictEqual(initialHtml.includes('light/'), true);
     assert.strictEqual(initialHtml.includes('vscode-light'), true);
     
-    // Set up a way to capture the new HTML
     let htmlUpdated = false;
     Object.defineProperty(mockWebview, 'html', {
       set: function(value) {
@@ -322,7 +290,6 @@ suite('Theme Integration Tests', () => {
       }
     });
 
-    // Simulate theme change to dark
     onDidChangeCallback({
       kind: vscode.ColorThemeKind.Dark
     } as vscode.ColorTheme);

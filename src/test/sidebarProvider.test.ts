@@ -55,7 +55,6 @@ suite("DroidBridgeSidebarProvider Test Suite", () => {
     test("should initialize with default values", () => {
       assert.strictEqual(provider.getConnectionStatus(), false);
       assert.strictEqual(provider.getScrcpyStatus(), false);
-      // Default values should be loaded from configuration
       assert.strictEqual(typeof provider.getCurrentIp(), "string");
       assert.strictEqual(typeof provider.getCurrentPort(), "string");
     });
@@ -85,14 +84,11 @@ suite("DroidBridgeSidebarProvider Test Suite", () => {
     });
 
     test("should reset all status", () => {
-      // Set some values first
       provider.updateConnectionStatus(true, "192.168.1.100", "5555");
       provider.updateScrcpyStatus(true);
 
-      // Reset
       provider.reset();
 
-      // Check all values are reset
       assert.strictEqual(provider.getConnectionStatus(), false);
       assert.strictEqual(provider.getScrcpyStatus(), false);
       assert.strictEqual(provider.getCurrentIp(), "");
@@ -102,27 +98,21 @@ suite("DroidBridgeSidebarProvider Test Suite", () => {
 
   suite("State Transitions", () => {
     test("should handle connection state changes", () => {
-      // Initially disconnected
       assert.strictEqual(provider.getConnectionStatus(), false);
 
-      // Connect
       provider.updateConnectionStatus(true, "192.168.1.100", "5555");
       assert.strictEqual(provider.getConnectionStatus(), true);
 
-      // Disconnect
       provider.updateConnectionStatus(false);
       assert.strictEqual(provider.getConnectionStatus(), false);
     });
 
     test("should handle scrcpy state changes", () => {
-      // Initially stopped
       assert.strictEqual(provider.getScrcpyStatus(), false);
 
-      // Start scrcpy
       provider.updateScrcpyStatus(true);
       assert.strictEqual(provider.getScrcpyStatus(), true);
 
-      // Stop scrcpy
       provider.updateScrcpyStatus(false);
       assert.strictEqual(provider.getScrcpyStatus(), false);
     });
@@ -141,7 +131,6 @@ suite("DroidBridgeSidebarProvider Test Suite", () => {
       provider.updateIpAddress("  192.168.1.100  ");
       provider.updatePort("  5555  ");
 
-      // Note: The provider doesn't trim values, that's handled by the webview
       assert.strictEqual(provider.getCurrentIp(), "  192.168.1.100  ");
       assert.strictEqual(provider.getCurrentPort(), "  5555  ");
     });

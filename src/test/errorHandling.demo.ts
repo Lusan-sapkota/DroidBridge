@@ -1,12 +1,7 @@
-/**
- * Demo script showing comprehensive error handling and user feedback
- * Demonstrates requirements 8.1, 8.2, 8.3, 8.4, 8.5, 8.6
- */
 
 import { ErrorHandler, ErrorCategory, ErrorSeverity } from '../utils/errorHandler';
 import { Logger } from '../managers/logger';
 
-// Mock logger for demo purposes
 const mockLogger = {
   info: (message: string) => console.log(`[INFO] ${message}`),
   error: (message: string, error?: Error) => {
@@ -30,14 +25,12 @@ async function demonstrateErrorHandling() {
   
   const errorHandler = new ErrorHandler(mockLogger);
 
-  // 1. Configuration Error Handling (Requirement 8.4)
   console.log('1. Configuration Error Handling:');
   console.log('   Testing invalid IP address configuration...');
   const configError = new Error('Invalid IP address format: 999.999.999.999');
   errorHandler.handleConfigurationError(configError, 'defaultIp');
   console.log('');
 
-  // 2. Connection Error Handling (Requirement 8.5)
   console.log('2. Connection Error Handling:');
   console.log('   Testing connection timeout scenario...');
   const connectionError = new Error('Connection timeout');
@@ -49,7 +42,6 @@ async function demonstrateErrorHandling() {
   errorHandler.handleConnectionError(offlineError);
   console.log('');
 
-  // 3. Process Error Handling (Requirement 8.6)
   console.log('3. Process Error Handling:');
   console.log('   Testing scrcpy already running scenario...');
   const duplicateError = new Error('Scrcpy is already running');
@@ -61,7 +53,6 @@ async function demonstrateErrorHandling() {
   errorHandler.handleProcessError(adbError, 'adb');
   console.log('');
 
-  // 4. Input Validation (Requirement 8.4)
   console.log('4. Input Validation:');
   console.log('   Testing valid IP address validation...');
   let validation = errorHandler.validateAndHandleInput('192.168.1.100', 'ip', 'IP address');
@@ -89,7 +80,6 @@ async function demonstrateErrorHandling() {
   }
   console.log('');
 
-  // 5. User Feedback (Requirements 8.2, 8.3)
   console.log('5. User Feedback:');
   console.log('   Testing success notification...');
   errorHandler.showSuccess('Device connected successfully', 'Connection established to 192.168.1.100:5555');
@@ -107,7 +97,6 @@ async function demonstrateErrorHandling() {
   errorHandler.showWarning('Scrcpy is already running. Stop the current instance first.');
   console.log('');
 
-  // 6. Multiple Error Handling
   console.log('6. Multiple Error Handling:');
   console.log('   Testing multiple errors scenario...');
   const multipleErrors = [
@@ -119,7 +108,6 @@ async function demonstrateErrorHandling() {
   console.log(`   Handled ${errorInfos.length} errors with different categories`);
   console.log('');
 
-  // 7. System Error Handling
   console.log('7. System Error Handling:');
   console.log('   Testing permission denied error...');
   const permissionError = new Error('Permission denied: cannot execute binary');
@@ -131,7 +119,6 @@ async function demonstrateErrorHandling() {
   errorHandler.handleSystemError(fileError, 'binary loading');
   console.log('');
 
-  // 8. Error Statistics
   console.log('8. Error Statistics:');
   const stats = errorHandler.getErrorStatistics();
   console.log('   Error categories tracked:');
@@ -140,7 +127,6 @@ async function demonstrateErrorHandling() {
   });
   console.log('');
 
-  // Cleanup
   console.log('9. Cleanup:');
   errorHandler.dispose();
   console.log('   Error handler disposed successfully');
@@ -149,12 +135,12 @@ async function demonstrateErrorHandling() {
   console.log('=== Demo Complete ===');
   console.log('');
   console.log('Key Features Demonstrated:');
-  console.log('✅ Requirement 8.1: Progress indicators for long-running operations');
-  console.log('✅ Requirement 8.2: Success notifications with descriptive messages');
-  console.log('✅ Requirement 8.3: Error notifications with specific error details');
-  console.log('✅ Requirement 8.4: Handle edge cases like invalid inputs');
-  console.log('✅ Requirement 8.5: Handle offline devices and process failures');
-  console.log('✅ Requirement 8.6: Handle process failures with appropriate feedback');
+  console.log('Requirement 8.1: Progress indicators for long-running operations');
+  console.log('Requirement 8.2: Success notifications with descriptive messages');
+  console.log('Requirement 8.3: Error notifications with specific error details');
+  console.log('Requirement 8.4: Handle edge cases like invalid inputs');
+  console.log('Requirement 8.5: Handle offline devices and process failures');
+  console.log('Requirement 8.6: Handle process failures with appropriate feedback');
   console.log('');
   console.log('Error Handling Categories:');
   console.log('- Configuration errors (IP/port validation, binary paths)');
@@ -165,7 +151,6 @@ async function demonstrateErrorHandling() {
   console.log('- Binary errors (missing binaries, permission issues)');
 }
 
-// Run the demo if this file is executed directly
 if (require.main === module) {
   demonstrateErrorHandling().catch(console.error);
 }

@@ -3,10 +3,6 @@ import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import { activate, deactivate, getExtensionState, getLogger, isExtensionInitialized } from '../extension';
 
-/**
- * Integration tests for extension lifecycle
- * Tests requirements 1.1, 4.6, 6.1
- */
 suite('Extension Lifecycle Integration Tests', () => {
   let context: vscode.ExtensionContext;
   let sandbox: sinon.SinonSandbox;
@@ -14,7 +10,6 @@ suite('Extension Lifecycle Integration Tests', () => {
   setup(() => {
     sandbox = sinon.createSandbox();
     
-    // Mock extension context
     context = {
       subscriptions: [],
       workspaceState: {
@@ -66,7 +61,6 @@ suite('Extension Lifecycle Integration Tests', () => {
       asAbsolutePath: sandbox.stub().callsFake((relativePath: string) => `/mock/extension/path/${relativePath}`)
     } as any;
 
-    // Mock VSCode APIs
     const createOutputChannelStub = sandbox.stub(vscode.window, 'createOutputChannel').returns({
       name: 'DroidBridge Logs',
       append: sandbox.stub(),
@@ -89,7 +83,6 @@ suite('Extension Lifecycle Integration Tests', () => {
       dispose: sandbox.stub()
     } as any);
 
-    // Store stubs for test access
     (context as any)._testStubs = {
       createOutputChannel: createOutputChannelStub,
       registerWebviewViewProvider: registerWebviewViewProviderStub,
@@ -99,21 +92,17 @@ suite('Extension Lifecycle Integration Tests', () => {
   });
 
   teardown(async () => {
-    // Always deactivate extension after each test
     try {
       await deactivate();
     } catch (error) {
-      // Ignore deactivation errors in tests
     }
     
     sandbox.restore();
   });
 
   test('Extension activates successfully', async () => {
-    // Act
     activate(context);
 
-    // Assert
     assert.strictEqual(isExtensionInitialized(), true, 'Extension should be initialized');
     
     const extensionState = getExtensionState();
@@ -126,21 +115,16 @@ suite('Extension Lifecycle Integration Tests', () => {
   });
 
   test('Extension registers all required VSCode components', () => {
-    // Act
     activate(context);
 
-    // Assert - Check that all required components were registered
     const stubs = (context as any)._testStubs;
     
-    // Verify output channel was created (Requirement 6.1)
     assert.ok(stubs.createOutputChannel.calledWith('DroidBridge Logs'), 
       'Should create DroidBridge Logs output channel');
 
-    // Verify webview provider was registered (Requirement 1.1)
     assert.ok(stubs.registerWebviewViewProvider.calledWith('droidbridge-sidebar'), 
       'Should register sidebar webview provider');
 
-    // Verify commands were registered (Requirement 4.6)
     const commandCalls = stubs.registerCommand.getCalls();
     const registeredCommands = commandCalls.map((call: any) => call.args[0]);
     
@@ -158,31 +142,25 @@ suite('Extension Lifecycle Integration Tests', () => {
         `Should register command: ${command}`);
     });
 
-    // Verify configuration watcher was set up
     assert.ok(stubs.onDidChangeConfiguration.called, 
       'Should set up configuration change watcher');
   });
 
   test('Extension handles activation errors gracefully', () => {
-    // Arrange - Force an error during activation
     sandbox.restore(); // Remove existing stubs
     sandbox.stub(vscode.window, 'createOutputChannel').throws(new Error('Mock activation error'));
 
-    // Act & Assert
     assert.throws(() => {
       activate(context);
     }, /Mock activation error/, 'Should throw activation error');
   });
 
   test('Extension deactivates successfully', async () => {
-    // Arrange
     activate(context);
     assert.strictEqual(isExtensionInitialized(), true, 'Extension should be initialized');
 
-    // Act
     await deactivate();
 
-    // Assert
     assert.strictEqual(isExtensionInitialized(), false, 'Extension should not be initialized after deactivation');
     
     const extensionState = getExtensionState();
@@ -193,69 +171,53 @@ suite('Extension Lifecycle Integration Tests', () => {
   });
 
   test('Extension handles deactivation errors gracefully', async () => {
-    // Arrange
     activate(context);
     
-    // Mock process manager to throw error during cleanup
     const extensionState = getExtensionState();
     if (extensionState) {
-      // We can't easily mock the process manager cleanup from here,
-      // but we can test that deactivation doesn't throw even with errors
     }
 
-    // Act & Assert - Should not throw
     await assert.doesNotReject(async () => {
       await deactivate();
     }, 'Deactivation should not throw errors');
   });
 
   test('Extension state is properly initialized', () => {
-    // Act
     activate(context);
 
-    // Assert
     const extensionState = getExtensionState();
     assert.ok(extensionState, 'Extension state should exist');
     
-    // Check connection state
     assert.strictEqual(extensionState.connection.connected, false, 'Should start disconnected');
     assert.strictEqual(extensionState.connection.deviceIp, undefined, 'Should have no device IP initially');
     assert.strictEqual(extensionState.connection.devicePort, undefined, 'Should have no device port initially');
     
-    // Check scrcpy state
     assert.strictEqual(extensionState.scrcpy.running, false, 'Scrcpy should not be running initially');
     assert.strictEqual(extensionState.scrcpy.process, undefined, 'Should have no scrcpy process initially');
     
-    // Check initialization flags
     assert.strictEqual(extensionState.initialized, true, 'Should be marked as initialized');
     assert.strictEqual(extensionState.binariesValidated, false, 'Binaries should not be validated yet');
   });
 
   test('Extension properly manages disposables', () => {
-    // Act
     activate(context);
 
-    // Assert
     assert.ok(context.subscriptions.length > 0, 'Should add disposables to context subscriptions');
     
-    // Check that key disposables were added
     const disposableCount = context.subscriptions.length;
     assert.ok(disposableCount >= 3, 'Should have at least 3 disposables (sidebar, config watcher, logger)');
   });
 
   test('Extension configuration watcher triggers refresh', () => {
-    // Arrange
     activate(context);
     const stubs = (context as any)._testStubs;
     
-    // Get the configuration change callback
     const configWatcherCall = stubs.onDidChangeConfiguration.getCall(0);
     assert.ok(configWatcherCall, 'Configuration watcher should be set up');
     
     const configChangeCallback = configWatcherCall.args[0];
     assert.ok(typeof configChangeCallback === 'function', 'Configuration change callback should be a function');
 
-    // Act - Simulate configuration change with proper event object
     const mockConfigChangeEvent = {
       affectsConfiguration: sandbox.stub().returns(true)
     };
@@ -266,12 +228,10 @@ suite('Extension Lifecycle Integration Tests', () => {
   });
 
   test('Extension provides testing helper functions', () => {
-    // Test before activation
     assert.strictEqual(getExtensionState(), undefined, 'Extension state should be undefined before activation');
     assert.strictEqual(getLogger(), undefined, 'Logger should be undefined before activation');
     assert.strictEqual(isExtensionInitialized(), false, 'Extension should not be initialized before activation');
 
-    // Test after activation
     activate(context);
     
     assert.ok(getExtensionState(), 'Extension state should be available after activation');

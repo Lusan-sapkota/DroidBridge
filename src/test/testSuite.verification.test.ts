@@ -2,10 +2,6 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 
-/**
- * Test Suite Verification
- * Ensures all required test files exist and are properly structured
- */
 suite('Test Suite Verification', () => {
   const testDir = __dirname;
 
@@ -98,7 +94,6 @@ suite('Test Suite Verification', () => {
         if (fs.existsSync(filePath)) {
           const content = fs.readFileSync(filePath, 'utf8');
           
-          // Check for basic test structure
           assert.ok(content.includes('suite('), `${testFile} should have test suites`);
           assert.ok(content.includes('test('), `${testFile} should have test cases`);
           assert.ok(content.includes('setup(') || content.includes('beforeEach('), 
@@ -116,7 +111,6 @@ suite('Test Suite Verification', () => {
         const filePath = path.join(testDir, testFile);
         const content = fs.readFileSync(filePath, 'utf8');
         
-        // Check for required imports
         assert.ok(content.includes("import * as assert from 'assert'"), 
           `${testFile} should import assert`);
         
@@ -201,7 +195,6 @@ suite('Test Suite Verification', () => {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
       const scripts = packageJson.scripts;
 
-      // Check for required test scripts
       assert.ok(scripts.test, 'Should have test script');
       assert.ok(scripts['test:unit'], 'Should have test:unit script');
       assert.ok(scripts['test:integration'], 'Should have test:integration script');
@@ -215,7 +208,6 @@ suite('Test Suite Verification', () => {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
       const devDependencies = packageJson.devDependencies;
 
-      // Check for required test dependencies
       assert.ok(devDependencies['@types/mocha'], 'Should have @types/mocha');
       assert.ok(devDependencies['@types/sinon'], 'Should have @types/sinon');
       assert.ok(devDependencies['@vscode/test-cli'], 'Should have @vscode/test-cli');
@@ -231,11 +223,9 @@ suite('Test Suite Verification', () => {
     test('should have comprehensive test coverage', () => {
       const testFiles = fs.readdirSync(testDir).filter(file => file.endsWith('.test.ts'));
       
-      // Should have a reasonable number of test files
       assert.ok(testFiles.length >= 15, 
         `Should have at least 15 test files, found ${testFiles.length}`);
       
-      // Calculate total test content
       let totalTestContent = 0;
       testFiles.forEach(testFile => {
         const filePath = path.join(testDir, testFile);
@@ -243,7 +233,6 @@ suite('Test Suite Verification', () => {
         totalTestContent += content.length;
       });
       
-      // Should have substantial test content
       assert.ok(totalTestContent > 50000, 
         `Should have substantial test content, found ${totalTestContent} characters`);
     });

@@ -6,14 +6,14 @@ DroidBridge seamlessly integrates Android device management into your VSCode dev
 
 ## Key Features
 
-✅ **Wireless ADB Connection** - Connect to Android devices over WiFi using IP and port
-✅ **Screen Mirroring** - Launch scrcpy for real-time device interaction
-✅ **Integrated Sidebar** - Dedicated device management interface
-✅ **Command Palette** - Access all features via keyboard shortcuts
-✅ **Cross-Platform** - Works on Windows, macOS, and Linux
-✅ **Bundled Binaries** - No separate ADB/scrcpy installation required
-✅ **Theme Integration** - Adapts to VSCode light/dark themes
-✅ **Comprehensive Logging** - Detailed troubleshooting information
+**Wireless ADB Connection** - Connect to Android devices over WiFi using IP and port
+**Screen Mirroring** - Launch scrcpy for real-time device interaction
+**Integrated Sidebar** - Dedicated device management interface
+**Command Palette** - Access all features via keyboard shortcuts
+**Cross-Platform** - Works on Windows, macOS, and Linux
+**Bundled Binaries** - No separate ADB/scrcpy installation required
+**Theme Integration** - Adapts to VSCode light/dark themes
+**Comprehensive Logging** - Detailed troubleshooting information
 
 ## Quick Start
 

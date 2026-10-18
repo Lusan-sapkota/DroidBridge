@@ -3,7 +3,6 @@ import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { Logger, LogLevel } from '../managers/logger';
 
-// Create a mock OutputChannel
 const createMockOutputChannel = () => ({
   name: 'DroidBridge Logs',
   appendLine: sinon.stub(),
@@ -25,10 +24,8 @@ suite('Logger Test Suite', () => {
   let withProgressStub: sinon.SinonStub;
 
   setup(() => {
-    // Create fresh mocks for each test
     mockOutputChannel = createMockOutputChannel();
     
-    // Stub VSCode API methods
     createOutputChannelStub = sinon.stub(vscode.window, 'createOutputChannel').returns(mockOutputChannel as any);
     showInformationMessageStub = sinon.stub(vscode.window, 'showInformationMessage');
     showErrorMessageStub = sinon.stub(vscode.window, 'showErrorMessage');
@@ -39,7 +36,6 @@ suite('Logger Test Suite', () => {
   });
 
   teardown(() => {
-    // Restore all stubs
     sinon.restore();
     logger.dispose();
   });
@@ -154,18 +150,15 @@ suite('Logger Test Suite', () => {
     });
 
     test('should log error messages at all log levels', () => {
-      // Test DEBUG level
       logger.setLogLevel(LogLevel.DEBUG);
       logger.error('Debug level error');
       assert.strictEqual(mockOutputChannel.appendLine.calledOnce, true);
 
-      // Reset and test INFO level
       mockOutputChannel.appendLine.resetHistory();
       logger.setLogLevel(LogLevel.INFO);
       logger.error('Info level error');
       assert.strictEqual(mockOutputChannel.appendLine.calledOnce, true);
 
-      // Reset and test ERROR level
       mockOutputChannel.appendLine.resetHistory();
       logger.setLogLevel(LogLevel.ERROR);
       logger.error('Error level error');
@@ -239,7 +232,6 @@ suite('Logger Test Suite', () => {
         cancellable: false
       });
       
-      // Check that info message was logged
       assert.strictEqual(mockOutputChannel.appendLine.calledOnce, true);
       const logMessage = mockOutputChannel.appendLine.getCall(0).args[0];
       assert.match(logMessage, /\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] INFO: Progress: Connecting to device\.\.\./);
@@ -338,7 +330,6 @@ suite('Logger Test Suite', () => {
 
   suite('Timestamp Formatting', () => {
     test('should format timestamps consistently', () => {
-      // Mock Date to ensure consistent timestamp
       const originalDate = Date;
       const mockDate = new Date('2023-12-01T10:30:45.123Z');
       global.Date = class extends Date {
@@ -357,7 +348,6 @@ suite('Logger Test Suite', () => {
       const logMessage = mockOutputChannel.appendLine.getCall(0).args[0];
       assert.strictEqual(logMessage, '[2023-12-01 10:30:45.123] INFO: Test message');
       
-      // Restore Date
       global.Date = originalDate;
     });
   });
