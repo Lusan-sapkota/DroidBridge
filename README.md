@@ -6,10 +6,11 @@
 
 **Seamlessly connect, control, and mirror Android devices inside VS Code**
 
-[![VS Marketplace](https://vsmarketplacebadges.dev/version-short/lusansapkota.droidbridge.svg)](https://marketplace.visualstudio.com/items?itemName=lusansapkota.droidbridge)
-[![Installs](https://vsmarketplacebadges.dev/installs-short/lusansapkota.droidbridge.svg)](https://marketplace.visualstudio.com/items?itemName=lusansapkota.droidbridge)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-install-007ACC?logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=lusansapkota.droidbridge)
+[![Open VSX](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fopen-vsx.org%2Fapi%2Flusansapkota%2Fdroidbridge&query=%24.version&label=Open%20VSX&prefix=v&color=3ddc84)](https://open-vsx.org/extension/lusansapkota/droidbridge)
+[![Open VSX downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fopen-vsx.org%2Fapi%2Flusansapkota%2Fdroidbridge&query=%24.downloadCount&label=downloads&color=3ddc84)](https://open-vsx.org/extension/lusansapkota/droidbridge)
 [![GitHub Release](https://img.shields.io/github/v/release/Lusan-sapkota/DroidBridge?label=release)](https://github.com/Lusan-sapkota/DroidBridge/releases)
-[![VS Code](https://img.shields.io/badge/VS%20Code-1.104%2B-007ACC?logo=visual-studio-code)](https://code.visualstudio.com/)
+[![VS Code](https://img.shields.io/badge/VS%20Code-1.104%2B-007ACC)](https://code.visualstudio.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Lusan-sapkota/DroidBridge/blob/main/LICENSE)
 [![Author](https://img.shields.io/badge/Author-Lusan%20Sapkota-brightgreen.svg)](https://www.lusansapkota.com.np)
 
