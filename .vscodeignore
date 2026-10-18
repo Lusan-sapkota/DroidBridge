@@ -62,9 +62,9 @@ binaries/**
 **/binaries/**
 
 # Repo only
-DOCS/**
+docs/**
+CONTRIBUTING.md
 scripts/**
 _config.yml
 CLAUDE.md
 .claude/**
-images/**

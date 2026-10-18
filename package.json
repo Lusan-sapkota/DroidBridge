@@ -159,12 +159,12 @@
         "droidbridge.adbPath": {
           "type": "string",
           "default": "",
-          "description": "Custom path to ADB binary. Leave empty to use bundled binary."
+          "description": "Custom path to the ADB binary. Leave empty to detect it automatically."
         },
         "droidbridge.scrcpyPath": {
           "type": "string",
           "default": "",
-          "description": "Custom path to scrcpy binary. Leave empty to use bundled binary."
+          "description": "Custom path to the scrcpy binary (used by the native window). Leave empty to detect it automatically."
         },
         "droidbridge.defaultIp": {
           "type": "string",

@@ -5,6 +5,11 @@ All notable changes to the DroidBridge extension are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- ADB and scrcpy path settings no longer claim the binaries are bundled
+
 ## [1.0.0] - 2026-10-18
 
 First public release.
