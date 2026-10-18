@@ -1,7 +1,7 @@
 {
   "name": "droidbridge",
   "displayName": "DroidBridge",
-  "description": "Seamlessly connect, control, and mirror Android devices inside VS Code using ADB + scrcpy.",
+  "description": "Live, touchable Android phone and tablet mirror inside VS Code, plus an MCP server that lets AI agents see and control your device.",
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.104.0"
@@ -9,18 +9,24 @@
   "categories": [
     "Other",
     "Debuggers",
-    "Testing"
+    "Testing",
+    "AI"
   ],
   "keywords": [
-    "android",
     "adb",
-    "scrcpy",
-    "device",
+    "agent",
+    "ai",
+    "android",
+    "automation",
+    "copilot",
     "debugging",
+    "device",
+    "mcp",
     "mobile",
+    "scrcpy",
     "screen-mirror",
-    "wireless",
-    "tablet"
+    "tablet",
+    "wireless"
   ],
   "author": {
     "name": "Lusan Sapkota"
@@ -119,6 +125,12 @@
         "title": "Open Screen Mirror in Native Window",
         "category": "DroidBridge",
         "icon": "$(window)"
+      },
+      {
+        "command": "droidbridge.setupMcp",
+        "title": "Set Up AI Agent Access (MCP)",
+        "category": "DroidBridge",
+        "icon": "$(sparkle)"
       }
     ],
     "views": {
@@ -198,6 +210,11 @@
           "command": "droidbridge.openMirrorInEditor",
           "when": "view == droidbridge-sidebar",
           "group": "navigation@2"
+        },
+        {
+          "command": "droidbridge.setupMcp",
+          "when": "view == droidbridge-sidebar",
+          "group": "navigation@3"
         }
       ],
       "commandPalette": [
@@ -206,7 +223,13 @@
           "when": "droidbridge.mirrorRunning"
         }
       ]
-    }
+    },
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "droidbridge",
+        "label": "DroidBridge Android"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

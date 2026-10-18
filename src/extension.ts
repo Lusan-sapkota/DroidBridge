@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CommandManager, ConfigManager, ProcessManager, BinaryManager, Logger } from './managers';
 import { DroidBridgeSidebarProvider } from './providers';
 import { MirrorController } from './providers/mirrorController';
+import { registerMcp } from './providers/mcpProvider';
 import { ExtensionState } from './types';
 import { ThemeManager } from './utils/themeManager';
 import './providers/sidebarProvider';
@@ -101,6 +102,7 @@ function registerVSCodeComponents(context: vscode.ExtensionContext): void {
 
   commandManager.registerCommands(context);
   mirrorController.registerCommands(context);
+  registerMcp(context, binaryManager, configManager, logger);
   logger.debug('All commands registered');
   
   logger.info('All VSCode components registered successfully');

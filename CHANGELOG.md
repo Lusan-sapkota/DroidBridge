@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- MCP server for AI agents: screenshot, UI tree, tap, swipe, type, keys, apps, logcat, APK install and shell; registered for Copilot agent mode, with a setup command for Claude Code, Cursor and other clients
 - Live, interactive screen mirror embedded in the sidebar (tap, swipe, scroll, type, Back, Home, Recents, Rotate)
 - Pop the mirror out into a resizable editor tab and dock it back to the sidebar
 - Bundled scrcpy-server 3.3.4, so the embedded mirror needs only ADB

@@ -36,6 +36,11 @@ DroidBridge transforms your VS Code into a powerful Android development hub with
 - **Native Window Option**: Open the classic scrcpy window when you want it, with always-on-top
 - **Nothing Extra to Install**: The scrcpy server is bundled; the embedded mirror only needs ADB
 
+### **AI Agents Can Drive Your Device (MCP)**
+- **Built-in MCP Server**: Lets AI agents see the screen, read the UI, tap, swipe, type, read logs and install apps
+- **Works Everywhere**: Available to GitHub Copilot agent mode automatically, and to Claude Code, Cursor, Windsurf and other MCP clients with one copied command
+- **Watch It Live**: Keep the mirror open while the agent works and see every step on the device
+
 ### **Smart Binary Management**
 - **Auto-Detection**: Finds existing ADB/scrcpy installations automatically
 - **Zero-Config Setup**: Downloads required binaries when not found
@@ -89,6 +94,35 @@ code --install-extension lusansapkota.droidbridge
 
 > **Pro Tip**: DroidBridge automatically handles ADB and scrcpy binaries - no manual installation needed!
 
+## AI Agent Access (MCP)
+
+DroidBridge ships an [MCP](https://modelcontextprotocol.io) server so AI agents can test and operate your app on a real device or emulator. Try prompts like *"Open my app, log in with the test account and tell me if the dashboard loads"* or *"Find out why the settings screen crashes; check logcat"*.
+
+| Client | Setup |
+|--------|-------|
+| **GitHub Copilot (VS Code)** | Nothing to do. Open Chat in Agent mode and enable **DroidBridge Android** in the tools picker |
+| **Claude Code** | Run **DroidBridge: Set Up AI Agent Access (MCP)**, choose Claude Code, paste the copied command in a terminal |
+| **Cursor, Claude Desktop, Windsurf, others** | Run the same command, choose the JSON option, add it to the client's MCP config |
+
+External clients need Node.js. The copied path stays valid across DroidBridge updates.
+
+**Tools**
+
+| Tool | What it does |
+|------|--------------|
+| `list_devices` | Connected devices and emulators |
+| `screenshot` | Screen image (downscaled), with the scale to device pixels |
+| `ui_tree` | On-screen elements with text, id, description and tap coordinates |
+| `tap`, `long_press`, `swipe` | Touch input in device pixels |
+| `tap_element` | Tap an element by text, resource id or description |
+| `type_text`, `press_key` | Keyboard input (ASCII text; keys such as back, home, enter) |
+| `current_app`, `list_apps`, `launch_app` | Inspect and start apps |
+| `install_apk` | Install or update an APK from your computer |
+| `logcat` | Recent logs, filtered by priority or text |
+| `shell` | Run an `adb shell` command on the device |
+
+With more than one device connected, tools take a `serial` argument (see `list_devices`). Agents act on your device as you would, so review what you allow them to run, especially `shell` and `install_apk`.
+
 ## Interface Overview
 
 ### Sidebar Sections
@@ -131,6 +165,7 @@ DroidBridge: Start Screen Mirror
 DroidBridge: Stop Screen Mirror
 DroidBridge: Open Screen Mirror in Editor Tab
 DroidBridge: Open Screen Mirror in Native Window
+DroidBridge: Set Up AI Agent Access (MCP)
 DroidBridge: Show Logs
 DroidBridge: Check Binary Status
 DroidBridge: Download Missing Binaries

@@ -284,7 +284,7 @@ suite('End-to-End Test Suite', () => {
     test('should manage resources efficiently during normal operation', async () => {
       activate(context);
       
-      assert.ok(context.subscriptions.length < 20, 'Should not create excessive disposables');
+      assert.ok(context.subscriptions.length < 40, 'Should not create excessive disposables');
       assert.ok(context.subscriptions.length >= 3, 'Should create necessary disposables');
       
       context.subscriptions.forEach((disposable, index) => {

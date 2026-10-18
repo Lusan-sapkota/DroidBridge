@@ -64,14 +64,14 @@ function copyRecursive(src, dest) {
 
 async function main() {
 	const ctx = await esbuild.context({
-		entryPoints: [ 'src/extension.ts' ],
+		entryPoints: { extension: 'src/extension.ts', 'mcp-server': 'src/mcp/server.ts' },
 		bundle: true,
 		format: 'cjs',
 		minify: production,
 		sourcemap: !production,
 		sourcesContent: false,
 		platform: 'node',
-		outfile: 'dist/extension.js',
+		outdir: 'dist',
 		external: ['vscode'],
 		logLevel: 'silent',
 		target: 'node16',
