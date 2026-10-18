@@ -21,12 +21,17 @@
   let lastSps = '';
   let waitingKey = true;
   let reported = false;
+  /** @type {number[]} */ let decodeErrors = [];
+  let failure = '';
 
   /** @param {any} msg */
   const post = msg => vscode.postMessage(msg);
 
   /** @param {string} state @param {string} [text] */
   function setState(state, text) {
+    if (state !== 'running') {
+      releaseAll();
+    }
     root.dataset.state = state;
     message.textContent = text || '';
   }
@@ -84,7 +89,16 @@
       error: e => {
         console.error('DroidBridge mirror decoder error', e);
         resetDecoder();
-        post({ type: 'mirrorResync' });
+        const now = Date.now();
+        decodeErrors = decodeErrors.filter(t => now - t < 10000).concat(now);
+        if (decodeErrors.length >= 3) {
+          // A persistent failure would otherwise reset the device encoder forever.
+          failure = 'The video from this device could not be decoded. Try a lower droidbridge.scrcpy.maxSize, or use the native window.';
+          decodeErrors = [];
+          post({ type: 'mirrorAction', action: 'stop' });
+        } else {
+          post({ type: 'mirrorResync' });
+        }
       },
     });
     decoder.configure({ codec: codecFor(sps), optimizeForLatency: true });
@@ -124,11 +138,26 @@
   /** @param {any} input */
   const send = input => post({ type: 'mirrorInput', input });
 
-  const active = new Set();
+  /** Pointers currently held down, with their last device position. @type {Map<number, any>} */
+  const active = new Map();
   /** @param {number} action @param {PointerEvent} e */
   function touch(action, e) {
     const pointerId = e.pointerType === 'mouse' ? -2 : e.pointerId;
-    send({ kind: 'touch', action, pointerId, pressure: e.pressure || 1, ...position(e) });
+    const input = { kind: 'touch', action, pointerId, pressure: e.pressure || 1, ...position(e) };
+    if (action === 1) {
+      active.delete(e.pointerId);
+    } else {
+      active.set(e.pointerId, input);
+    }
+    send(input);
+  }
+
+  /** Lift every held pointer, so a finger is never left down on the device. */
+  function releaseAll() {
+    for (const input of active.values()) {
+      send({ ...input, action: 1 });
+    }
+    active.clear();
   }
 
   canvas.addEventListener('pointerdown', e => {
@@ -137,7 +166,6 @@
     if (e.button === 1) { send({ kind: 'key', keycode: KEY.home }); return; }
     if (e.button !== 0) { return; }
     canvas.setPointerCapture(e.pointerId);
-    active.add(e.pointerId);
     touch(0, e);
   });
   canvas.addEventListener('pointermove', e => {
@@ -146,12 +174,13 @@
     }
   });
   const release = (/** @type {PointerEvent} */ e) => {
-    if (active.delete(e.pointerId)) {
+    if (active.has(e.pointerId)) {
       touch(1, e);
     }
   };
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);
+  canvas.addEventListener('lostpointercapture', release);
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
@@ -191,6 +220,9 @@
 
   window.addEventListener('message', event => {
     const msg = event.data;
+    if (root.dataset.state === 'unsupported') {
+      return;
+    }
     switch (msg.type) {
       case 'mirrorFrame':
         onFrame(msg);
@@ -204,7 +236,8 @@
       case 'mirrorStopped':
         resetDecoder();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        setState('idle', msg.reason || '');
+        setState('idle', msg.reason || failure);
+        failure = '';
         break;
       case 'mirrorState':
         if (root.dataset.state === 'unsupported') {

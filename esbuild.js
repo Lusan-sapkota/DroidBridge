@@ -83,7 +83,8 @@ async function main() {
 			esbuildProblemMatcherPlugin,
 		],
 		define: {
-			'process.env.NODE_ENV': production ? '"production"' : '"development"'
+			'process.env.NODE_ENV': production ? '"production"' : '"development"',
+			'process.env.DROIDBRIDGE_VERSION': JSON.stringify(require('./package.json').version)
 		}
 	});
 

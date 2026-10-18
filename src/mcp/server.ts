@@ -233,8 +233,12 @@ export const TOOLS: Tool[] = [
 
 const PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
-export async function handle(message: { id?: number | string; method: string; params?: Args }): Promise<object | undefined> {
-  const { id, method, params = {} } = message;
+export async function handle(message: { id?: number | string; method: string; params?: Args | null }): Promise<object | undefined> {
+  if (!message || typeof message !== 'object' || typeof message.method !== 'string') {
+    return { jsonrpc: '2.0', id: (message as { id?: unknown } | null)?.id ?? null, error: { code: -32600, message: 'Invalid request' } };
+  }
+  const { id, method } = message;
+  const params: Args = message.params ?? {};
   const reply = (result: object) => (id === undefined ? undefined : { jsonrpc: '2.0', id, result });
   switch (method) {
     case 'initialize': {
@@ -242,7 +246,7 @@ export async function handle(message: { id?: number | string; method: string; pa
       return reply({
         protocolVersion: PROTOCOL_VERSIONS.includes(requested) ? requested : PROTOCOL_VERSIONS[0],
         capabilities: { tools: {} },
-        serverInfo: { name: 'droidbridge', version: '0.1.0' },
+        serverInfo: { name: 'droidbridge', version: process.env.DROIDBRIDGE_VERSION || 'dev' },
         instructions: 'Control a connected Android device. Typical loop: ui_tree or screenshot to see the screen, tap_element or tap to act, then check again.',
       });
     }
@@ -259,10 +263,10 @@ export async function handle(message: { id?: number | string; method: string; pa
     case 'tools/call': {
       const tool = TOOLS.find(t => t.name === params.name);
       const args = (params.arguments ?? {}) as Args;
+      if (!tool) {
+        return id === undefined ? undefined : { jsonrpc: '2.0', id, error: { code: -32602, message: `Unknown tool: ${params.name}` } };
+      }
       try {
-        if (!tool) {
-          throw new Error(`Unknown tool ${params.name}`);
-        }
         const serial = tool.name === 'list_devices' ? '' : await resolveSerial(typeof args.serial === 'string' ? args.serial : undefined);
         const result = await tool.run(args, serial);
         return reply({ content: typeof result === 'string' ? [{ type: 'text', text: result }] : result });
@@ -291,7 +295,12 @@ function main(): void {
       process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) + '\n');
       return;
     }
-    const response = await handle(message);
+    let response: object | undefined;
+    try {
+      response = await handle(message);
+    } catch (error) {
+      response = { jsonrpc: '2.0', id: message?.id ?? null, error: { code: -32603, message: error instanceof Error ? error.message : String(error) } };
+    }
     if (response) {
       process.stdout.write(JSON.stringify(response) + '\n');
     }

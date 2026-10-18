@@ -65,6 +65,7 @@ export interface Screenshot {
  * Raw screencap downscaled by an integer box filter so the longest side is at most maxSide.
  */
 export async function screenshot(serial: string, maxSide = 1024): Promise<Screenshot> {
+  maxSide = Number.isFinite(maxSide) && maxSide >= 64 ? Math.min(maxSide, 4096) : 1024;
   const raw = await adb(['-s', serial, 'exec-out', 'screencap'], { timeout: 60000 });
   const w = raw.readUInt32LE(0);
   const h = raw.readUInt32LE(4);
@@ -73,8 +74,8 @@ export async function screenshot(serial: string, maxSide = 1024): Promise<Screen
     throw new Error('Unexpected screencap format');
   }
   const k = Math.max(1, Math.ceil(Math.max(w, h) / maxSide));
-  const ow = Math.floor(w / k);
-  const oh = Math.floor(h / k);
+  const ow = Math.max(1, Math.floor(w / k));
+  const oh = Math.max(1, Math.floor(h / k));
   const rows = Buffer.alloc(oh * (ow * 3 + 1));
   for (let y = 0; y < oh; y++) {
     const rowStart = y * (ow * 3 + 1);
@@ -205,12 +206,18 @@ export function formatUiNode(n: UiNode): string {
 }
 
 export async function uiTree(serial: string): Promise<UiNode[]> {
-  const path = '/data/local/tmp/droidbridge-ui.xml';
-  const xml = await shell(serial, `uiautomator dump ${path} >/dev/null && cat ${path}`, 30000);
-  if (!xml.includes('<hierarchy')) {
-    throw new Error(`UI dump failed: ${xml.trim().slice(0, 200)}`);
+  // Unique file per call so concurrent requests do not read each other's dump.
+  const path = `/data/local/tmp/droidbridge-ui-${process.pid}-${Date.now()}-${Math.floor(Math.random() * 1e6)}.xml`;
+  let xml = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    xml = await shell(serial, `uiautomator dump ${path} >/dev/null 2>&1; cat ${path} 2>/dev/null; rm -f ${path}`, 30000);
+    if (xml.includes('<hierarchy')) {
+      return parseUiTree(xml);
+    }
+    // uiautomator fails with "could not get idle state" while the screen animates.
+    await new Promise(r => setTimeout(r, 700));
   }
-  return parseUiTree(xml);
+  throw new Error('Could not read the screen UI (the screen may be animating or show protected content). Try again or use screenshot.');
 }
 
 export const KEYCODES: Record<string, number> = {

@@ -98,6 +98,14 @@ function run(file: string, args: string[]): Promise<string> {
   });
 }
 
+class Cancelled extends Error {
+  constructor() { super('Mirror start was cancelled'); }
+}
+
+export function isCancelled(error: unknown): boolean {
+  return error instanceof Cancelled;
+}
+
 export class MirrorSession {
   private server?: ChildProcess;
   private video?: net.Socket;
@@ -108,13 +116,15 @@ export class MirrorSession {
   private target?: MirrorTarget;
   private configPacket?: Uint8Array;
   private size?: { width: number; height: number };
-  private stopping = false;
+  private active = false;
   private streaming = false;
+  /** Bumped on every start and stop so callbacks from an older session are ignored. */
+  private generation = 0;
 
   constructor(private readonly logger: Logger, private readonly onStopped: (reason?: string) => void) {}
 
   get running(): boolean {
-    return !!this.video && !this.stopping;
+    return this.active && !!this.video;
   }
 
   setTarget(target: MirrorTarget | undefined): void {
@@ -137,7 +147,7 @@ export class MirrorSession {
   }
 
   sendInput(input: MirrorInput): void {
-    if (this.control && !this.control.destroyed) {
+    if (this.running && this.control && !this.control.destroyed) {
       for (const b of serializeInput(input)) {
         this.control.write(b);
       }
@@ -145,64 +155,89 @@ export class MirrorSession {
   }
 
   async start(options: MirrorStartOptions): Promise<void> {
-    if (this.server) {
+    if (this.active) {
       throw new Error('Mirror is already running');
     }
-    this.stopping = false;
+    this.active = true;
+    const gen = ++this.generation;
+    const current = () => gen === this.generation;
+    const ensureCurrent = () => { if (!current()) { throw new Cancelled(); } };
     this.adbPath = options.adbPath;
     this.adbArgs = options.serial ? ['-s', options.serial] : [];
 
     const scid = Math.floor(Math.random() * 0x7fffffff).toString(16).padStart(8, '0');
-    await this.adb(['push', options.serverPath, REMOTE_JAR]);
-    this.port = parseInt(await this.adb(['forward', 'tcp:0', `localabstract:scrcpy_${scid}`]), 10);
-
-    const args = [
-      'shell', `CLASSPATH=${REMOTE_JAR}`, 'app_process', '/', 'com.genymobile.scrcpy.Server', SERVER_VERSION,
-      `scid=${scid}`, 'tunnel_forward=true', 'audio=false', 'control=true', 'video_codec=h264',
-      'stay_awake=true', 'log_level=info',
-    ];
-    if (options.maxSize) { args.push(`max_size=${options.maxSize}`); }
-    if (options.bitrate) { args.push(`video_bit_rate=${parseBitrate(options.bitrate)}`); }
-
     let serverLog = '';
-    this.server = spawn(this.adbPath, [...this.adbArgs, ...args]);
-    this.server.stdout?.on('data', d => { serverLog += d; this.logger.logProcessOutput('scrcpy-server', d.toString()); });
-    this.server.stderr?.on('data', d => { serverLog += d; this.logger.logProcessOutput('scrcpy-server', d.toString()); });
-    this.server.on('close', () => this.stop(this.stopping ? undefined : 'Device mirror server exited'));
-
     try {
-      this.video = await this.connectVideo();
-      this.control = await this.connect();
+      await this.adb(['push', options.serverPath, REMOTE_JAR]);
+      ensureCurrent();
+      const port = parseInt(await this.adb(['forward', 'tcp:0', `localabstract:scrcpy_${scid}`]), 10);
+      if (!current()) {
+        this.adb(['forward', '--remove', `tcp:${port}`]).catch(() => undefined);
+        throw new Cancelled();
+      }
+      this.port = port;
+
+      const args = [
+        'shell', `CLASSPATH=${REMOTE_JAR}`, 'app_process', '/', 'com.genymobile.scrcpy.Server', SERVER_VERSION,
+        `scid=${scid}`, 'tunnel_forward=true', 'audio=false', 'control=true', 'video_codec=h264',
+        'stay_awake=true', 'log_level=info',
+      ];
+      if (options.maxSize) { args.push(`max_size=${options.maxSize}`); }
+      if (options.bitrate) { args.push(`video_bit_rate=${parseBitrate(options.bitrate)}`); }
+
+      const server = spawn(this.adbPath, [...this.adbArgs, ...args]);
+      this.server = server;
+      const onLog = (d: Buffer) => { serverLog += d; this.logger.logProcessOutput('scrcpy-server', d.toString()); };
+      server.stdout?.on('data', onLog);
+      server.stderr?.on('data', onLog);
+      server.on('error', () => undefined);
+      server.on('close', () => { if (current()) { this.stop('Device mirror server exited'); } });
+
+      const video = await this.connectVideo(server, current);
+      if (!current()) { video.destroy(); throw new Cancelled(); }
+      this.video = video;
+      const control = await this.connect();
+      if (!current()) { control.destroy(); throw new Cancelled(); }
+      this.control = control;
     } catch (error) {
+      if (current()) {
+        await this.stop();
+      }
+      if (error instanceof Cancelled) {
+        throw error;
+      }
       const detail = serverLog.split('\n').find(l => /ERROR|Exception/.test(l))?.trim();
-      await this.stop();
       throw new Error(detail || (error instanceof Error ? error.message : String(error)));
     }
     this.control.on('data', () => { /* device messages (clipboard etc.) are not used */ });
-    this.control.on('error', () => this.stop('Mirror control connection lost'));
-    this.readVideo(this.video);
+    this.control.on('error', () => { if (current()) { this.stop('Mirror control connection lost'); } });
+    this.control.on('close', () => { if (current()) { this.stop('Device disconnected'); } });
+    this.readVideo(this.video, current);
   }
 
   async stop(reason?: string): Promise<void> {
-    if (this.stopping && !this.server) {
+    if (!this.active) {
       return;
     }
-    const wasRunning = !!this.server;
-    this.stopping = true;
+    this.active = false;
+    this.generation++;
+    const wasStreaming = !!this.video;
     this.video?.destroy();
     this.control?.destroy();
     this.server?.kill();
     this.video = this.control = this.server = undefined;
     this.configPacket = this.size = undefined;
     this.streaming = false;
-    if (this.port) {
-      const port = this.port;
-      this.port = undefined;
-      await this.adb(['forward', '--remove', `tcp:${port}`]).catch(() => undefined);
-    }
-    if (wasRunning) {
+    const port = this.port;
+    const adbArgs = this.adbArgs;
+    this.port = undefined;
+    // Tell the UI first: removing the forward can take seconds when adb itself is restarting.
+    if (wasStreaming) {
       this.target?.postMessage({ type: 'mirrorStopped', reason });
       this.onStopped(reason);
+    }
+    if (port) {
+      await run(this.adbPath, [...adbArgs, 'forward', '--remove', `tcp:${port}`]).catch(() => undefined);
     }
   }
 
@@ -222,19 +257,16 @@ export class MirrorSession {
    * With a forward tunnel adb accepts the TCP connection before the server listens,
    * so the first socket is only usable once the server's dummy byte arrives.
    */
-  private async connectVideo(): Promise<net.Socket> {
-    for (let attempt = 0; attempt < 100; attempt++) {
-      if (!this.server || this.server.exitCode !== null) {
-        break;
-      }
+  private async connectVideo(server: ChildProcess, current: () => boolean): Promise<net.Socket> {
+    for (let attempt = 0; attempt < 100 && current() && server.exitCode === null; attempt++) {
       const socket = await this.connect().catch(() => undefined);
       if (socket) {
         const first = await new Promise<Buffer | undefined>(resolve => {
-          socket.once('data', resolve);
+          socket.once('data', (d: Buffer) => { socket.pause(); resolve(d); });
           socket.once('close', () => resolve(undefined));
+          socket.on('error', () => undefined);
         });
         if (first) {
-          socket.pause();
           if (first.length > 1) { socket.unshift(first.subarray(1)); }
           return socket;
         }
@@ -245,7 +277,7 @@ export class MirrorSession {
     throw new Error('Could not connect to the device mirror server');
   }
 
-  private readVideo(socket: net.Socket): void {
+  private readVideo(socket: net.Socket, current: () => boolean): void {
     let buf: Buffer = Buffer.alloc(0);
     let stage = 0;
     socket.on('data', (chunk: Buffer) => {
@@ -285,7 +317,7 @@ export class MirrorSession {
         this.target?.postMessage({ type: 'mirrorFrame', key, pts, data: payload.buffer });
       }
     });
-    socket.on('close', () => this.stop(this.stopping ? undefined : 'Device disconnected'));
+    socket.on('close', () => { if (current()) { this.stop('Device disconnected'); } });
     socket.on('error', () => undefined);
     socket.resume();
   }

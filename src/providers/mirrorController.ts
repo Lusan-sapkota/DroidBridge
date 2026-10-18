@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { MirrorInput, MirrorSession } from '../managers/mirrorSession';
+import { isCancelled, MirrorInput, MirrorSession } from '../managers/mirrorSession';
 import { BinaryManager } from '../managers/binaryManager';
 import { ConfigManager } from '../managers/configManager';
 import { Logger } from '../managers/logger';
@@ -49,6 +49,7 @@ export class MirrorController implements vscode.Disposable {
   private sidebar?: vscode.Webview;
   private panel?: vscode.WebviewPanel;
   private starting = false;
+  private startPromise?: Promise<void>;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -116,10 +117,14 @@ export class MirrorController implements vscode.Disposable {
     return false;
   }
 
-  async start(): Promise<void> {
-    if (this.session.running || this.starting) {
-      return;
+  start(): Promise<void> {
+    if (!this.startPromise && !this.session.running) {
+      this.startPromise = this.doStart().finally(() => { this.startPromise = undefined; });
     }
+    return this.startPromise ?? Promise.resolve();
+  }
+
+  private async doStart(): Promise<void> {
     this.starting = true;
     this.broadcastState();
     try {
@@ -143,6 +148,9 @@ export class MirrorController implements vscode.Disposable {
       this.setContext(true);
       this.logger.info('Embedded mirror started');
     } catch (error) {
+      if (isCancelled(error)) {
+        return;
+      }
       const text = error instanceof Error ? error.message : String(error);
       this.logger.error('Failed to start embedded mirror', error instanceof Error ? error : undefined);
       vscode.window.showErrorMessage(`DroidBridge mirror: ${text}`);
@@ -194,9 +202,8 @@ export class MirrorController implements vscode.Disposable {
   }
 
   private async openNative(): Promise<void> {
-    if (this.session.running) {
-      await this.session.stop();
-    }
+    await this.startPromise;
+    await this.session.stop();
     this.panel?.dispose();
     await vscode.commands.executeCommand('droidbridge.launchScrcpy');
   }

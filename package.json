@@ -2,7 +2,7 @@
   "name": "droidbridge",
   "displayName": "DroidBridge",
   "description": "Live, touchable Android phone and tablet mirror inside VS Code, plus an MCP server that lets AI agents see and control your device.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -43,7 +43,7 @@
   "homepage": "https://github.com/Lusan-sapkota/DroidBridge#readme",
   "publisher": "lusansapkota",
   "galleryBanner": {
-    "color": "#1e1e1e",
+    "color": "#0B5E7A",
     "theme": "dark"
   },
   "activationEvents": [
@@ -140,7 +140,7 @@
           "id": "droidbridge-sidebar",
           "name": "Device Manager",
           "when": "true",
-          "icon": "media/icons/droidbridge-icon.png"
+          "icon": "media/icons/activity-bar.svg"
         }
       ]
     },
@@ -149,7 +149,7 @@
         {
           "id": "droidbridge",
           "title": "DroidBridge",
-          "icon": "media/icons/droidbridge-icon.png"
+          "icon": "media/icons/activity-bar.svg"
         }
       ]
     },

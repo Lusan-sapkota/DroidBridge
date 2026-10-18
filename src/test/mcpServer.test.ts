@@ -23,7 +23,11 @@ suite('MCP Server Tests', () => {
 
   test('returns errors as tool results and ignores notifications', async () => {
     const res: any = await handle({ id: 4, method: 'tools/call', params: { name: 'nope', arguments: {} } });
-    assert.strictEqual(res.result.isError, true);
+    assert.strictEqual(res.error.code, -32602);
+    const bad: any = await handle(null as any);
+    assert.strictEqual(bad.error.code, -32600);
+    const nullParams: any = await handle({ id: 6, method: 'tools/call', params: null });
+    assert.strictEqual(nullParams.error.code, -32602);
     assert.strictEqual(await handle({ method: 'notifications/initialized' }), undefined);
     const missing: any = await handle({ id: 5, method: 'resources/list' });
     assert.strictEqual(missing.error.code, -32601);

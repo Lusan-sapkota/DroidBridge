@@ -8,7 +8,7 @@
 
 [![VS Code](https://img.shields.io/badge/VS%20Code-v1.104.0+-007ACC?style=flat&logo=visual-studio-code)](https://code.visualstudio.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/Lusan-sapkota/DroidBridge)
+[![Version](https://img.shields.io/visual-studio-marketplace/v/lusansapkota.droidbridge)](https://marketplace.visualstudio.com/items?itemName=lusansapkota.droidbridge)
 [![Author](https://img.shields.io/badge/Author-Lusan%20Sapkota-brightgreen.svg)](https://www.lusansapkota.com.np)
 
 [Install](https://marketplace.visualstudio.com/items?itemName=lusansapkota.droidbridge) | [Documentation](https://lusan-sapkota.github.io/DroidBridge/) | [Issues](https://github.com/Lusan-sapkota/DroidBridge/issues) | [Portfolio](https://www.lusansapkota.com.np)
@@ -16,6 +16,11 @@
 </div>
 
 ---
+
+<p align="center">
+  <img src="images/sidebar-mirror.png" alt="DroidBridge sidebar with a live tablet mirror" width="320">
+  <img src="images/editor-tab-mirror.png" alt="Mirror popped out into an editor tab" width="560">
+</p>
 
 ## Features
 
