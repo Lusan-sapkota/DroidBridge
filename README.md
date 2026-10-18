@@ -58,23 +58,23 @@ code --install-extension LusanSapkota.droidbridge
 
 #### **Manual Installation**
 1. Download the latest `.vsix` from [Releases](https://github.com/Lusan-sapkota/DroidBridge/releases)
-2. Install via: `Extensions → ... → Install from VSIX...`
+2. Install via: `Extensions > ... > Install from VSIX...`
 
 ### Setup Your Android Device
 
 1. **Enable Developer Options**:
    ```
-   Settings → About Phone → Tap "Build Number" 7 times
+   Settings > About Phone > Tap "Build Number" 7 times
    ```
 
 2. **Enable Wireless Debugging**:
    ```
-   Settings → Developer Options → Enable "Wireless Debugging"
+   Settings > Developer Options > Enable "Wireless Debugging"
    ```
 
 3. **Get Connection Details**:
    ```
-   Developer Options → Wireless Debugging → Note IP:Port (e.g., 192.168.1.100:5555)
+   Developer Options > Wireless Debugging > Note IP:Port (e.g., 192.168.1.100:5555)
    ```
 
 ### Connect & Mirror
@@ -137,7 +137,7 @@ DroidBridge: Refresh Binary Detection
 
 ### VS Code Settings
 
-Configure DroidBridge via `Settings` → `Extensions` → `DroidBridge`:
+Configure DroidBridge via `Settings` > `Extensions` > `DroidBridge`:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
@@ -192,10 +192,10 @@ DroidBridge features an intelligent binary management system that handles ADB an
 
 ### Smart Detection Process
 
-1. **Custom Paths** → Your configured binary locations
-2. **System PATH** → Homebrew, apt, chocolatey installations  
-3. **Common Directories** → Platform-specific standard locations
-4. **Auto-Download** → Fetches latest binaries from [droidbridge-binaries](https://github.com/Lusan-sapkota/droidbridge-binaries)
+1. **Custom Paths**: Your configured binary locations
+2. **System PATH**: Homebrew, apt, chocolatey installations  
+3. **Common Directories**: Platform-specific standard locations
+4. **Auto-Download**: Fetches latest binaries from [droidbridge-binaries](https://github.com/Lusan-sapkota/droidbridge-binaries)
 
 ### Management Commands
 
@@ -256,9 +256,9 @@ No internet? No problem:
 - Close other device apps
 - Check WiFi bandwidth
 
-### Sidebar Embedding Problems
-- Try eject → embed cycle
-- ⏹️ Stop and restart scrcpy
+### Mirror Window Problems
+- Close the mirror window and launch it again
+- Stop and restart scrcpy
 - Check if external window is hidden
 
 </details>

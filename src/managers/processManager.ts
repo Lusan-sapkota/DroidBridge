@@ -283,7 +283,7 @@ export class ProcessManager {
   }
 
   private async restartAdbServer(): Promise<void> {
-    this.logger.info('Restarting ADB server (kill-server → start-server)');
+    this.logger.info('Restarting ADB server (kill-server then start-server)');
     await this.executeAdbCommandWithTimeout(['kill-server'], 5000).catch(() => undefined);
     await new Promise(resolve => setTimeout(resolve, 500));
     await this.executeAdbCommandWithTimeout(['start-server'], 5000).catch(() => undefined);
