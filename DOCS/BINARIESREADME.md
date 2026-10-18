@@ -22,29 +22,29 @@ DroidBridge uses an intelligent binary management system that automatically dete
 ### Bundled Binaries (Fallback)
 ```
 binaries/
-├── win32/
-│   ├── adb.exe
-│   └── scrcpy.exe
-├── darwin/
-│   ├── adb
-│   └── scrcpy
-└── linux/
-    ├── adb
-    └── scrcpy
+|-- win32/
+|   |-- adb.exe
+|   `-- scrcpy.exe
+|-- darwin/
+|   |-- adb
+|   `-- scrcpy
+`-- linux/
+    |-- adb
+    `-- scrcpy
 ```
 
 ### Downloaded Binaries (On-Demand)
 ```
 downloaded-binaries/
-├── win32/
-│   ├── adb.exe
-│   └── scrcpy.exe
-├── darwin/
-│   ├── adb
-│   └── scrcpy
-└── linux/
-    ├── adb
-    └── scrcpy
+|-- win32/
+|   |-- adb.exe
+|   `-- scrcpy.exe
+|-- darwin/
+|   |-- adb
+|   `-- scrcpy
+`-- linux/
+    |-- adb
+    `-- scrcpy
 ```
 
 ## Commands

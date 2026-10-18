@@ -75,6 +75,6 @@ DroidBridge transforms Android development by bringing device management directl
 
 **Made with by [Lusan Sapkota](https://lusansapkota.com.np)**
 
-[Star on GitHub](https://github.com/Lusan-sapkota/DroidBridge) • [Install from Marketplace](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge) • [Visit Portfolio](https://lusansapkota.com.np)
+[Star on GitHub](https://github.com/Lusan-sapkota/DroidBridge) | [Install from Marketplace](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge) | [Visit Portfolio](https://lusansapkota.com.np)
 
 </div>

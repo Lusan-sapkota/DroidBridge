@@ -200,14 +200,14 @@ if (errors.length === 0) {
   console.log('No errors found!');
 } else {
   console.log(`${errors.length} error(s) found:`);
-  errors.forEach(error => console.log(`   • ${error}`));
+  errors.forEach(error => console.log(`   - ${error}`));
 }
 
 if (warnings.length === 0) {
   console.log('No warnings!');
 } else {
   console.log(` ${warnings.length} warning(s):`);
-  warnings.forEach(warning => console.log(`   • ${warning}`));
+  warnings.forEach(warning => console.log(`   - ${warning}`));
 }
 
 console.log('\n' + '='.repeat(50));

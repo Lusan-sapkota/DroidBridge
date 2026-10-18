@@ -90,19 +90,19 @@ The extension uses ESBuild for fast bundling with the following optimizations:
 
 ```
 droidbridge/
-├── src/                    # Source code
-│   ├── extension.ts        # Main extension entry
-│   ├── managers/           # Core managers
-│   ├── providers/          # VSCode providers
-│   ├── utils/              # Utility functions
-│   └── test/               # Test files
-├── media/                  # Webview assets
-│   ├── icons/              # Extension icons
-│   ├── main.css            # Webview styles
-│   └── main.js             # Webview scripts
-├── binaries/               # Platform binaries (optional)
-├── dist/                   # Build output
-└── out/                    # Test compilation output
+|-- src/                    # Source code
+|   |-- extension.ts        # Main extension entry
+|   |-- managers/           # Core managers
+|   |-- providers/          # VSCode providers
+|   |-- utils/              # Utility functions
+|   `-- test/               # Test files
+|-- media/                  # Webview assets
+|   |-- icons/              # Extension icons
+|   |-- main.css            # Webview styles
+|   `-- main.js             # Webview scripts
+|-- binaries/               # Platform binaries (optional)
+|-- dist/                   # Build output
+`-- out/                    # Test compilation output
 ```
 
 ## Configuration Files
@@ -130,15 +130,15 @@ The extension can include platform-specific binaries:
 
 ```
 binaries/
-├── win32/
-│   ├── adb.exe
-│   └── scrcpy.exe
-├── darwin/
-│   ├── adb
-│   └── scrcpy
-└── linux/
-    ├── adb
-    └── scrcpy
+|-- win32/
+|   |-- adb.exe
+|   `-- scrcpy.exe
+|-- darwin/
+|   |-- adb
+|   `-- scrcpy
+`-- linux/
+    |-- adb
+    `-- scrcpy
 ```
 
 ### Binary Detection

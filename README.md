@@ -11,7 +11,7 @@
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/Lusan-sapkota/DroidBridge)
 [![Author](https://img.shields.io/badge/Author-Lusan%20Sapkota-brightgreen.svg)](https://www.lusansapkota.com.np)
 
-[Install](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge) • [Documentation](https://lusan-sapkota.github.io/DroidBridge/) • [Issues](https://github.com/Lusan-sapkota/DroidBridge/issues) • [Portfolio](https://www.lusansapkota.com.np)
+[Install](https://marketplace.visualstudio.com/items?itemName=LusanSapkota.droidbridge) | [Documentation](https://lusan-sapkota.github.io/DroidBridge/) | [Issues](https://github.com/Lusan-sapkota/DroidBridge/issues) | [Portfolio](https://www.lusansapkota.com.np)
 
 </div>
 
