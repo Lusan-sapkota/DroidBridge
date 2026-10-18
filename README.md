@@ -20,11 +20,11 @@
 ---
 
 <p align="center">
-  <img src="docs/assets/sidebar-idle.png" alt="DroidBridge sidebar before mirroring, with a device ready" width="300">
-  <img src="docs/assets/sidebar-mirror.png" alt="DroidBridge sidebar with a live tablet mirror" width="300">
+  <img src="images/sidebar-idle.png" alt="DroidBridge sidebar before mirroring, with a device ready" width="300">
+  <img src="images/sidebar-mirror.png" alt="DroidBridge sidebar with a live tablet mirror" width="300">
 </p>
 <p align="center">
-  <img src="docs/assets/editor-tab-mirror.png" alt="Mirror popped out into an editor tab" width="620">
+  <img src="images/editor-tab-mirror.png" alt="Mirror popped out into an editor tab" width="620">
 </p>
 
 ## Features
