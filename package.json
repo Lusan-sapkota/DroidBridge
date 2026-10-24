@@ -2,7 +2,7 @@
   "name": "droidbridge",
   "displayName": "DroidBridge",
   "description": "Live, touchable Android phone and tablet mirror inside VS Code, plus an MCP server that lets AI agents see and control your device.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "engines": {
     "vscode": "^1.104.0"
   },
