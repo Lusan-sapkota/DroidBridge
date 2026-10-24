@@ -71,8 +71,8 @@ suite('CommandManager Test Suite', () => {
   suite('Connect Device Command', () => {
     test('should prompt for IP and port, then connect successfully', async () => {
       const showInputBoxStub = sandbox.stub(vscode.window, 'showInputBox');
-      showInputBoxStub.onFirstCall().resolves('192.168.1.100'); // IP input
-      showInputBoxStub.onSecondCall().resolves('5555'); // Port input
+      showInputBoxStub.onFirstCall().resolves('192.168.1.100');
+      showInputBoxStub.onSecondCall().resolves('5555');
 
       const withProgressStub = sandbox.stub(vscode.window, 'withProgress');
       withProgressStub.callsFake(async (options, task) => {
@@ -104,7 +104,7 @@ suite('CommandManager Test Suite', () => {
 
     test('should handle user cancellation during IP input', async () => {
       const showInputBoxStub = sandbox.stub(vscode.window, 'showInputBox');
-      showInputBoxStub.onFirstCall().resolves(undefined); // User cancelled
+      showInputBoxStub.onFirstCall().resolves(undefined);
 
       (configManager.getConfigWithDefaults as sinon.SinonStub).returns({
         ip: '192.168.1.100',
@@ -119,8 +119,8 @@ suite('CommandManager Test Suite', () => {
 
     test('should handle user cancellation during port input', async () => {
       const showInputBoxStub = sandbox.stub(vscode.window, 'showInputBox');
-      showInputBoxStub.onFirstCall().resolves('192.168.1.100'); // IP input
-      showInputBoxStub.onSecondCall().resolves(undefined); // User cancelled port
+      showInputBoxStub.onFirstCall().resolves('192.168.1.100');
+      showInputBoxStub.onSecondCall().resolves(undefined);
 
       (configManager.getConfigWithDefaults as sinon.SinonStub).returns({
         ip: '192.168.1.100',
@@ -137,8 +137,8 @@ suite('CommandManager Test Suite', () => {
 
     test('should handle invalid connection parameters', async () => {
       const showInputBoxStub = sandbox.stub(vscode.window, 'showInputBox');
-      showInputBoxStub.onFirstCall().resolves('192.168.1.100'); // Valid format
-      showInputBoxStub.onSecondCall().resolves('5555'); // Valid format
+      showInputBoxStub.onFirstCall().resolves('192.168.1.100');
+      showInputBoxStub.onSecondCall().resolves('5555');
 
       (configManager.getConfigWithDefaults as sinon.SinonStub).returns({
         ip: '192.168.1.100',

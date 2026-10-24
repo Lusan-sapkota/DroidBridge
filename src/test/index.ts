@@ -7,9 +7,9 @@ export function run(): Promise<void> {
   const mocha = new Mocha({
     ui: 'tdd',
     color: true,
-    timeout: 10000, // 10 second timeout for tests
-    reporter: 'spec', // Use spec reporter for detailed output
-    slow: 2000, // Mark tests as slow if they take more than 2 seconds
+    timeout: 10000,
+    reporter: 'spec',
+    slow: 2000,
   });
 
   const testsRoot = path.resolve(__dirname, '..');

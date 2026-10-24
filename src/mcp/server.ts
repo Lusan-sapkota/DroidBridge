@@ -1,6 +1,6 @@
 import * as readline from 'readline';
 import { ADB, adb, formatUiNode, KEYCODES, listDevices, resolveSerial, screenshot, shell, shellQuote, uiTree, UiNode } from './android';
-import { bootAvd, emulators, emulatorTool, exec, findSdk, killEmulators, listAvds, pendingEmulators, waitForBoot } from './avd';
+import { avdName, bootAvd, emulators, emulatorTool, findSdk, killEmulators, listAvds, pendingEmulators, recoverPending } from './avd';
 
 type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
 type Args = Record<string, unknown>;
@@ -74,19 +74,21 @@ export const TOOLS: Tool[] = [
       if (!avd || !avds.includes(avd)) {
         throw new Error(avds.length ? `Pass "avd", one of: ${avds.join(', ')}` : 'No emulator exists. Create one with DroidBridge: Start Emulator in VS Code or Android Studio.');
       }
+      const pending = await pendingEmulators(ADB);
+      const mine: string[] = [];
       for (const e of await emulators(ADB)) {
-        const name = await exec(ADB, ['-s', e.serial, 'emu', 'avd', 'name'], { timeout: 5000 }).then(r => r.stdout.split(/\r?\n/)[0].trim(), () => '');
-        if (name === avd && e.state === 'device') {
-          return `${avd} is already running as ${e.serial}`;
+        if (await avdName(ADB, e.serial) === avd) {
+          if (!pending.includes(e.serial)) {
+            return `${avd} is already running as ${e.serial}`;
+          }
+          mine.push(e.serial);
         }
       }
-      const pending = await pendingEmulators(ADB);
-      if (pending.length) {
-        const serial = await waitForBoot(ADB, async () => pending[0], 90000, () => false).catch(() => undefined);
+      if (mine.length) {
+        const serial = await recoverPending(ADB, mine, () => false);
         if (serial) {
-          return `An emulator that was still starting is now ready as ${serial}`;
+          return `${avd} finished starting as ${serial}`;
         }
-        await killEmulators(ADB, pending);
       }
       const headless = args.headless !== false;
       return `Started ${avd} as ${await bootAvd(ADB, emulator, avd, { headless })}${headless ? ' without a window' : ''}`;
@@ -106,11 +108,14 @@ export const TOOLS: Tool[] = [
   },
   {
     name: 'stop_emulator',
-    description: 'Shut down a running emulator.',
-    properties: {},
-    async run(_args, serial) {
-      if (!serial.startsWith('emulator-')) {
-        throw new Error(`${serial} is not an emulator.`);
+    description: 'Shut down a running emulator, including one stuck offline.',
+    properties: { serial: str('Emulator serial from list_devices. Optional when only one emulator is running.') },
+    noDevice: true,
+    async run(args) {
+      const running = (await emulators(ADB)).map(e => e.serial);
+      const serial = typeof args.serial === 'string' && args.serial ? args.serial : running.length === 1 ? running[0] : undefined;
+      if (!serial || !running.includes(serial)) {
+        throw new Error(running.length ? `Pass "serial", one of: ${running.join(', ')}` : 'No emulator is running.');
       }
       await killEmulators(ADB, [serial]);
       return `Stopped ${serial}`;
@@ -187,7 +192,7 @@ export const TOOLS: Tool[] = [
         let nodes: UiNode[] | undefined;
         let failure: unknown;
         try {
-          nodes = await uiTree(serial);
+          nodes = await uiTree(serial, 1);
         } catch (error) {
           failure = error;
         }
@@ -273,7 +278,7 @@ export const TOOLS: Tool[] = [
         'echo "Load: $(cut -d" " -f1-3 /proc/loadavg) on $(grep -c ^processor /proc/cpuinfo) cores"',
         'echo "Free memory: $(($(grep MemAvailable /proc/meminfo | tr -s " " | cut -d" " -f2) / 1024)) MB"',
         'echo "Battery: $(dumpsys battery | grep -m1 level | tr -d " " | cut -d: -f2)%"',
-      ].join('; '));
+      ].join('; '), 90000);
       return out.trim();
     },
   },
@@ -326,7 +331,7 @@ export const TOOLS: Tool[] = [
         throw new Error('Pass a URL with a scheme, for example https://example.com');
       }
       const out = await shell(serial, `am start -W -a android.intent.action.VIEW -d ${shellQuote(url)}`);
-      if (/Error|unable to resolve/i.test(out)) {
+      if (/^Error|unable to resolve/m.test(out)) {
         throw new Error(`Could not open ${url}: ${out.trim()}`);
       }
       return `Opened ${url}`;
@@ -354,7 +359,6 @@ export const TOOLS: Tool[] = [
     async run(args, serial) {
       const lines = Math.min(Math.max(Number(args.lines ?? 200), 1), 5000);
       const level = typeof args.level === 'string' && /^[VDIWEF]$/.test(args.level) ? ` '*:${args.level}'` : '';
-      // logcat applies -t before the priority filter, so take the tail here.
       const f = typeof args.filter === 'string' ? args.filter.toLowerCase() : '';
       const out = (await shell(serial, `logcat -d${level}`, 60000))
         .split('\n').filter(l => l && !l.startsWith('---------') && (!f || l.toLowerCase().includes(f)))
@@ -429,10 +433,9 @@ export async function handle(message: { id?: number | string; method: string; pa
 
 function main(): void {
   const rl = readline.createInterface({ input: process.stdin });
-  // Let in-flight calls reply before exiting on stdin close.
   let running = 0;
   let closed = false;
-  const exitWhenIdle = () => { if (closed && running === 0) { process.exit(0); } };
+  const exitWhenIdle = () => { if (closed && running === 0) { process.stdout.write('', () => process.exit(0)); } };
   rl.on('line', async line => {
     if (!line.trim()) {
       return;

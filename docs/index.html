@@ -322,7 +322,7 @@ footer a { color: var(--white); }
         <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
         <tbody>
           <tr><td><code>list_devices</code></td><td>Connected devices and emulators, with their serials, plus the emulators that can be started</td></tr>
-          <tr><td><code>start_emulator</code>, <code>stop_emulator</code></td><td>Boot an emulator by <code>avd</code> name and wait until it is ready (headless unless <code>headless</code> is false), or shut one down</td></tr>
+          <tr><td><code>start_emulator</code>, <code>stop_emulator</code></td><td>Boot an emulator by <code>avd</code> name and wait until it is ready (headless unless <code>headless</code> is false), or shut one down, even one stuck offline. Starting an emulator that is already running returns its serial.</td></tr>
           <tr><td><code>device_info</code></td><td>Model, Android version, screen size, rotation, load, free memory and battery</td></tr>
           <tr><td><code>screenshot</code></td><td>The screen as an image, with the scale to device pixels. <code>maxSide</code> sets the image size (default 1024).</td></tr>
           <tr><td><code>ui_tree</code></td><td>On-screen elements with text, description, id and tap position. <code>filter</code> narrows the list.</td></tr>
@@ -400,7 +400,27 @@ footer a { color: var(--white); }
       </details>
       <details>
         <summary>An agent says ui_tree failed</summary>
-        <p>The screen was animating or showed protected content, such as a banking app or a lock screen. Ask the agent to try again or take a screenshot instead.</p>
+        <p>The screen was animating or showed protected content, such as a banking app or a lock screen. Ask the agent to try again or take a screenshot instead. If the error says the device is overloaded, it has just started and is still busy; see below.</p>
+      </details>
+      <details>
+        <summary>A device stays offline or the mirror hangs</summary>
+        <p>Click <em>Reset ADB</em> in the sidebar footer. It stops mirroring and scrcpy, removes port forwards, restarts the ADB server and reconnects a wireless device. USB devices and emulators come back on their own. Agents can do the same with <code>reset_adb</code>.</p>
+      </details>
+      <details>
+        <summary>No emulators are listed</summary>
+        <p>DroidBridge looks for the Android SDK in <code>ANDROID_HOME</code>, <code>ANDROID_SDK_ROOT</code>, next to adb and in the default SDK folder. Set <code>ANDROID_HOME</code> if yours is elsewhere, and install the Android Emulator from the Android Studio SDK Manager. Creating an emulator also needs the Android SDK Command-line Tools and Java.</p>
+      </details>
+      <details>
+        <summary>An emulator is slow right after starting</summary>
+        <p>Images with Google Play update themselves for a minute or two after a cold boot. DroidBridge waits for this before calling the emulator ready, and tells agents when the device is too busy. The <code>device_info</code> tool shows the load. For automation, Google APIs images and more CPU cores for the AVD help.</p>
+      </details>
+      <details>
+        <summary>An emulator starts but nothing works</summary>
+        <p>Its saved Quick Boot state may be broken. DroidBridge detects this and cold boots once. If it keeps happening, use <em>Wipe Data</em> on the AVD in Android Studio Device Manager.</p>
+      </details>
+      <details>
+        <summary>A headless emulator keeps running</summary>
+        <p>Run <em>DroidBridge: Stop Emulator</em>, or ask the agent to call <code>stop_emulator</code>. Headless emulators started by DroidBridge also stop when VS Code closes.</p>
       </details>
       <details>
         <summary>Claude Code or Cursor cannot start the MCP server</summary>

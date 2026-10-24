@@ -170,7 +170,7 @@ suite('Logger Test Suite', () => {
     test('should log process stdout with proper formatting', () => {
       logger.logProcessOutput('adb connect 192.168.1.100:5555', 'connected to 192.168.1.100:5555');
       
-      assert.strictEqual(mockOutputChannel.appendLine.callCount, 3); // header, content, blank line
+      assert.strictEqual(mockOutputChannel.appendLine.callCount, 3);
       
       const headerCall = mockOutputChannel.appendLine.getCall(0).args[0];
       assert.match(headerCall, /\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] PROCESS STDOUT: adb connect 192\.168\.1\.100:5555/);
@@ -198,7 +198,7 @@ suite('Logger Test Suite', () => {
       const multilineOutput = 'Line 1\nLine 2\nLine 3';
       logger.logProcessOutput('test command', multilineOutput);
       
-      assert.strictEqual(mockOutputChannel.appendLine.callCount, 5); // header + 3 lines + blank
+      assert.strictEqual(mockOutputChannel.appendLine.callCount, 5);
       assert.strictEqual(mockOutputChannel.appendLine.getCall(1).args[0], '  Line 1');
       assert.strictEqual(mockOutputChannel.appendLine.getCall(2).args[0], '  Line 2');
       assert.strictEqual(mockOutputChannel.appendLine.getCall(3).args[0], '  Line 3');
@@ -207,7 +207,7 @@ suite('Logger Test Suite', () => {
     test('should handle empty process output', () => {
       logger.logProcessOutput('test command', '');
       
-      assert.strictEqual(mockOutputChannel.appendLine.callCount, 2); // header + blank line
+      assert.strictEqual(mockOutputChannel.appendLine.callCount, 2);
       
       const headerCall = mockOutputChannel.appendLine.getCall(0).args[0];
       assert.match(headerCall, /\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] PROCESS STDOUT: test command/);

@@ -1,7 +1,6 @@
 import { ChildProcess, spawn } from 'child_process';
 import * as vscode from 'vscode';
 
-/** Follows `adb track-devices`, which pushes changes, so nothing polls. */
 export class DeviceTracker implements vscode.Disposable {
   private process?: ChildProcess;
   private devices: string[] = [];
@@ -29,7 +28,6 @@ export class DeviceTracker implements vscode.Disposable {
     let buf = '';
     proc.stdout?.on('data', (d: Buffer) => {
       buf += d.toString();
-      // Each update: 4 hex digit length, then "serial\tstate" lines.
       while (buf.length >= 4) {
         const len = parseInt(buf.slice(0, 4), 16);
         if (Number.isNaN(len) || buf.length < 4 + len) {
@@ -47,7 +45,6 @@ export class DeviceTracker implements vscode.Disposable {
       this.process = undefined;
       this.update([]);
       if (!this.disposed) {
-        // adb restarted or is not installed yet.
         this.restartTimer = setTimeout(() => this.start(), 3000);
       }
     });

@@ -40,8 +40,9 @@ export class CommandManager {
       vscode.commands.registerCommand('droidbridge.launchScrcpyScreenOff', () => this.launchScrcpyScreenOffCommand()),
 
       vscode.commands.registerCommand('droidbridge.startEmulator', async () => {
-        if (await this.startEmulatorCommand() && isHeadless()) {
-          await vscode.commands.executeCommand('droidbridge.startMirror');
+        const serial = await this.startEmulatorCommand();
+        if (serial && isHeadless()) {
+          await vscode.commands.executeCommand('droidbridge.startMirror', serial);
         }
       }),
 

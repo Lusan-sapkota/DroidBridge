@@ -33,7 +33,6 @@
       releaseAll();
     }
     root.dataset.state = state;
-    // Header buttons live outside #mirror, so expose the state on body.
     document.body.dataset.mirrorState = state;
     message.textContent = text || '';
   }
@@ -94,7 +93,6 @@
         const now = Date.now();
         decodeErrors = decodeErrors.filter(t => now - t < 10000).concat(now);
         if (decodeErrors.length >= 3) {
-          // A persistent failure would otherwise reset the device encoder forever.
           failure = 'The video from this device could not be decoded. Try a lower droidbridge.scrcpy.maxSize, or use the native window.';
           decodeErrors = [];
           post({ type: 'mirrorAction', action: 'stop' });
@@ -209,7 +207,6 @@
     if (!button) {
       return;
     }
-    // Buttons in a section header must not collapse the section.
     e.preventDefault();
     const action = button.getAttribute('data-mirror-action');
     if (action === 'home' || action === 'recents') {

@@ -155,7 +155,7 @@ suite("Sidebar-Command Integration Tests", () => {
       const currentState = sidebarProvider.getCurrentState();
       assert.strictEqual(currentState.connectionStatus, false);
       assert.strictEqual(currentState.scrcpyStatus, false);
-      assert.strictEqual(currentState.currentIp, "192.168.1.100"); // Should reload defaults
+      assert.strictEqual(currentState.currentIp, "192.168.1.100");
       assert.strictEqual(currentState.currentPort, "5555");
     });
   });
@@ -293,7 +293,7 @@ suite("Sidebar-Command Integration Tests", () => {
       mockProcessManager.getConnectionState.callsFake(() => {
         callCount++;
         return {
-          connected: callCount > 1, // Change state after first call
+          connected: callCount > 1,
           deviceIp: callCount > 1 ? "192.168.1.100" : undefined,
           devicePort: callCount > 1 ? "5555" : undefined,
         };
@@ -307,7 +307,7 @@ suite("Sidebar-Command Integration Tests", () => {
         assert.strictEqual(currentState.connectionStatus, true);
 
         done();
-      }, 2500); // Wait slightly longer than the 2-second interval
+      }, 2500);
     });
   });
 
@@ -450,8 +450,8 @@ suite("Sidebar-Command Integration Tests", () => {
       configChangeCallback();
 
       const currentState = sidebarProvider.getCurrentState();
-      assert.strictEqual(currentState.currentIp, "10.0.0.100"); // Should update to new default
-      assert.strictEqual(currentState.currentPort, "5556"); // Should update to new default
+      assert.strictEqual(currentState.currentIp, "10.0.0.100");
+      assert.strictEqual(currentState.currentPort, "5556");
     });
   });
 

@@ -138,7 +138,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             vscode.commands.executeCommand('droidbridge.startEmulator');
             break;
           case 'setHeadless':
-            vscode.workspace.getConfiguration('droidbridge').update('emulator.headless', !!message.value, vscode.ConfigurationTarget.Global);
+            this.setHeadless(!!message.value);
             break;
           case 'webviewReady':
             this._updateWebviewState();
@@ -383,6 +383,15 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     if (this._view) {
       this._view.webview.html = this._getHtmlForWebview(this._view.webview);
     }
+  }
+
+  private setHeadless(value: boolean): void {
+    const config = vscode.workspace.getConfiguration('droidbridge');
+    const where = config.inspect<boolean>('emulator.headless');
+    const target = where?.workspaceFolderValue !== undefined ? vscode.ConfigurationTarget.WorkspaceFolder
+      : where?.workspaceValue !== undefined ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global;
+    config.update('emulator.headless', value, target);
   }
 
   private headless(): boolean {

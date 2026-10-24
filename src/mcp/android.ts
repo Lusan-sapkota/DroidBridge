@@ -86,7 +86,6 @@ export async function screenshot(serial: string, maxSide = 1024): Promise<Screen
       const o = rowStart + 1 + x * 3;
       rows[o] = r / n; rows[o + 1] = g / n; rows[o + 2] = b / n;
     }
-    // PNG Sub filter: delta to the left pixel compresses far better.
     rows[rowStart] = 1;
     for (let i = rowStart + ow * 3; i > rowStart + 3; i--) {
       rows[i] = (rows[i] - rows[i - 3]) & 0xff;
@@ -198,26 +197,24 @@ export function formatUiNode(n: UiNode): string {
   return parts.join(' ');
 }
 
-// A second uiautomator kills the first, so dumps run one at a time.
 let uiQueue: Promise<unknown> = Promise.resolve();
 
-export function uiTree(serial: string): Promise<UiNode[]> {
-  const run = uiQueue.then(() => readUiTree(serial));
+export function uiTree(serial: string, attempts = 3): Promise<UiNode[]> {
+  const run = uiQueue.then(() => readUiTree(serial, attempts));
   uiQueue = run.catch(() => undefined);
   return run;
 }
 
-async function readUiTree(serial: string): Promise<UiNode[]> {
+async function readUiTree(serial: string, attempts: number): Promise<UiNode[]> {
   const path = `/data/local/tmp/droidbridge-ui-${process.pid}-${Date.now()}.xml`;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     const xml = await shell(serial, `uiautomator dump ${path} >/dev/null 2>&1; cat ${path} 2>/dev/null; rm -f ${path}`, 20000).catch(() => '');
     if (xml.includes('<hierarchy')) {
       return parseUiTree(xml);
     }
-    // uiautomator fails with "could not get idle state" while the screen animates.
     await new Promise(r => setTimeout(r, 700));
   }
-  const load = await deviceLoad(ADB, serial);
+  const load = attempts > 1 ? await deviceLoad(ADB, serial) : undefined;
   if (isBusy(load)) {
     throw new Error(`Could not read the screen UI: the device is overloaded (load ${load!.load.toFixed(1)} on ${load!.cores} cores), common for a minute or two after starting. Wait and try again, or use screenshot.`);
   }

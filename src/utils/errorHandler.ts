@@ -702,7 +702,7 @@ export class ErrorHandler {
     return {
       totalErrors,
       byCategory: stats,
-      recentErrors: [] // Would contain recent error messages in real implementation
+      recentErrors: []
     };
   }
 

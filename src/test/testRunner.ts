@@ -11,8 +11,8 @@ async function main() {
       extensionDevelopmentPath,
       extensionTestsPath,
       launchArgs: [
-        '--disable-extensions', // Disable other extensions for clean testing
-        '--disable-workspace-trust', // Disable workspace trust for testing
+        '--disable-extensions',
+        '--disable-workspace-trust',
       ],
     });
   } catch (err) {

@@ -50,6 +50,7 @@ export class MirrorController implements vscode.Disposable {
   private panel?: vscode.WebviewPanel;
   private starting = false;
   private startPromise?: Promise<void>;
+  private serial?: string;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -69,7 +70,7 @@ export class MirrorController implements vscode.Disposable {
 
   registerCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
-      vscode.commands.registerCommand('droidbridge.startMirror', () => this.start()),
+      vscode.commands.registerCommand('droidbridge.startMirror', (serial?: unknown) => this.start(typeof serial === 'string' ? serial : undefined)),
       vscode.commands.registerCommand('droidbridge.stopMirror', () => this.session.stop()),
       vscode.commands.registerCommand('droidbridge.openMirrorInEditor', () => this.openPanel()),
       vscode.commands.registerCommand('droidbridge.openMirrorNative', () => this.openNative()),
@@ -116,23 +117,27 @@ export class MirrorController implements vscode.Disposable {
     return false;
   }
 
-  start(): Promise<void> {
-    if (!this.startPromise && !this.session.running) {
-      this.startPromise = this.doStart().finally(() => { this.startPromise = undefined; });
+  async start(serial?: string): Promise<void> {
+    if (serial && serial !== this.serial) {
+      await this.startPromise;
+      await this.session.stop();
     }
-    return this.startPromise ?? Promise.resolve();
+    if (!this.startPromise && !this.session.running) {
+      this.startPromise = this.doStart(serial).finally(() => { this.startPromise = undefined; });
+    }
+    return this.startPromise;
   }
 
-  private async doStart(): Promise<void> {
+  private async doStart(requested?: string): Promise<void> {
     this.starting = true;
     this.broadcastState();
     try {
       const adbPath = await this.binaryManager.getAdbPath();
       const serials = await this.processManager.getDeviceSerials();
-      let serial: string | undefined;
-      if (serials.length === 0) {
+      let serial = requested;
+      if (!serial && serials.length === 0) {
         serial = await startEmulator(adbPath);
-      } else if (await this.processManager.chooseDevice()) {
+      } else if (!serial && await this.processManager.chooseDevice()) {
         serial = (await this.processManager.getDeviceSelectionArgs())[1] ?? serials[0];
       }
       if (!serial) {
@@ -147,6 +152,7 @@ export class MirrorController implements vscode.Disposable {
         bitrate: options.bitrate,
       });
       this.session.setTarget(this.activeTarget());
+      this.serial = serial;
       this.setContext(true);
       this.logger.info('Embedded mirror started');
     } catch (error) {

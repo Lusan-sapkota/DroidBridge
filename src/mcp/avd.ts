@@ -8,6 +8,7 @@ export const exec = promisify(execFile);
 export const WIN = process.platform === 'win32';
 export const BOOT_TIMEOUT_MS = 5 * 60000;
 const SETTLE_TIMEOUT_MS = 2 * 60000;
+const STUCK_TIMEOUT_MS = 90000;
 
 export function findSdk(adbPath: string): string | undefined {
   const home = os.homedir();
@@ -33,7 +34,6 @@ export function isBusy(l: { load: number; cores: number } | undefined): boolean 
   return !!l && l.load > l.cores * 2;
 }
 
-/** Falls back to the bare name so PATH is searched. */
 function sdkTool(sdk: string | undefined, dirs: string[], name: string): string {
   for (const dir of sdk ? dirs : []) {
     const candidate = path.join(sdk!, dir, name);
@@ -54,7 +54,6 @@ export function cmdlineTool(sdk: string | undefined, name: string): string {
 }
 
 export function parseAvdList(stdout: string): string[] {
-  // The emulator can print INFO or WARNING lines before the names.
   return stdout.split(/\r?\n/).map(l => l.trim()).filter(l => /^[\w.-]+$/.test(l));
 }
 
@@ -96,7 +95,6 @@ export async function emulators(adbPath: string): Promise<{ serial: string; stat
 
 type BootState = 'booting' | 'ready' | 'broken';
 
-// A restored Quick Boot snapshot can report booted while system services are missing.
 async function bootState(adbPath: string, serial: string): Promise<BootState> {
   const out = await exec(adbPath, ['-s', serial, 'shell', 'getprop sys.boot_completed; service check accessibility'], { timeout: 5000 })
     .then(r => r.stdout, () => '');
@@ -132,9 +130,33 @@ export async function waitForBoot(
   return undefined;
 }
 
+export function avdName(adbPath: string, serial: string): Promise<string> {
+  return exec(adbPath, ['-s', serial, 'emu', 'avd', 'name'], { timeout: 5000 }).then(r => r.stdout.split(/\r?\n/)[0].trim(), () => '');
+}
+
 export async function pendingEmulators(adbPath: string): Promise<string[]> {
   await exec(adbPath, ['reconnect', 'offline'], { timeout: 10000 }).catch(() => undefined);
-  return (await emulators(adbPath)).filter(e => e.state !== 'device').map(e => e.serial);
+  const pending: string[] = [];
+  for (const e of await emulators(adbPath)) {
+    if (e.state !== 'device' || await bootState(adbPath, e.serial) !== 'ready') {
+      pending.push(e.serial);
+    }
+  }
+  return pending;
+}
+
+export async function recoverPending(adbPath: string, pending: string[], cancelled: () => boolean, report?: (message: string) => void): Promise<string | undefined> {
+  const find = async () => pending[0];
+  let serial = await waitForBoot(adbPath, find, STUCK_TIMEOUT_MS, cancelled).catch(() => undefined);
+  if (!serial && !cancelled() && (await emulators(adbPath)).some(e => e.serial === pending[0] && e.state === 'device')) {
+    serial = await waitForBoot(adbPath, find, BOOT_TIMEOUT_MS, cancelled).catch(() => undefined);
+  }
+  if (serial || cancelled()) {
+    return serial;
+  }
+  report?.('It is not responding, restarting it...');
+  await killEmulators(adbPath, pending);
+  return undefined;
 }
 
 export async function killEmulators(adbPath: string, serials: string[]): Promise<void> {
@@ -151,7 +173,6 @@ export interface BootOptions {
   cold?: boolean;
 }
 
-// Detached so the emulator outlives VS Code; a broken snapshot gets one cold boot retry.
 export async function bootAvd(adbPath: string, emulator: string, avd: string, options: BootOptions): Promise<string | undefined> {
   const { headless, cold, cancelled = () => false, report } = options;
   const before = new Set((await emulators(adbPath)).map(e => e.serial));
@@ -162,11 +183,20 @@ export async function bootAvd(adbPath: string, emulator: string, avd: string, op
   proc.on('exit', code => { if (code) { exited = `exit code ${code}`; } });
   proc.unref();
   report?.('Waiting for Android to boot...');
+  let found: string | undefined;
+  const find = async () => {
+    for (const e of await emulators(adbPath)) {
+      if (!before.has(e.serial) && await avdName(adbPath, e.serial) === avd) {
+        return (found = e.serial);
+      }
+    }
+    return undefined;
+  };
   let serial: string | undefined;
   try {
     serial = await waitForBoot(
       adbPath,
-      async () => (await emulators(adbPath)).find(e => !before.has(e.serial))?.serial,
+      find,
       BOOT_TIMEOUT_MS,
       cancelled,
       () => {
@@ -186,16 +216,21 @@ export async function bootAvd(adbPath: string, emulator: string, avd: string, op
     await killEmulators(adbPath, [error.serial]);
     return bootAvd(adbPath, emulator, avd, { ...options, cold: true });
   }
-  if (!serial && !cancelled()) {
-    throw new Error(`${avd} did not finish booting within 5 minutes.`);
+  if (!serial) {
+    if (found) {
+      await killEmulators(adbPath, [found]);
+    } else {
+      try { process.kill(WIN ? proc.pid! : -proc.pid!); } catch { return undefined; }
+    }
+    if (!cancelled()) {
+      throw new Error(`${avd} did not finish booting within 5 minutes.`);
+    }
+    return undefined;
   }
-  if (serial) {
-    await settle(adbPath, serial, cancelled, report);
-  }
+  await settle(adbPath, serial, cancelled, report);
   return serial;
 }
 
-// Right after boot, Play services updates can starve the UI for a minute or two.
 async function settle(adbPath: string, serial: string, cancelled: () => boolean, report?: (message: string) => void): Promise<void> {
   const deadline = Date.now() + SETTLE_TIMEOUT_MS;
   while (!cancelled() && Date.now() < deadline) {

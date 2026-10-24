@@ -264,7 +264,7 @@ suite('Sidebar Integration Unit Tests', () => {
         assert.strictEqual(sidebarState.connectionStatus, true);
 
         done();
-      }, 2500); // Wait slightly longer than the 2-second interval
+      }, 2500);
     });
 
     test('should handle status update errors gracefully', () => {

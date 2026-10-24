@@ -1,17 +1,13 @@
 import * as vscode from 'vscode';
 import {
-  BOOT_TIMEOUT_MS, bootAvd, cmdlineTool, emulators, emulatorTool, exec, findSdk, killEmulators, listAvds,
-  listSystemImages, pendingEmulators, pickProfile, waitForBoot, WIN,
+  bootAvd, cmdlineTool, emulators, emulatorTool, exec, findSdk, killEmulators, listAvds,
+  listSystemImages, pendingEmulators, pickProfile, recoverPending, WIN,
 } from '../mcp/avd';
 
-const STUCK_TIMEOUT_MS = 90000;
-// Headless emulators have no window to close, so they stop with VS Code.
 const headlessStarted = new Map<string, string>();
 const CREATE_ITEM = '$(add) Create new emulator...';
-// ponytail: fixed image to download when none is installed, bump when a newer stable API ships
 const DOWNLOAD_API = 35;
 
-/** Waits for an emulator that is still starting, restarting it if stuck; 'none' when there is none. */
 async function adoptPending(adbPath: string): Promise<string | 'none' | undefined> {
   const pending = await pendingEmulators(adbPath);
   if (pending.length === 0) {
@@ -20,19 +16,9 @@ async function adoptPending(adbPath: string): Promise<string | 'none' | undefine
   return vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `Waiting for ${pending[0]} to finish starting`, cancellable: true },
     async (progress, token) => {
-      const find = async () => pending[0];
       const cancelled = () => token.isCancellationRequested;
-      let serial = await waitForBoot(adbPath, find, STUCK_TIMEOUT_MS, cancelled).catch(() => undefined);
-      // Online but not booted is a slow boot, not a stuck one.
-      if (!serial && !cancelled() && (await emulators(adbPath)).some(e => e.serial === pending[0] && e.state === 'device')) {
-        serial = await waitForBoot(adbPath, find, BOOT_TIMEOUT_MS, cancelled).catch(() => undefined);
-      }
-      if (serial || cancelled()) {
-        return serial;
-      }
-      progress.report({ message: 'It is not responding, restarting it...' });
-      await killEmulators(adbPath, pending);
-      return 'none';
+      const serial = await recoverPending(adbPath, pending, cancelled, message => progress.report({ message }));
+      return serial ?? (cancelled() ? undefined : 'none');
     },
   );
 }
@@ -75,8 +61,7 @@ async function createAvd(sdk: string | undefined, existing: string[]): Promise<s
   }
 
   const avdmanager = cmdlineTool(sdk, 'avdmanager');
-  // Windows runs .bat only through a shell, where the semicolons need quoting.
-  const run = (args: string[]) => exec(avdmanager, WIN ? args.map(a => `"${a}"`) : args, { shell: WIN, timeout: 120000 });
+  const run = (args: string[]) => exec(WIN ? `"${avdmanager}"` : avdmanager, WIN ? args.map(a => `"${a}"`) : args, { shell: WIN, timeout: 120000 });
   return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Creating emulator ${chosen}` }, async () => {
     try {
       const profiles = (await run(['list', 'device', '-c'])).stdout.split(/\r?\n/).map(l => l.trim());
@@ -95,7 +80,6 @@ async function createAvd(sdk: string | undefined, existing: string[]): Promise<s
   });
 }
 
-/** Resolves to the booted serial, or undefined when the user backs out. */
 export async function startEmulator(adbPath: string): Promise<string | undefined> {
   const adopted = await adoptPending(adbPath);
   if (adopted !== 'none') {

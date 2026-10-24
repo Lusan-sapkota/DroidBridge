@@ -37,18 +37,18 @@ suite('ConfigManager Test Suite', () => {
 
     test('should reject invalid IPv4 addresses', () => {
       const invalidIps = [
-        '256.1.1.1',        // octet > 255
-        '192.168.1',        // incomplete
-        '192.168.1.1.1',    // too many octets
-        '192.168.-1.1',     // negative number
-        '192.168.1.256',    // octet > 255
-        'abc.def.ghi.jkl',  // non-numeric
-        '192.168.1.',       // trailing dot
-        '.192.168.1.1',     // leading dot
-        '192..168.1.1',     // double dot
-        '',                 // empty string
-        '   ',              // whitespace only
-        '192.168.1.01',     // leading zero should be rejected
+        '256.1.1.1',
+        '192.168.1',
+        '192.168.1.1.1',
+        '192.168.-1.1',
+        '192.168.1.256',
+        'abc.def.ghi.jkl',
+        '192.168.1.',
+        '.192.168.1.1',
+        '192..168.1.1',
+        '',
+        '   ',
+        '192.168.1.01',
       ];
 
       invalidIps.forEach(ip => {
@@ -105,14 +105,14 @@ suite('ConfigManager Test Suite', () => {
 
     test('should reject invalid port numbers', () => {
       const invalidPorts = [
-        '0',           // port 0 is reserved
-        '65536',       // port > 65535
-        '-1',          // negative port
-        'abc',         // non-numeric
-        '80.5',        // decimal
-        '',            // empty string
-        '   ',         // whitespace only
-        '1 2',         // space in middle
+        '0',
+        '65536',
+        '-1',
+        'abc',
+        '80.5',
+        '',
+        '   ',
+        '1 2',
       ];
 
       invalidPorts.forEach(port => {
@@ -239,7 +239,7 @@ suite('ConfigManager Test Suite', () => {
 
     test('should handle type coercion correctly', () => {
       assert.strictEqual(configManager.validatePort('123'), true);
-      assert.strictEqual(configManager.validatePort('0123'), false); // Leading zeros should be rejected
+      assert.strictEqual(configManager.validatePort('0123'), false);
       
       assert.strictEqual(configManager.validatePort({} as any), false);
       assert.strictEqual(configManager.validatePort([] as any), false);
