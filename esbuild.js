@@ -5,9 +5,7 @@ const path = require("path");
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
-/**
- * @type {import('esbuild').Plugin}
- */
+/** @type {import('esbuild').Plugin} */
 const esbuildProblemMatcherPlugin = {
 	name: 'esbuild-problem-matcher',
 
@@ -25,10 +23,7 @@ const esbuildProblemMatcherPlugin = {
 	},
 };
 
-/**
- * Plugin to copy static assets to dist folder
- * @type {import('esbuild').Plugin}
- */
+/** @type {import('esbuild').Plugin} */
 const copyAssetsPlugin = {
 	name: 'copy-assets',
 	setup(build) {

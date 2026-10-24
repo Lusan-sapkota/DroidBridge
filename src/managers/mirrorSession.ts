@@ -22,8 +22,7 @@ export type MirrorInput =
   | { kind: 'back' }
   | { kind: 'rotate' };
 
-// Bundled resources/scrcpy-server is the official scrcpy release of this version; the control
-// message layout in serializeInput matches it.
+// Must match resources/scrcpy-server and the control message layout in serializeInput.
 export const SERVER_VERSION = '3.3.4';
 const REMOTE_JAR = '/data/local/tmp/droidbridge-scrcpy-server.jar';
 const MSG_INJECT_KEYCODE = 0;
@@ -132,7 +131,6 @@ export class MirrorSession {
     this.resync();
   }
 
-  /** Resend codec config and request a keyframe so a fresh decoder can start. */
   resync(): void {
     if (!this.running || !this.target) {
       return;
@@ -140,7 +138,7 @@ export class MirrorSession {
     if (this.size) {
       this.target.postMessage({ type: 'mirrorStarted', ...this.size });
     }
-    // Resetting before capture starts crashes the scrcpy server; the first keyframe is on its way anyway.
+    // Resetting before capture starts crashes the server.
     if (this.streaming) {
       this.control?.write(Buffer.from([MSG_RESET_VIDEO]));
     }
@@ -231,7 +229,7 @@ export class MirrorSession {
     const port = this.port;
     const adbArgs = this.adbArgs;
     this.port = undefined;
-    // Tell the UI first: removing the forward can take seconds when adb itself is restarting.
+    // Tell the UI first: removing the forward can hang while adb restarts.
     if (wasStreaming) {
       this.target?.postMessage({ type: 'mirrorStopped', reason });
       this.onStopped(reason);
@@ -253,10 +251,7 @@ export class MirrorSession {
     });
   }
 
-  /**
-   * With a forward tunnel adb accepts the TCP connection before the server listens,
-   * so the first socket is only usable once the server's dummy byte arrives.
-   */
+  // adb accepts before the server listens; the socket is usable once the dummy byte arrives.
   private async connectVideo(server: ChildProcess, current: () => boolean): Promise<net.Socket> {
     for (let attempt = 0; attempt < 100 && current() && server.exitCode === null; attempt++) {
       const socket = await this.connect().catch(() => undefined);

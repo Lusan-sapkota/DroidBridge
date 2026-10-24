@@ -189,7 +189,7 @@ export class BinaryDownloader {
         });
 
         fileStream.on('error', (error) => {
-          fs.unlink(outputPath).catch(() => {}); // Clean up on error
+          fs.unlink(outputPath).catch(() => {});
           reject(error);
         });
       });
