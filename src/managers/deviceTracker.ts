@@ -1,10 +1,6 @@
 import { ChildProcess, spawn } from 'child_process';
 import * as vscode from 'vscode';
 
-/**
- * Follows `adb track-devices`, which pushes the device list whenever it changes,
- * so the UI knows about USB devices and emulators without polling.
- */
 export class DeviceTracker implements vscode.Disposable {
   private process?: ChildProcess;
   private devices: string[] = [];
@@ -32,7 +28,6 @@ export class DeviceTracker implements vscode.Disposable {
     let buf = '';
     proc.stdout?.on('data', (d: Buffer) => {
       buf += d.toString();
-      // Each update is a 4 hex digit length followed by "serial\tstate" lines.
       while (buf.length >= 4) {
         const len = parseInt(buf.slice(0, 4), 16);
         if (Number.isNaN(len) || buf.length < 4 + len) {
@@ -50,7 +45,6 @@ export class DeviceTracker implements vscode.Disposable {
       this.process = undefined;
       this.update([]);
       if (!this.disposed) {
-        // adb server restarted or is not installed yet; try again shortly.
         this.restartTimer = setTimeout(() => this.start(), 3000);
       }
     });

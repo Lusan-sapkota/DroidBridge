@@ -38,7 +38,7 @@ export class ThemeManager {
       case vscode.ColorThemeKind.HighContrastLight:
         return ThemeKind.HighContrastLight;
       default:
-        return ThemeKind.Dark; // Default fallback
+        return ThemeKind.Dark;
     }
   }
 

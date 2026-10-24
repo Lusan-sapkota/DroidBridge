@@ -121,8 +121,8 @@ suite('BinaryManager Test Suite', () => {
 
     test('should return invalid result when ADB binary does not exist', async () => {
       fsStub.stat
-        .onFirstCall().rejects(new Error('File not found')) // ADB
-        .onSecondCall().resolves({ isFile: () => true }); // scrcpy
+        .onFirstCall().rejects(new Error('File not found'))
+        .onSecondCall().resolves({ isFile: () => true });
       fsStub.access.resolves(undefined);
 
       const result = await binaryManager.validateBinaries();

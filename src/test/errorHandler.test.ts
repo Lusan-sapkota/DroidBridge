@@ -387,7 +387,7 @@ suite('ErrorHandler Tests', () => {
 
     test('should cancel all progress operations', () => {
       errorHandler.cancelAllProgress();
-      assert.ok(true); // Basic test that method executes without error
+      assert.ok(true);
     });
   });
 

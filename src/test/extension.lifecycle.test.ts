@@ -147,7 +147,7 @@ suite('Extension Lifecycle Integration Tests', () => {
   });
 
   test('Extension handles activation errors gracefully', () => {
-    sandbox.restore(); // Remove existing stubs
+    sandbox.restore();
     sandbox.stub(vscode.window, 'createOutputChannel').throws(new Error('Mock activation error'));
 
     assert.throws(() => {

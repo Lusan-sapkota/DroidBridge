@@ -4,6 +4,7 @@ import { DroidBridgeSidebarProvider } from './providers';
 import { MirrorController } from './providers/mirrorController';
 import { registerMcp } from './providers/mcpProvider';
 import { DeviceTracker } from './managers/deviceTracker';
+import { stopHeadlessEmulators } from './managers/emulator';
 import { ExtensionState } from './types';
 import { ThemeManager } from './utils/themeManager';
 import './providers/sidebarProvider';
@@ -38,7 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
   } catch (error) {
     logger.error('Failed to activate DroidBridge extension', error as Error);
     vscode.window.showErrorMessage('Failed to activate DroidBridge extension. Check the logs for details.');
-    throw error; // Re-throw to ensure activation failure is properly handled
+    throw error;
   }
 }
 
@@ -70,6 +71,14 @@ function initializeManagers(context: vscode.ExtensionContext): void {
   
   commandManager.setSidebarProvider(sidebarProvider);
 
+  processManager.pickDevice = async serials => (await vscode.window.showQuickPick(
+    serials.map(serial => ({
+      label: serial,
+      description: serial.startsWith('emulator-') ? 'Emulator' : serial.includes(':') ? 'Wireless' : 'USB',
+    })),
+    { placeHolder: 'Several devices are connected. Choose one to mirror.' },
+  ))?.label;
+
   mirrorController = new MirrorController(vscode.Uri.file(context.extensionPath), processManager, binaryManager, configManager, logger);
   sidebarProvider.setMirrorController(mirrorController);
   logger.debug('Manager cross-references established');
@@ -93,7 +102,7 @@ function registerVSCodeComponents(context: vscode.ExtensionContext): void {
   logger.info('Registering VSCode components...');
   
   const sidebarDisposable = vscode.window.registerWebviewViewProvider(
-    DroidBridgeSidebarProvider.viewType, // Keep in sync with package.json
+    DroidBridgeSidebarProvider.viewType,
     sidebarProvider
   );
   logger.debug(`Registered webview view provider for id: ${DroidBridgeSidebarProvider.viewType}`);
@@ -183,7 +192,7 @@ export async function deactivate(): Promise<void> {
     logger.info('DroidBridge extension is deactivating...');
   }
 
-  const cleanupTasks: Promise<void>[] = [];
+  const cleanupTasks: Promise<void>[] = [stopHeadlessEmulators().catch(() => undefined)];
 
   try {
     if (commandManager) {

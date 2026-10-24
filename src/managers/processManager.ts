@@ -188,7 +188,7 @@ export class ProcessManager {
         const baseIp = target.split(':')[0];
         const hasDeviceInList = verifyResult.stdout.includes(baseIp) || 
                                verifyResult.stdout.includes('device') ||
-                               verifyResult.stdout.includes('unauthorized'); // unauthorized means paired but not authorized
+                               verifyResult.stdout.includes('unauthorized');
         
         this.logger.info(`Pairing verification: devices output contains connection = ${hasDeviceInList}`);
         
@@ -290,7 +290,7 @@ export class ProcessManager {
   }
 
   async tryAutoConnectAfterPairing(ip: string): Promise<{success: boolean, message: string, connectedPort?: string}> {
-    const commonPorts = ['5555', '5556', '37115']; // Common ADB ports
+    const commonPorts = ['5555', '5556', '37115'];
     
     this.logger.info(`Attempting auto-connection to ${ip} on common ports...`);
     
@@ -451,7 +451,7 @@ export class ProcessManager {
       this.scrcpyState = {
         running: false,
       };
-      return true; // Already stopped
+      return true;
     }
 
     return new Promise((resolve) => {
@@ -804,7 +804,24 @@ export class ProcessManager {
     });
   }
 
+  pickDevice?: (serials: string[]) => Promise<string | undefined>;
+  private chosenSerial?: string;
+
+  async chooseDevice(): Promise<boolean> {
+    this.chosenSerial = undefined;
+    if (!this.pickDevice) {
+      return true;
+    }
+    const devices = await this.getDeviceSerials().catch(() => []);
+    if (devices.length <= 1) {
+      return true;
+    }
+    this.chosenSerial = await this.pickDevice(devices);
+    return !!this.chosenSerial;
+  }
+
   async getDeviceSelectionArgs(): Promise<string[]> {
+    let devices: string[];
     try {
       const result = await this.executeAdbCommand(["devices"]);
       
@@ -813,27 +830,23 @@ export class ProcessManager {
         return [];
       }
 
-      const devices = this.parseAllDevices(result.stdout);
-      
-      if (devices.length <= 1) {
-        return []; // No selection needed
-      }
-
-      this.logger.info(`Multiple devices found (${devices.length}), selecting device for scrcpy...`);
-      
-      const wirelessDevice = devices.find(device => device.includes(':'));
-      
-      if (wirelessDevice) {
-        this.logger.info(`Selected wireless device: ${wirelessDevice}`);
-        return ['-s', wirelessDevice];
-      }
-      
-      this.logger.info(`Selected first available device: ${devices[0]}`);
-      return ['-s', devices[0]];
+      devices = this.parseAllDevices(result.stdout);
     } catch (error) {
       this.logger.error('Failed to get device selection args:', error instanceof Error ? error : new Error(String(error)));
-      return []; // Continue without device selection
+      return [];
     }
+
+    if (devices.length <= 1) {
+      return [];
+    }
+
+    if (this.chosenSerial && devices.includes(this.chosenSerial)) {
+      return ['-s', this.chosenSerial];
+    }
+
+    const wirelessDevice = devices.find(device => device.includes(':'));
+    this.logger.info(`Multiple devices found, selected ${wirelessDevice ?? devices[0]}`);
+    return ['-s', wirelessDevice ?? devices[0]];
   }
 
   async getDeviceSerials(): Promise<string[]> {
@@ -849,7 +862,7 @@ export class ProcessManager {
       const trimmedLine = line.trim();
       if (trimmedLine && !trimmedLine.startsWith('List of devices') && trimmedLine.includes('\t')) {
         const parts = trimmedLine.split('\t');
-        if (parts.length >= 2 && parts[1].includes('device')) {
+        if (parts.length >= 2 && parts[1].trim() === 'device') {
           devices.push(parts[0]);
         }
       }

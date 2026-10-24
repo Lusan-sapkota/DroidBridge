@@ -4,10 +4,6 @@ import { BinaryManager } from '../managers/binaryManager';
 import { ConfigManager } from '../managers/configManager';
 import { Logger } from '../managers/logger';
 
-/**
- * Exposes the bundled Android MCP server to VS Code agents, and copies it to a stable
- * path so other MCP clients keep working across extension updates.
- */
 export function registerMcp(context: vscode.ExtensionContext, binaryManager: BinaryManager, configManager: ConfigManager, logger: Logger): void {
   const bundled = vscode.Uri.joinPath(context.extensionUri, 'dist', 'mcp-server.js').fsPath;
   const stable = vscode.Uri.joinPath(context.globalStorageUri, 'mcp-server.js').fsPath;

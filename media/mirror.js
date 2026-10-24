@@ -33,6 +33,7 @@
       releaseAll();
     }
     root.dataset.state = state;
+    document.body.dataset.mirrorState = state;
     message.textContent = text || '';
   }
 
@@ -92,7 +93,6 @@
         const now = Date.now();
         decodeErrors = decodeErrors.filter(t => now - t < 10000).concat(now);
         if (decodeErrors.length >= 3) {
-          // A persistent failure would otherwise reset the device encoder forever.
           failure = 'The video from this device could not be decoded. Try a lower droidbridge.scrcpy.maxSize, or use the native window.';
           decodeErrors = [];
           post({ type: 'mirrorAction', action: 'stop' });
@@ -152,7 +152,6 @@
     send(input);
   }
 
-  /** Lift every held pointer, so a finger is never left down on the device. */
   function releaseAll() {
     for (const input of active.values()) {
       send({ ...input, action: 1 });
@@ -203,11 +202,12 @@
     e.preventDefault();
   });
 
-  root.addEventListener('click', e => {
+  document.addEventListener('click', e => {
     const button = /** @type {HTMLElement} */ (e.target).closest('[data-mirror-action]');
     if (!button) {
       return;
     }
+    e.preventDefault();
     const action = button.getAttribute('data-mirror-action');
     if (action === 'home' || action === 'recents') {
       send({ kind: 'key', keycode: KEY[action] });

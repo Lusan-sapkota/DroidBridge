@@ -192,7 +192,7 @@ suite('Error Scenarios Integration Tests', () => {
           assert.ok(validationResult);
           assert.ok(validationResult.includes('cannot be empty'));
           
-          return undefined; // User cancels
+          return undefined;
         }
         return undefined;
       };

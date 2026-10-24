@@ -62,6 +62,8 @@ DroidBridge transforms your VS Code into a powerful Android development hub with
 - **Theme Adaptive**: Automatically matches VS Code's light/dark themes
 - **Tidy Sidebar**: Collapsible sections that remember whether you opened or closed them
 - **USB and Emulators**: Detects USB devices and emulators automatically, no IP needed
+- **Start an Emulator**: With nothing connected, Start Mirror offers your Android SDK emulators, boots the one you pick and mirrors it. You can also create a new phone or tablet emulator from an installed system image right there
+- **Several Devices**: With more than one device connected, choose which one to mirror
 - **Command Palette**: Access all features via `Ctrl+Shift+P`
 - **Comprehensive Logging**: Detailed logs for troubleshooting
 
@@ -123,16 +125,21 @@ External clients need Node.js. The copied path stays valid across DroidBridge up
 
 | Tool | What it does |
 |------|--------------|
-| `list_devices` | Connected devices and emulators |
+| `list_devices` | Connected devices and emulators, plus the emulators that can be started |
+| `start_emulator`, `stop_emulator` | Boot an emulator (headless by default) and wait until it is ready, or shut one down |
+| `device_info` | Model, Android version, screen size, rotation, load, memory and battery |
 | `screenshot` | Screen image (downscaled), with the scale to device pixels |
 | `ui_tree` | On-screen elements with text, id, description and tap coordinates |
 | `tap`, `long_press`, `swipe` | Touch input in device pixels |
 | `tap_element` | Tap an element by text, resource id or description |
+| `wait_for` | Wait until an element appears, or disappears with `gone` |
 | `type_text`, `press_key` | Keyboard input (ASCII text; keys such as back, home, enter) |
 | `current_app`, `list_apps`, `launch_app` | Inspect and start apps |
+| `open_url` | Open a URL or app deep link |
 | `install_apk` | Install or update an APK from your computer |
 | `logcat` | Recent logs, filtered by priority or text |
 | `shell` | Run an `adb shell` command on the device |
+| `reset_adb` | Restart the ADB server when devices are stuck offline |
 
 With more than one device connected, tools take a `serial` argument (see `list_devices`). Agents act on your device as you would, so review what you allow them to run, especially `shell` and `install_apk`.
 
@@ -140,15 +147,23 @@ With more than one device connected, tools take a `serial` argument (see `list_d
 
 ### Sidebar Sections
 
+Section headers show status and quick actions before the expand arrow, so they work even when a section is collapsed.
+
 #### **Screen Mirror**
 - **Live View**: Interactive device screen that resizes with the sidebar
-- **Toolbar**: Back, Home, Recent apps, Rotate, open in editor tab, open native window, stop
+- **Toolbar**: Back, Home, Recent apps and Rotate
+- **Header**: Open in editor tab, open native window, stop
 - **Keyboard**: Click the mirror, then type; Enter, Backspace, arrows and Escape (Back) are supported
 
 #### **Device Connection**
+- **Header Status**: Disconnected, Ready (USB device or emulator) or Connected, with details on hover
 - **IP/Port Fields**: Pre-filled with your last successful connection
 - **Connect/Disconnect**: One-click connection management
-- **Status Display**: Connection state with helpful error messages
+- **Start Emulator**: Boot or create an emulator. The arrow on the right switches between Headless (screen only in DroidBridge) and With window
+
+#### **Footer**
+- **Show Logs**: Open the DroidBridge output log
+- **Reset ADB**: Emergency reset when devices stay offline or the mirror hangs. Stops mirroring and scrcpy, removes port forwards, restarts the ADB server and reconnects a wireless device
 
 #### **Native Window**
 - **Launch Scrcpy**: Open the device in a separate scrcpy window (requires scrcpy installed)
@@ -174,12 +189,15 @@ DroidBridge: Disconnect Device
 DroidBridge: Launch Scrcpy
 DroidBridge: Launch Scrcpy Screen Off
 DroidBridge: Stop Scrcpy
+DroidBridge: Start Emulator
+DroidBridge: Stop Emulator
 DroidBridge: Start Screen Mirror
 DroidBridge: Stop Screen Mirror
 DroidBridge: Open Screen Mirror in Editor Tab
 DroidBridge: Open Screen Mirror in Native Window
 DroidBridge: Set Up AI Agent Access (MCP)
 DroidBridge: Show Logs
+DroidBridge: Reset ADB
 DroidBridge: Check Binary Status
 DroidBridge: Download Missing Binaries
 DroidBridge: Refresh Binary Detection
@@ -200,6 +218,7 @@ Configure DroidBridge via `Settings` > `Extensions` > `DroidBridge`:
 | `droidbridge.scrcpy.maxSize` | Longest side of the mirror in pixels, `0` for native | `1024` |
 | `droidbridge.scrcpy.bitrate` | Video bitrate, raise for high resolution tablets | `"8M"` |
 | `droidbridge.scrcpy.alwaysOnTop` | Keep the mirror window above other windows | `true` |
+| `droidbridge.emulator.headless` | Start emulators without their own window, shown only in the DroidBridge mirror | `true` |
 
 ### Configuration Examples
 
@@ -286,10 +305,32 @@ No internet? No problem:
 - Try: `adb kill-server && adb start-server`
 
 ### "Device Offline" Error
+- Click **Reset ADB** in the sidebar footer
 - Disconnect and reconnect device
 - Check network connectivity
 - Restart wireless debugging on device
 - Check firewall/VPN settings
+
+</details>
+
+<details>
+<summary><strong>Emulator Issues</strong></summary>
+
+### No Emulators Listed
+- DroidBridge looks in `ANDROID_HOME`, `ANDROID_SDK_ROOT`, next to adb and in the default SDK folder. Set `ANDROID_HOME` if your SDK lives elsewhere
+- Install the Android Emulator from the Android Studio SDK Manager
+- Creating an emulator needs Android SDK Command-line Tools and Java (`JAVA_HOME` or `java` on PATH)
+
+### Emulator Is Slow or the UI Cannot Be Read Right After Starting
+- Images with Google Play update themselves for a minute or two after a cold boot. DroidBridge waits for this before reporting the emulator ready, and agents are told when the device is too busy
+- Check with the `device_info` MCP tool, which reports the load
+- Prefer Google APIs images over Google Play images for automation, and give the AVD more CPU cores in Android Studio
+
+### Emulator Starts but Nothing Works
+- A saved Quick Boot state can be broken. DroidBridge detects this and cold boots once; if it persists, use **Wipe Data** on the AVD in Android Studio Device Manager
+
+### A Headless Emulator Keeps Running
+- Run **DroidBridge: Stop Emulator**. Headless emulators DroidBridge started also stop when VS Code closes
 
 </details>
 
@@ -397,6 +438,7 @@ DroidBridge automatically manages these essential tools:
 | **Device Setup** | Some devices need extra wireless setup | Follow device-specific guides |
 | **WiFi Latency** | Network can affect performance | Use 5GHz WiFi or USB debugging |
 | **Windows Paths** | Custom binaries need `.exe` extension | Include full path with extension |
+| **Google Play Images** | Busy for a minute or two after a cold boot | Wait, or use a Google APIs image |
 
 ## Contributing
 

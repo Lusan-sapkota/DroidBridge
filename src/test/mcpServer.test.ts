@@ -21,6 +21,23 @@ suite('MCP Server Tests', () => {
     assert.ok(tap.inputSchema.properties.serial);
   });
 
+  test('device-free tools take no serial and validate input', async () => {
+    const list: any = await handle({ id: 10, method: 'tools/list' });
+    const tool = (name: string) => list.result.tools.find((t: any) => t.name === name);
+    assert.strictEqual(tool('start_emulator').inputSchema.properties.serial, undefined);
+    assert.ok(tool('wait_for').inputSchema.properties.serial);
+    const url: any = await handle({ id: 11, method: 'tools/call', params: { name: 'open_url', arguments: { serial: 'x', url: 'not a url' } } });
+    assert.match(url.result.content[0].text, /scheme/);
+    const wait: any = await handle({ id: 12, method: 'tools/call', params: { name: 'wait_for', arguments: { serial: 'x' } } });
+    assert.match(wait.result.content[0].text, /Pass text, id or desc/);
+  });
+
+  test('rejects non-numeric coordinates before touching the device', async () => {
+    const res: any = await handle({ id: 9, method: 'tools/call', params: { name: 'tap', arguments: { serial: 'x', x: 'abc', y: 5 } } });
+    assert.strictEqual(res.result.isError, true);
+    assert.match(res.result.content[0].text, /"x" must be a number/);
+  });
+
   test('returns errors as tool results and ignores notifications', async () => {
     const res: any = await handle({ id: 4, method: 'tools/call', params: { name: 'nope', arguments: {} } });
     assert.strictEqual(res.error.code, -32602);

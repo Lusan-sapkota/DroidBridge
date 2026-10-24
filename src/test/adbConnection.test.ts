@@ -142,7 +142,7 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
       }, 10);
 
       await processManager.connectDevice('192.168.1.100', '5555');
-      spawnStub.resetHistory(); // Clear call history after setup
+      spawnStub.resetHistory();
     });
 
     test('should successfully disconnect from connected device', async () => {
@@ -196,7 +196,7 @@ suite('ProcessManager - ADB Connection Integration Tests', () => {
       const result = await processManager.disconnectDevice();
 
       assert.strictEqual(result, false);
-      assert.strictEqual(processManager.isDeviceConnected(), false); // Should still update state
+      assert.strictEqual(processManager.isDeviceConnected(), false);
       
       const connectionState = processManager.getConnectionState();
       assert.strictEqual(connectionState.connected, false);

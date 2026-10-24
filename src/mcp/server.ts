@@ -1,5 +1,6 @@
 import * as readline from 'readline';
-import { adb, formatUiNode, KEYCODES, listDevices, resolveSerial, screenshot, shell, shellQuote, uiTree, UiNode } from './android';
+import { ADB, adb, formatUiNode, KEYCODES, listDevices, resolveSerial, screenshot, shell, shellQuote, uiTree, UiNode } from './android';
+import { avdName, bootAvd, emulators, emulatorTool, findSdk, killEmulators, listAvds, pendingEmulators, recoverPending } from './avd';
 
 type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
 type Args = Record<string, unknown>;
@@ -9,6 +10,7 @@ interface Tool {
   description: string;
   properties: Record<string, object>;
   required?: string[];
+  noDevice?: boolean;
   run(args: Args, serial: string): Promise<Content[] | string>;
 }
 
@@ -16,6 +18,14 @@ const serialProp = { serial: { type: 'string', description: 'Device serial from 
 const num = (description: string) => ({ type: 'number', description });
 const str = (description: string) => ({ type: 'string', description });
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+function int(args: Args, key: string, fallback?: number): number {
+  const v = Math.round(Number(args[key] ?? fallback));
+  if (!Number.isFinite(v)) {
+    throw new Error(`"${key}" must be a number`);
+  }
+  return v;
+}
 
 function findNode(nodes: UiNode[], args: Args): UiNode | undefined {
   const want = (v: unknown) => (typeof v === 'string' && v ? v.toLowerCase() : undefined);
@@ -35,9 +45,80 @@ export const TOOLS: Tool[] = [
     name: 'list_devices',
     description: 'List connected Android devices and emulators with their serials and state.',
     properties: {},
+    noDevice: true,
     async run() {
       const devices = await listDevices();
-      return devices.length ? devices.map(d => `${d.serial}\t${d.state}${d.model ? `\t${d.model}` : ''}`).join('\n') : 'No devices connected.';
+      const avds = await listAvds(emulatorTool(findSdk(ADB)));
+      return [
+        devices.length ? devices.map(d => `${d.serial}\t${d.state}${d.model ? `\t${d.model}` : ''}`).join('\n') : 'No devices connected.',
+        avds?.length ? `Emulators that start_emulator can boot: ${avds.join(', ')}` : '',
+      ].filter(Boolean).join('\n\n');
+    },
+  },
+  {
+    name: 'start_emulator',
+    description: 'Boot an Android emulator (AVD) and wait until Android has started. Returns its serial. Booting can take a minute or two.',
+    properties: {
+      avd: str('AVD name from list_devices. Optional when only one exists.'),
+      headless: { type: 'boolean', description: 'Run without an emulator window, default true. Use screenshot to see it, stop_emulator when done.' },
+    },
+    noDevice: true,
+    async run(args) {
+      const sdk = findSdk(ADB);
+      const emulator = emulatorTool(sdk);
+      const avds = await listAvds(emulator);
+      if (!avds) {
+        throw new Error('The Android Emulator was not found. Install it with the Android Studio SDK Manager and set ANDROID_HOME.');
+      }
+      const avd = typeof args.avd === 'string' && args.avd ? args.avd : avds.length === 1 ? avds[0] : undefined;
+      if (!avd || !avds.includes(avd)) {
+        throw new Error(avds.length ? `Pass "avd", one of: ${avds.join(', ')}` : 'No emulator exists. Create one with DroidBridge: Start Emulator in VS Code or Android Studio.');
+      }
+      const pending = await pendingEmulators(ADB);
+      const mine: string[] = [];
+      for (const e of await emulators(ADB)) {
+        if (await avdName(ADB, e.serial) === avd) {
+          if (!pending.includes(e.serial)) {
+            return `${avd} is already running as ${e.serial}`;
+          }
+          mine.push(e.serial);
+        }
+      }
+      if (mine.length) {
+        const serial = await recoverPending(ADB, mine, () => false);
+        if (serial) {
+          return `${avd} finished starting as ${serial}`;
+        }
+      }
+      const headless = args.headless !== false;
+      return `Started ${avd} as ${await bootAvd(ADB, emulator, avd, { headless })}${headless ? ' without a window' : ''}`;
+    },
+  },
+  {
+    name: 'reset_adb',
+    description: 'Restart the ADB server when devices show as offline or commands hang. Stops any running screen mirror.',
+    properties: {},
+    noDevice: true,
+    async run() {
+      await adb(['kill-server'], { timeout: 10000 }).catch(() => undefined);
+      await adb(['start-server'], { timeout: 30000 });
+      await adb(['reconnect', 'offline'], { timeout: 10000 }).catch(() => undefined);
+      return `ADB restarted.\n\n${(await listDevices()).map(d => `${d.serial}\t${d.state}`).join('\n') || 'No devices connected yet; USB devices and emulators can take a few seconds to reappear.'}`;
+    },
+  },
+  {
+    name: 'stop_emulator',
+    description: 'Shut down a running emulator, including one stuck offline.',
+    properties: { serial: str('Emulator serial from list_devices. Optional when only one emulator is running.') },
+    noDevice: true,
+    async run(args) {
+      const running = (await emulators(ADB)).map(e => e.serial);
+      const serial = typeof args.serial === 'string' && args.serial ? args.serial : running.length === 1 ? running[0] : undefined;
+      if (!serial || !running.includes(serial)) {
+        throw new Error(running.length ? `Pass "serial", one of: ${running.join(', ')}` : 'No emulator is running.');
+      }
+      await killEmulators(ADB, [serial]);
+      return `Stopped ${serial}`;
     },
   },
   {
@@ -72,8 +153,10 @@ export const TOOLS: Tool[] = [
     properties: { x: num('X in device pixels'), y: num('Y in device pixels') },
     required: ['x', 'y'],
     async run(args, serial) {
-      await shell(serial, `input tap ${Math.round(Number(args.x))} ${Math.round(Number(args.y))}`);
-      return `Tapped ${args.x},${args.y}`;
+      const x = int(args, 'x');
+      const y = int(args, 'y');
+      await shell(serial, `input tap ${x} ${y}`);
+      return `Tapped ${x},${y}`;
     },
   },
   {
@@ -93,14 +176,46 @@ export const TOOLS: Tool[] = [
     },
   },
   {
+    name: 'wait_for',
+    description: 'Wait until an element matching text, id or desc is on screen (or gone, with gone=true). Use after taps that load a new screen.',
+    properties: {
+      text: str('Visible text (substring, case-insensitive)'), id: str('Resource id'), desc: str('Content description (substring)'),
+      gone: { type: 'boolean', description: 'Wait for the element to disappear instead' },
+      timeoutMs: num('Give up after this long, default 10000, max 120000'),
+    },
+    async run(args, serial) {
+      if (!args.text && !args.id && !args.desc) {
+        throw new Error('Pass text, id or desc.');
+      }
+      const deadline = Date.now() + Math.min(Math.max(int(args, 'timeoutMs', 10000), 0), 120000);
+      for (;;) {
+        let nodes: UiNode[] | undefined;
+        let failure: unknown;
+        try {
+          nodes = await uiTree(serial, 1);
+        } catch (error) {
+          failure = error;
+        }
+        const node = nodes && findNode(nodes, args);
+        if (nodes && (args.gone ? !node : node)) {
+          return node ? `Found ${formatUiNode(node)}` : 'Element is gone';
+        }
+        if (Date.now() > deadline) {
+          throw failure ?? new Error(args.gone ? 'The element is still on screen.' : 'The element did not appear. Call ui_tree to see what is on screen.');
+        }
+        await sleep(500);
+      }
+    },
+  },
+  {
     name: 'long_press',
     description: 'Press and hold at device pixel coordinates.',
     properties: { x: num('X in device pixels'), y: num('Y in device pixels'), durationMs: num('Hold time, default 800') },
     required: ['x', 'y'],
     async run(args, serial) {
-      const x = Math.round(Number(args.x));
-      const y = Math.round(Number(args.y));
-      await shell(serial, `input swipe ${x} ${y} ${x} ${y} ${Math.round(Number(args.durationMs ?? 800))}`);
+      const x = int(args, 'x');
+      const y = int(args, 'y');
+      await shell(serial, `input swipe ${x} ${y} ${x} ${y} ${int(args, 'durationMs', 800)}`);
       return `Long pressed ${x},${y}`;
     },
   },
@@ -110,8 +225,8 @@ export const TOOLS: Tool[] = [
     properties: { x1: num('Start x'), y1: num('Start y'), x2: num('End x'), y2: num('End y'), durationMs: num('Duration, default 300') },
     required: ['x1', 'y1', 'x2', 'y2'],
     async run(args, serial) {
-      const v = ['x1', 'y1', 'x2', 'y2'].map(k => Math.round(Number(args[k])));
-      await shell(serial, `input swipe ${v.join(' ')} ${Math.round(Number(args.durationMs ?? 300))}`);
+      const v = ['x1', 'y1', 'x2', 'y2'].map(k => int(args, k));
+      await shell(serial, `input swipe ${v.join(' ')} ${int(args, 'durationMs', 300)}`);
       return `Swiped ${v[0]},${v[1]} -> ${v[2]},${v[3]}`;
     },
   },
@@ -147,6 +262,25 @@ export const TOOLS: Tool[] = [
       }
       await shell(serial, `input keyevent ${code}`);
       return `Pressed ${key}`;
+    },
+  },
+  {
+    name: 'device_info',
+    description: 'Model, Android version, screen size, current size and rotation, density, load, free memory and battery. Check load when the device seems slow.',
+    properties: {},
+    async run(_args, serial) {
+      const out = await shell(serial, [
+        'echo "Device: $(getprop ro.product.manufacturer) $(getprop ro.product.model)"',
+        'echo "Android: $(getprop ro.build.version.release) (API $(getprop ro.build.version.sdk))"',
+        'wm size | tail -1',
+        'wm density | tail -1',
+        'echo "Current size: $(dumpsys window displays 2>/dev/null | grep -m1 -oE "cur=[0-9]+x[0-9]+" | cut -d= -f2)"',
+        'echo "Rotation: $(dumpsys window displays 2>/dev/null | grep -m1 -oE "mCurrentRotation=[A-Z_0-9]+" | cut -d= -f2)"',
+        'echo "Load: $(cut -d" " -f1-3 /proc/loadavg) on $(grep -c ^processor /proc/cpuinfo) cores"',
+        'echo "Free memory: $(($(grep MemAvailable /proc/meminfo | tr -s " " | cut -d" " -f2) / 1024)) MB"',
+        'echo "Battery: $(dumpsys battery | grep -m1 level | tr -d " " | cut -d: -f2)%"',
+      ].join('; '), 90000);
+      return out.trim();
     },
   },
   {
@@ -188,6 +322,23 @@ export const TOOLS: Tool[] = [
     },
   },
   {
+    name: 'open_url',
+    description: 'Open a URL or app deep link (for example https://example.com or myapp://orders/42) with the matching app.',
+    properties: { url: str('URL or deep link') },
+    required: ['url'],
+    async run(args, serial) {
+      const url = String(args.url);
+      if (!/^[a-z][\w+.-]*:\S+$/i.test(url)) {
+        throw new Error('Pass a URL with a scheme, for example https://example.com');
+      }
+      const out = await shell(serial, `am start -W -a android.intent.action.VIEW -d ${shellQuote(url)}`);
+      if (/^Error|unable to resolve/m.test(out)) {
+        throw new Error(`Could not open ${url}: ${out.trim()}`);
+      }
+      return `Opened ${url}`;
+    },
+  },
+  {
     name: 'install_apk',
     description: 'Install or update an APK from a path on this computer.',
     properties: { path: str('Absolute path to the .apk file') },
@@ -209,7 +360,6 @@ export const TOOLS: Tool[] = [
     async run(args, serial) {
       const lines = Math.min(Math.max(Number(args.lines ?? 200), 1), 5000);
       const level = typeof args.level === 'string' && /^[VDIWEF]$/.test(args.level) ? ` '*:${args.level}'` : '';
-      // logcat applies -t before the priority filter, so filter the whole buffer and keep the tail here.
       const f = typeof args.filter === 'string' ? args.filter.toLowerCase() : '';
       const out = (await shell(serial, `logcat -d${level}`, 60000))
         .split('\n').filter(l => l && !l.startsWith('---------') && (!f || l.toLowerCase().includes(f)))
@@ -247,7 +397,7 @@ export async function handle(message: { id?: number | string; method: string; pa
         protocolVersion: PROTOCOL_VERSIONS.includes(requested) ? requested : PROTOCOL_VERSIONS[0],
         capabilities: { tools: {} },
         serverInfo: { name: 'droidbridge', version: process.env.DROIDBRIDGE_VERSION || 'dev' },
-        instructions: 'Control a connected Android device. Typical loop: ui_tree or screenshot to see the screen, tap_element or tap to act, then check again.',
+        instructions: 'Control a connected Android device or emulator. With nothing connected, list_devices shows emulators that start_emulator can boot. Typical loop: ui_tree or screenshot to see the screen, tap_element or tap to act, wait_for the next screen, then check again.',
       });
     }
     case 'ping':
@@ -257,7 +407,7 @@ export async function handle(message: { id?: number | string; method: string; pa
         tools: TOOLS.map(t => ({
           name: t.name,
           description: t.description,
-          inputSchema: { type: 'object', properties: t.name === 'list_devices' ? {} : { ...t.properties, ...serialProp }, required: t.required ?? [] },
+          inputSchema: { type: 'object', properties: t.noDevice ? t.properties : { ...t.properties, ...serialProp }, required: t.required ?? [] },
         })),
       });
     case 'tools/call': {
@@ -267,7 +417,7 @@ export async function handle(message: { id?: number | string; method: string; pa
         return id === undefined ? undefined : { jsonrpc: '2.0', id, error: { code: -32602, message: `Unknown tool: ${params.name}` } };
       }
       try {
-        const serial = tool.name === 'list_devices' ? '' : await resolveSerial(typeof args.serial === 'string' ? args.serial : undefined);
+        const serial = tool.noDevice ? '' : await resolveSerial(typeof args.serial === 'string' ? args.serial : undefined);
         const result = await tool.run(args, serial);
         return reply({ content: typeof result === 'string' ? [{ type: 'text', text: result }] : result });
       } catch (error) {
@@ -284,28 +434,41 @@ export async function handle(message: { id?: number | string; method: string; pa
 
 function main(): void {
   const rl = readline.createInterface({ input: process.stdin });
+  let running = 0;
+  let closed = false;
+  const exitWhenIdle = () => { if (closed && running === 0) { process.stdout.write('', () => process.exit(0)); } };
   rl.on('line', async line => {
     if (!line.trim()) {
       return;
     }
-    let message;
+    running++;
     try {
-      message = JSON.parse(line);
-    } catch {
-      process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) + '\n');
-      return;
-    }
-    let response: object | undefined;
-    try {
-      response = await handle(message);
-    } catch (error) {
-      response = { jsonrpc: '2.0', id: message?.id ?? null, error: { code: -32603, message: error instanceof Error ? error.message : String(error) } };
-    }
-    if (response) {
-      process.stdout.write(JSON.stringify(response) + '\n');
+      await respond(line);
+    } finally {
+      running--;
+      exitWhenIdle();
     }
   });
-  rl.on('close', () => process.exit(0));
+  rl.on('close', () => { closed = true; exitWhenIdle(); });
+}
+
+async function respond(line: string): Promise<void> {
+  let message;
+  try {
+    message = JSON.parse(line);
+  } catch {
+    process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) + '\n');
+    return;
+  }
+  let response: object | undefined;
+  try {
+    response = await handle(message);
+  } catch (error) {
+    response = { jsonrpc: '2.0', id: message?.id ?? null, error: { code: -32603, message: error instanceof Error ? error.message : String(error) } };
+  }
+  if (response) {
+    process.stdout.write(JSON.stringify(response) + '\n');
+  }
 }
 
 if (require.main === module) {

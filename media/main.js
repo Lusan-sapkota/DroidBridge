@@ -26,6 +26,10 @@ const vscode = window.__droidbridgeApi || (window.__droidbridgeApi = acquireVsCo
 /** @type {HTMLInputElement | null} */ let pairPortInput = null;
 /** @type {HTMLInputElement | null} */ let pairCodeInput = null;
 /** @type {HTMLButtonElement | null} */ let pairManualBtn = null;
+/** @type {HTMLButtonElement | null} */ let startEmulatorBtn = null;
+/** @type {HTMLElement | null} */ let emulatorSplit = null;
+/** @type {HTMLButtonElement | null} */ let emulatorMenuBtn = null;
+/** @type {HTMLElement | null} */ let emulatorMenu = null;
 
 document.addEventListener("DOMContentLoaded", function () {
   initializeElements();
@@ -36,6 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (state) {
     updateUIState(state);
   }
+  vscode.postMessage({ type: "webviewReady" });
 });
 
 function initializeElements() {
@@ -60,6 +65,10 @@ function initializeElements() {
     pairPortInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-port-input'));
     pairCodeInput = /** @type {HTMLInputElement | null} */(document.getElementById('pair-code-input'));
     pairManualBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('pair-manual-btn'));
+    startEmulatorBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('start-emulator-btn'));
+    emulatorSplit = document.querySelector('.split-button');
+    emulatorMenuBtn = /** @type {HTMLButtonElement | null} */(document.getElementById('emulator-menu-btn'));
+    emulatorMenu = document.getElementById('emulator-menu');
 
 }
 
@@ -156,6 +165,31 @@ function setupEventListeners() {
     });
   }
 
+  startEmulatorBtn?.addEventListener('click', () => vscode.postMessage({ type: 'startEmulator' }));
+  document.getElementById('reset-adb-btn')?.addEventListener('click', () => vscode.postMessage({ type: 'resetAdb' }));
+  emulatorMenuBtn?.addEventListener('click', () => showEmulatorMenu(!!emulatorMenu?.hidden));
+  emulatorMenu?.addEventListener('click', (e) => {
+    const item = /** @type {HTMLElement} */ (e.target).closest('[data-headless]');
+    if (item) {
+      const headless = item.getAttribute('data-headless') === 'true';
+      setHeadlessMode(headless);
+      vscode.postMessage({ type: 'setHeadless', value: headless });
+      showEmulatorMenu(false);
+      emulatorMenuBtn?.focus();
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (emulatorSplit && !emulatorSplit.contains(/** @type {Node} */ (e.target))) {
+      showEmulatorMenu(false);
+    }
+  });
+  emulatorSplit?.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      showEmulatorMenu(false);
+      emulatorMenuBtn?.focus();
+    }
+  });
+
   setupHistoryEventListeners();
 }
 
@@ -188,9 +222,28 @@ function setupHistoryEventListeners() {
   }
 }
 
-/**
- * @param {Array<any>} history
- */
+/** @param {boolean} open */
+function showEmulatorMenu(open) {
+  if (!emulatorMenu || !emulatorMenuBtn) return;
+  emulatorMenu.hidden = !open;
+  emulatorMenuBtn.setAttribute('aria-expanded', String(open));
+  if (open) {
+    /** @type {HTMLElement | null} */ (emulatorMenu.querySelector('[aria-checked="true"]'))?.focus();
+  }
+}
+
+/** @param {boolean} headless */
+function setHeadlessMode(headless) {
+  if (!emulatorSplit) return;
+  emulatorSplit.dataset.headless = String(headless);
+  const mode = document.getElementById('emulator-mode');
+  if (mode) mode.textContent = headless ? 'Headless' : 'Window';
+  emulatorSplit.querySelectorAll('[data-headless]').forEach((item) => {
+    if (item !== emulatorSplit) item.setAttribute('aria-checked', String(item.getAttribute('data-headless') === String(headless)));
+  });
+}
+
+/** @param {Array<any>} history */
 function updateConnectionHistory(history) {
   if (!connectionHistoryContainer || !history) return;
 
@@ -207,7 +260,7 @@ function updateConnectionHistory(history) {
       <div class="history-item" data-id="${entry.id}">
         <div class="history-info">
           <div class="history-name">${displayName}</div>
-          <div class="history-details">${entry.ip}:${entry.port}</div>
+          ${entry.name ? `<div class="history-details">${entry.ip}:${entry.port}</div>` : ''}
           <div class="history-meta">Last: ${lastConnected} (${entry.connectionCount}x)</div>
         </div>
         <div class="history-actions">
@@ -256,9 +309,7 @@ function updateButtonStates() {
   }
 }
 
-/**
- * @param {any} state
- */
+/** @param {any} state */
 function updateUIState(state) {
   if (connectionStatus) {
     const statusIcon = connectionStatus.querySelector(".status-icon");
@@ -274,7 +325,8 @@ function updateUIState(state) {
           state.currentIp && state.currentPort
             ? ` (${state.currentIp}:${state.currentPort})`
             : "";
-        statusText.textContent = `Connected${ipPort}`;
+        statusText.textContent = "Connected";
+        connectionStatus.title = `Connected${ipPort}`;
       }
     } else if ((state.availableDevices || []).length > 0) {
       const devices = state.availableDevices;
@@ -283,7 +335,8 @@ function updateUIState(state) {
         statusIcon.className = "codicon codicon-device-mobile status-icon";
       }
       if (statusText) {
-        statusText.textContent = devices.length === 1 ? `Device ready: ${devices[0]}` : `${devices.length} devices ready`;
+        statusText.textContent = devices.length === 1 ? "Ready" : `${devices.length} ready`;
+        connectionStatus.title = `Device ready: ${devices.join(", ")}`;
       }
     } else {
       connectionStatus.className = "status-indicator disconnected";
@@ -292,6 +345,7 @@ function updateUIState(state) {
       }
       if (statusText) {
         statusText.textContent = "Disconnected";
+        connectionStatus.title = "No device connected";
       }
     }
   }
@@ -343,14 +397,15 @@ function updateUIState(state) {
     updateConnectionHistory(state.connectionHistory);
   }
 
+  if (state.headless !== undefined) {
+    setHeadlessMode(state.headless);
+  }
+
 
   updateButtonStates();
 }
 
-/**
- * Restores each section's open state and remembers it when the user toggles one.
- * @param {Record<string, boolean> | undefined} saved
- */
+/** @param {Record<string, boolean> | undefined} saved */
 function setupCollapsibleSections(saved) {
   document.querySelectorAll("details[data-section]").forEach((el) => {
     const details = /** @type {HTMLDetailsElement} */ (el);
@@ -388,6 +443,7 @@ window.addEventListener("message", (event) => {
         currentPort: message.currentPort,
         connectionHistory: message.connectionHistory,
         availableDevices: message.availableDevices || [],
+        headless: message.headless,
       };
       vscode.setState(newState);
       updateUIState(newState);

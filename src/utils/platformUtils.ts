@@ -138,9 +138,9 @@ export class PlatformUtils {
       case 'executable-permissions':
         return platform !== 'win32';
       case 'shell-execution':
-        return true; // All platforms support shell execution
+        return true;
       case 'process-signals':
-        return platform !== 'win32'; // Windows has limited signal support
+        return platform !== 'win32';
       default:
         return false;
     }

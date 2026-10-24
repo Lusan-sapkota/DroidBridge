@@ -5,10 +5,37 @@ All notable changes to the DroidBridge extension are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-10-25
+
+### Added
+- Emulators from VS Code: with nothing connected, Start Mirror offers the emulators (AVDs) from your Android SDK, boots the one you pick and mirrors it. Also available as DroidBridge: Start Emulator, from the Start Emulator button in the sidebar and from the native scrcpy launch prompt
+- Create a phone or tablet emulator from any installed system image without leaving VS Code (uses avdmanager). With no image installed, DroidBridge offers to download one with sdkmanager in a terminal
+- Headless emulators, on by default: the emulator runs without its own window and shows only in the DroidBridge mirror. Switch between headless and windowed from the Start Emulator menu or the `droidbridge.emulator.headless` setting. Headless emulators started by DroidBridge stop when VS Code closes
+- DroidBridge: Stop Emulator, and the `stop_emulator` MCP tool, which also stops an emulator stuck offline
+- Device picker when several devices are connected, such as an emulator and a phone, for the embedded mirror and the native scrcpy window
+- Reset ADB button and command for stuck situations: stops mirroring and scrcpy, removes port forwards, restarts the ADB server and reconnects a wireless device
+- MCP tools: `start_emulator`, `stop_emulator`, `wait_for`, `open_url`, `device_info` and `reset_adb`. `list_devices` also lists the emulators that can be started
+
+### Changed
+- An emulator counts as ready only once Android's system services respond and the post-boot load has settled, so the mirror and agents do not act on a device that cannot respond yet
+- An emulator that is still starting or stuck offline is reconnected and waited for, and restarted if it stays unresponsive, instead of starting a second copy. A broken Quick Boot snapshot is replaced by a cold boot
+- Cancelling an emulator start, or a start that times out, shuts that emulator down instead of leaving it running unseen
+- Starting an emulator from the sidebar in headless mode mirrors that emulator, switching away from any device already being mirrored
+- Sidebar section headers show the connection and scrcpy status and the mirror pop out, native window and stop buttons
+- Show Logs and Reset ADB share the footer row
+- MCP errors say when a device is too busy to read its screen
 
 ### Fixed
-- ADB and scrcpy path settings no longer claim the binaries are bundled
+- Unauthorized devices and devices without USB permissions were picked for mirroring
+- The sidebar showed Disconnected with the mirror buttons disabled when opened with only a USB device or emulator attached
+- Pairing with a missing host, port or code did nothing instead of showing an error
+- Dismissing the no-device prompt still launched the native scrcpy window
+- Sidebar headers and buttons were cut off in a very narrow sidebar
+- Recent Connections showed the address twice
+- MCP `tap`, `long_press` and `swipe` silently did nothing with non-numeric coordinates
+- MCP server dropped replies to calls still running when the client closed its input
+- MCP `wait_for` with `gone` reported success when the screen could not be read, and parallel `ui_tree` calls could kill each other
+- ADB and scrcpy path settings claimed the binaries are bundled
 
 ## [1.0.0] - 2026-10-18
 

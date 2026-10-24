@@ -169,6 +169,12 @@ suite("ProcessManager Tests", () => {
     });
   });
 
+  test("only lists devices in the device state", () => {
+    const out = 'List of devices attached\nemulator-5554\tdevice\nR58M1\tunauthorized\n'
+      + 'R58M2\tno permissions (missing udev rules?); see [http://developer.android.com/tools/device.html]\n';
+    assert.deepStrictEqual((processManager as any).parseAllDevices(out), ['emulator-5554']);
+  });
+
   suite("launchScrcpy", () => {
     test("should launch scrcpy successfully", async () => {
       const mockProcess = new MockChildProcess();
@@ -283,7 +289,7 @@ suite("ProcessManager Tests", () => {
           "Scrcpy failed to start within timeout period"
         );
       }
-    }).timeout(6000); // Increase timeout to account for the 5 second internal timeout
+    }).timeout(6000);
   });
 
   suite("stopScrcpy", () => {
@@ -327,11 +333,11 @@ suite("ProcessManager Tests", () => {
 
       setTimeout(() => {
         mockProcess.emit("close", 0);
-      }, 3100); // After the 3 second timeout
+      }, 3100);
 
       const stopResult = await stopPromise;
       assert.strictEqual(stopResult, true);
-    }).timeout(4000); // Increase timeout to account for the 3 second internal timeout
+    }).timeout(4000);
   });
 
   suite("isScrcpyRunning", () => {
@@ -473,7 +479,7 @@ suite("ProcessManager Tests", () => {
 
       const uptime = processManager.getScrcpyUptime();
       assert.ok(uptime !== null);
-      assert.ok(uptime >= 40); // Should be at least 40ms
+      assert.ok(uptime >= 40);
     });
 
     test("should return null after scrcpy stops", async () => {

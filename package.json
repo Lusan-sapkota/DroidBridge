@@ -2,7 +2,7 @@
   "name": "droidbridge",
   "displayName": "DroidBridge",
   "description": "Live, touchable Android phone and tablet mirror inside VS Code, plus an MCP server that lets AI agents see and control your device.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -65,6 +65,21 @@
       {
         "command": "droidbridge.launchScrcpy",
         "title": "Launch Scrcpy",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.resetAdb",
+        "title": "Reset ADB",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.startEmulator",
+        "title": "Start Emulator",
+        "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.stopEmulator",
+        "title": "Stop Emulator",
         "category": "DroidBridge"
       },
       {
@@ -191,6 +206,11 @@
           "type": "boolean",
           "default": true,
           "description": "Keep the mirror window above other windows."
+        },
+        "droidbridge.emulator.headless": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start emulators without their own window and show them only in the DroidBridge mirror. Headless emulators started by DroidBridge stop when VS Code closes."
         }
       }
     },

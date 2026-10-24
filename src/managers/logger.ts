@@ -64,7 +64,7 @@ export class Logger {
         this.outputChannel.appendLine(`  ${line}`);
       });
     }
-    this.outputChannel.appendLine(''); // Add blank line for readability
+    this.outputChannel.appendLine('');
   }
 
   showProgress(message: string): Thenable<void> {
