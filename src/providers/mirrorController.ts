@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { isCancelled, MirrorInput, MirrorSession } from '../managers/mirrorSession';
 import { BinaryManager } from '../managers/binaryManager';
+import { startEmulator } from '../managers/emulator';
 import { ConfigManager } from '../managers/configManager';
 import { Logger } from '../managers/logger';
 import { ProcessManager } from '../managers/processManager';
@@ -8,11 +9,14 @@ import { ProcessManager } from '../managers/processManager';
 const toolButton = (action: string, icon: string, title: string) =>
   `<button class="icon-button" data-mirror-action="${action}" title="${title}" aria-label="${title}"><span class="codicon codicon-${icon}"></span></button>`;
 
-/** Markup shared by the sidebar section and the editor tab. */
+export function mirrorActions(placement: string, icon: string, title: string): string {
+  return `
+    <span class="mirror-when-live">${toolButton(placement, icon, title)}</span>
+    ${toolButton('native', 'window', 'Open in native scrcpy window')}
+    <span class="mirror-when-live">${toolButton('stop', 'debug-stop', 'Stop mirror')}</span>`;
+}
+
 export function getMirrorMarkup(inPanel: boolean): string {
-  const placement = inPanel
-    ? toolButton('dock', 'layout-sidebar-left', 'Move back to sidebar')
-    : toolButton('popout', 'link-external', 'Open in editor tab');
   return `
     <div id="mirror" class="mirror" data-state="idle">
       <div class="mirror-toolbar">
@@ -22,11 +26,7 @@ export function getMirrorMarkup(inPanel: boolean): string {
           ${toolButton('recents', 'versions', 'Recent apps')}
           ${toolButton('rotate', 'refresh', 'Rotate device')}
         </span>
-        <span class="mirror-toolbar-end">
-          <span class="mirror-when-live">${placement}</span>
-          ${toolButton('native', 'window', 'Open in native scrcpy window')}
-          <span class="mirror-when-live">${toolButton('stop', 'debug-stop', 'Stop mirror')}</span>
-        </span>
+        ${inPanel ? `<span class="mirror-toolbar-end">${mirrorActions('dock', 'layout-sidebar-left', 'Move back to sidebar')}</span>` : ''}
       </div>
       <div class="mirror-stage">
         <canvas id="mirror-canvas" tabindex="0" aria-label="Device screen. Click to tap, drag to swipe, right click for back."></canvas>
@@ -81,7 +81,6 @@ export class MirrorController implements vscode.Disposable {
     return this.session.running;
   }
 
-  /** Called by the sidebar provider whenever its webview (re)loads or receives a mirror message. */
   attachSidebar(webview: vscode.Webview | undefined): void {
     this.sidebar = webview;
     if (!this.panel) {
@@ -128,19 +127,22 @@ export class MirrorController implements vscode.Disposable {
     this.starting = true;
     this.broadcastState();
     try {
+      const adbPath = await this.binaryManager.getAdbPath();
       const serials = await this.processManager.getDeviceSerials();
+      let serial: string | undefined;
       if (serials.length === 0) {
-        throw new Error('No device connected. Connect a device first.');
+        serial = await startEmulator(adbPath);
+      } else if (await this.processManager.chooseDevice()) {
+        serial = (await this.processManager.getDeviceSelectionArgs())[1] ?? serials[0];
       }
-      const [adbPath, selection] = await Promise.all([
-        this.binaryManager.getAdbPath(),
-        this.processManager.getDeviceSelectionArgs(),
-      ]);
+      if (!serial) {
+        return;
+      }
       const options = this.configManager.getScrcpyOptions();
       await this.session.start({
         adbPath,
         serverPath: vscode.Uri.joinPath(this.extensionUri, 'resources', 'scrcpy-server').fsPath,
-        serial: selection[1] ?? serials[0],
+        serial,
         maxSize: options.maxSize,
         bitrate: options.bitrate,
       });

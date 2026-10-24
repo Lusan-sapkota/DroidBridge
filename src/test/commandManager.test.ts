@@ -21,6 +21,7 @@ suite('CommandManager Test Suite', () => {
     binaryManager = sandbox.createStubInstance(BinaryManager);
     logger = sandbox.createStubInstance(Logger);
     processManager = sandbox.createStubInstance(ProcessManager);
+    (processManager.chooseDevice as sinon.SinonStub).resolves(true);
     (processManager.getDeviceSerials as sinon.SinonStub).resolves([]);
     configManager = sandbox.createStubInstance(ConfigManager);
     commandManager = new CommandManager(processManager, configManager, logger, binaryManager);
@@ -40,20 +41,21 @@ suite('CommandManager Test Suite', () => {
       
       commandManager.registerCommands(context);
 
-      assert.strictEqual(registerCommandStub.callCount, 10);
+      assert.strictEqual(registerCommandStub.callCount, 13);
       
       const commandNames = registerCommandStub.getCalls().map(call => call.args[0]);
       assert.ok(commandNames.includes('droidbridge.connectDevice'));
       assert.ok(commandNames.includes('droidbridge.disconnectDevice'));
       assert.ok(commandNames.includes('droidbridge.launchScrcpy'));
       assert.ok(commandNames.includes('droidbridge.launchScrcpyScreenOff'));
+      assert.ok(commandNames.includes('droidbridge.startEmulator'));
       assert.ok(commandNames.includes('droidbridge.stopScrcpy'));
       assert.ok(commandNames.includes('droidbridge.showLogs'));
       assert.ok(commandNames.includes('droidbridge.checkBinaries'));
       assert.ok(commandNames.includes('droidbridge.downloadBinaries'));
       assert.ok(commandNames.includes('droidbridge.refreshBinaries'));
 
-      assert.strictEqual(context.subscriptions.length, 10);
+      assert.strictEqual(context.subscriptions.length, 13);
     });
 
     test('should log successful command registration', () => {

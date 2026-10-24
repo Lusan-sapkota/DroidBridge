@@ -169,6 +169,12 @@ suite("ProcessManager Tests", () => {
     });
   });
 
+  test("only lists devices in the device state", () => {
+    const out = 'List of devices attached\nemulator-5554\tdevice\nR58M1\tunauthorized\n'
+      + 'R58M2\tno permissions (missing udev rules?); see [http://developer.android.com/tools/device.html]\n';
+    assert.deepStrictEqual((processManager as any).parseAllDevices(out), ['emulator-5554']);
+  });
+
   suite("launchScrcpy", () => {
     test("should launch scrcpy successfully", async () => {
       const mockProcess = new MockChildProcess();

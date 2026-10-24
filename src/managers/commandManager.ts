@@ -3,6 +3,8 @@ import { ProcessManager } from './processManager';
 import { ConfigManager } from './configManager';
 import { Logger } from './logger';
 import { BinaryManager } from './binaryManager';
+import { isHeadless, startEmulator, stopEmulator } from './emulator';
+import { exec } from '../mcp/avd';
 import { ErrorHandler, ProgressContext } from '../utils/errorHandler';
 
 export class CommandManager {
@@ -11,7 +13,7 @@ export class CommandManager {
   private logger: Logger;
   private binaryManager: BinaryManager;
   private errorHandler: ErrorHandler;
-  private sidebarProvider?: any; // Will be properly typed when sidebar provider is available
+  private sidebarProvider?: any;
   private statusUpdateInterval?: NodeJS.Timeout;
 
   constructor(processManager: ProcessManager, configManager: ConfigManager, logger: Logger, binaryManager: BinaryManager, sidebarProvider?: any) {
@@ -36,10 +38,20 @@ export class CommandManager {
       vscode.commands.registerCommand('droidbridge.launchScrcpy', () => this.launchScrcpyCommand()),
       
       vscode.commands.registerCommand('droidbridge.launchScrcpyScreenOff', () => this.launchScrcpyScreenOffCommand()),
+
+      vscode.commands.registerCommand('droidbridge.startEmulator', async () => {
+        if (await this.startEmulatorCommand() && isHeadless()) {
+          await vscode.commands.executeCommand('droidbridge.startMirror');
+        }
+      }),
+
+      vscode.commands.registerCommand('droidbridge.stopEmulator', async () => stopEmulator(await this.binaryManager.getAdbPath())),
       
       vscode.commands.registerCommand('droidbridge.stopScrcpy', () => this.stopScrcpyCommand()),
       
       vscode.commands.registerCommand('droidbridge.showLogs', () => this.showLogsCommand()),
+
+      vscode.commands.registerCommand('droidbridge.resetAdb', () => this.resetAdbCommand()),
       
       vscode.commands.registerCommand('droidbridge.checkBinaries', () => this.checkBinariesCommand()),
       vscode.commands.registerCommand('droidbridge.downloadBinaries', () => this.downloadBinariesCommand()),
@@ -106,12 +118,12 @@ export class CommandManager {
 
       const ipValidation = this.errorHandler.validateAndHandleInput(ip, 'ip', 'IP address');
       if (!ipValidation.isValid) {
-        return; // Error already handled by validator
+        return;
       }
 
       const portValidation = this.errorHandler.validateAndHandleInput(port, 'port', 'Port number');
       if (!portValidation.isValid) {
-        return; // Error already handled by validator
+        return;
       }
 
       const progressContext: ProgressContext = {
@@ -191,6 +203,36 @@ export class CommandManager {
     }
   }
 
+    private async ensureDevice(): Promise<boolean> {
+    if (await this.hasAnyDevice()) {
+      return this.processManager.chooseDevice();
+    }
+    const choice = await vscode.window.showWarningMessage(
+      'No device is connected.',
+      { title: 'Start Emulator' },
+      { title: 'Connect Device' },
+      { title: 'Launch Anyway' }
+    );
+    if (choice?.title === 'Start Emulator') {
+      return !!(await this.startEmulatorCommand());
+    }
+    if (choice?.title === 'Connect Device') {
+      await this.connectDeviceCommand();
+      return this.processManager.isDeviceConnected();
+    }
+    return choice?.title === 'Launch Anyway';
+  }
+
+  async startEmulatorCommand(): Promise<string | undefined> {
+    try {
+      return await startEmulator(await this.binaryManager.getAdbPath());
+    } catch (error) {
+      this.logger.error('Failed to start emulator', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage(`DroidBridge: ${error instanceof Error ? error.message : String(error)}`);
+      return undefined;
+    }
+  }
+
   async launchScrcpyCommand(): Promise<void> {
     try {
       this.logger.info('Launch Scrcpy command executed');
@@ -200,19 +242,8 @@ export class CommandManager {
         return;
       }
 
-      if (!(await this.hasAnyDevice())) {
-        const shouldConnect = await vscode.window.showWarningMessage(
-          'No device is connected. Would you like to connect to a device first?',
-          { title: 'Connect Device' },
-          { title: 'Launch Anyway' }
-        );
-
-        if (shouldConnect?.title === 'Connect Device') {
-          await this.connectDeviceCommand();
-          if (!this.processManager.isDeviceConnected()) {
-            return;
-          }
-        }
+      if (!(await this.ensureDevice())) {
+        return;
       }
 
       const progressContext: ProgressContext = {
@@ -263,19 +294,8 @@ export class CommandManager {
         return;
       }
 
-      if (!(await this.hasAnyDevice())) {
-        const shouldConnect = await vscode.window.showWarningMessage(
-          'No device is connected. Would you like to connect to a device first?',
-          { title: 'Connect Device' },
-          { title: 'Launch Anyway' }
-        );
-
-        if (shouldConnect?.title === 'Connect Device') {
-          await this.connectDeviceCommand();
-          if (!this.processManager.isDeviceConnected()) {
-            return;
-          }
-        }
+      if (!(await this.ensureDevice())) {
+        return;
       }
 
       const progressContext: ProgressContext = {
@@ -349,6 +369,36 @@ export class CommandManager {
       this.logger.error('Failed to execute Stop Scrcpy command', error instanceof Error ? error : undefined);
       this.logger.showError('Failed to execute Stop Scrcpy command');
     }
+  }
+
+  async resetAdbCommand(): Promise<void> {
+    const choice = await vscode.window.showWarningMessage(
+      'Reset ADB? This stops mirroring and scrcpy, removes port forwards and restarts the ADB server. USB devices and emulators reconnect on their own.',
+      { modal: true },
+      'Reset ADB'
+    );
+    if (choice !== 'Reset ADB') {
+      return;
+    }
+    const { connected, deviceIp, devicePort } = this.processManager.getConnectionState();
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Resetting ADB' }, async progress => {
+      await vscode.commands.executeCommand('droidbridge.stopMirror');
+      await this.processManager.stopScrcpy().catch(() => undefined);
+      this.sidebarProvider?.updateScrcpyStatus(false);
+      const adb = await this.binaryManager.getAdbPath();
+      await exec(adb, ['forward', '--remove-all'], { timeout: 10000 }).catch(() => undefined);
+      await exec(adb, ['kill-server'], { timeout: 10000 }).catch(() => undefined);
+      progress.report({ message: 'Starting the ADB server...' });
+      await exec(adb, ['start-server'], { timeout: 30000 });
+      if (connected && deviceIp && devicePort) {
+        progress.report({ message: `Reconnecting ${deviceIp}:${devicePort}...` });
+        const ok = await this.processManager.connectDevice(deviceIp, devicePort).catch(() => false);
+        this.sidebarProvider?.updateConnectionStatus(ok, deviceIp, devicePort);
+      }
+    }).then(
+      () => this.logger.showSuccess('ADB was reset'),
+      error => this.logger.showError(`ADB reset failed: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 
   showLogsCommand(): void {
@@ -522,7 +572,6 @@ export class CommandManager {
     }
   }
 
-  /** True for a wireless connection made here, or any USB device or emulator adb can see. */
   private async hasAnyDevice(): Promise<boolean> {
     if (this.processManager.isDeviceConnected()) {
       return true;
@@ -559,7 +608,7 @@ export class CommandManager {
 
   private startStatusUpdates(): void {
     if (this.statusUpdateInterval) {
-      return; // Already running
+      return;
     }
 
     this.statusUpdateInterval = setInterval(() => {
@@ -821,7 +870,7 @@ export class CommandManager {
             } else {
               if (this.sidebarProvider) {
                 this.sidebarProvider.updateIpAddress(host);
-                this.sidebarProvider.updatePort('5555'); // Common ADB port
+                this.sidebarProvider.updatePort('5555');
               }
               
               vscode.window.showWarningMessage(autoConnectResult.message);
