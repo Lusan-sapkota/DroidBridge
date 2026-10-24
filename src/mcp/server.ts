@@ -266,7 +266,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: 'device_info',
-    description: 'Model, Android version, screen size, density and rotation, load, free memory and battery. Check load when the device seems slow.',
+    description: 'Model, Android version, screen size, current size and rotation, density, load, free memory and battery. Check load when the device seems slow.',
     properties: {},
     async run(_args, serial) {
       const out = await shell(serial, [
@@ -274,7 +274,8 @@ export const TOOLS: Tool[] = [
         'echo "Android: $(getprop ro.build.version.release) (API $(getprop ro.build.version.sdk))"',
         'wm size | tail -1',
         'wm density | tail -1',
-        'echo "Rotation: $(dumpsys input | grep -m1 -o "SurfaceOrientation: [0-9]" | cut -d" " -f2) (0 is natural)"',
+        'echo "Current size: $(dumpsys window displays 2>/dev/null | grep -m1 -oE "cur=[0-9]+x[0-9]+" | cut -d= -f2)"',
+        'echo "Rotation: $(dumpsys window displays 2>/dev/null | grep -m1 -oE "mCurrentRotation=[A-Z_0-9]+" | cut -d= -f2)"',
         'echo "Load: $(cut -d" " -f1-3 /proc/loadavg) on $(grep -c ^processor /proc/cpuinfo) cores"',
         'echo "Free memory: $(($(grep MemAvailable /proc/meminfo | tr -s " " | cut -d" " -f2) / 1024)) MB"',
         'echo "Battery: $(dumpsys battery | grep -m1 level | tr -d " " | cut -d: -f2)%"',

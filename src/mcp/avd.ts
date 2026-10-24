@@ -31,7 +31,7 @@ export async function deviceLoad(adbPath: string, serial: string): Promise<{ loa
 }
 
 export function isBusy(l: { load: number; cores: number } | undefined): boolean {
-  return !!l && l.load > l.cores * 2;
+  return !!l && l.load > l.cores * 5;
 }
 
 function sdkTool(sdk: string | undefined, dirs: string[], name: string): string {
