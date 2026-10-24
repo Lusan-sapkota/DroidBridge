@@ -33,6 +33,8 @@
       releaseAll();
     }
     root.dataset.state = state;
+    // Header buttons live outside #mirror, so expose the state on body.
+    document.body.dataset.mirrorState = state;
     message.textContent = text || '';
   }
 
@@ -152,7 +154,6 @@
     send(input);
   }
 
-  /** Lift every held pointer, so a finger is never left down on the device. */
   function releaseAll() {
     for (const input of active.values()) {
       send({ ...input, action: 1 });
@@ -203,11 +204,13 @@
     e.preventDefault();
   });
 
-  root.addEventListener('click', e => {
+  document.addEventListener('click', e => {
     const button = /** @type {HTMLElement} */ (e.target).closest('[data-mirror-action]');
     if (!button) {
       return;
     }
+    // Buttons in a section header must not collapse the section.
+    e.preventDefault();
     const action = button.getAttribute('data-mirror-action');
     if (action === 'home' || action === 'recents') {
       send({ kind: 'key', keycode: KEY[action] });

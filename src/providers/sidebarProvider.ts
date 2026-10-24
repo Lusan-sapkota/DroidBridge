@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { ConfigManager } from '../managers/configManager';
 import { ThemeManager, ThemeKind } from '../utils/themeManager';
 import { ConnectionHistoryManager, ConnectionHistoryEntry } from '../managers/connectionHistory';
-import { getMirrorMarkup, MirrorController } from './mirrorController';
+import { getMirrorMarkup, MirrorController, mirrorActions } from './mirrorController';
 
 export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'droidbridge-sidebar';
@@ -131,6 +131,21 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             this.connectionHistory.clearHistory();
             this._updateWebviewState();
             break;
+          case 'resetAdb':
+            vscode.commands.executeCommand('droidbridge.resetAdb');
+            break;
+          case 'startEmulator':
+            vscode.commands.executeCommand('droidbridge.startEmulator');
+            break;
+          case 'setHeadless':
+            vscode.workspace.getConfiguration('droidbridge').update('emulator.headless', !!message.value, vscode.ConfigurationTarget.Global);
+            break;
+          case 'webviewReady':
+            this._updateWebviewState();
+            break;
+          case 'showError':
+            vscode.window.showErrorMessage(`DroidBridge: ${message.error}`);
+            break;
           case 'pairManual':
             if (message.host && message.port && message.code) {
               const hostPort = `${message.host}:${message.port}`;
@@ -170,8 +185,8 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       themeVariables = this.themeManager.getThemeVariables();
     } catch (error) {
       console.error('DroidBridge: Error getting theme info:', error);
-      themeCssClass = 'vscode-dark'; // Default fallback
-      themeVariables = ''; // Empty fallback
+      themeCssClass = 'vscode-dark';
+      themeVariables = '';
     }
 
     const nonce = getNonce();
@@ -193,19 +208,20 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
       </head>
       <body class="${themeCssClass}">
         <div class="container ${themeCssClass}">
-          <!-- Connect Section -->
           <details class="section" data-section="connect" open>
             <summary class="section-header">
               <img src="${plugIconUri}" alt="Connect" width="16" height="16" class="section-icon" />
               <h3>Connect</h3>
+              <span class="section-actions">
+                <span class="status-indicator disconnected" id="connection-status">
+                  <span class="codicon codicon-x status-icon"></span>
+                  <span class="status-text">Disconnected</span>
+                </span>
+              </span>
               <span class="codicon codicon-chevron-right section-chevron" aria-hidden="true"></span>
             </summary>
             <div class="section-content">
-              <div class="status-indicator" id="connection-status">
-                <span class="codicon codicon-x status-icon"></span>
-                <span class="status-text">Disconnected</span>
-              </div>
-              
+
               <div class="input-group">
                 <label for="ip-input">IP Address:</label>
                 <input type="text" id="ip-input" placeholder="192.168.1.100" value="${this.currentIp}">
@@ -226,6 +242,27 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
                   Disconnect
                 </button>
               </div>
+
+              <div class="split-button emulator-row" data-headless="${this.headless()}">
+                <button id="start-emulator-btn" class="secondary-button split-main">
+                  <span class="codicon codicon-vm"></span>
+                  <span class="split-label">Start Emulator</span>
+                  <span class="split-mode" id="emulator-mode">${this.headless() ? 'Headless' : 'Window'}</span>
+                </button>
+                <button id="emulator-menu-btn" class="secondary-button split-toggle" aria-haspopup="menu" aria-expanded="false" title="Choose how the emulator is shown" aria-label="Choose how the emulator is shown">
+                  <span class="codicon codicon-chevron-down"></span>
+                </button>
+                <div class="split-menu" id="emulator-menu" role="menu" hidden>
+                  <button class="split-item" role="menuitemradio" data-headless="true" aria-checked="${this.headless()}">
+                    <span class="codicon codicon-check"></span>
+                    <span><strong>Headless</strong><small>Screen only in DroidBridge</small></span>
+                  </button>
+                  <button class="split-item" role="menuitemradio" data-headless="false" aria-checked="${!this.headless()}">
+                    <span class="codicon codicon-check"></span>
+                    <span><strong>With window</strong><small>Also open the emulator window</small></span>
+                  </button>
+                </div>
+              </div>
             </div>
           </details>
 
@@ -233,6 +270,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             <summary class="section-header">
               <span class="codicon codicon-device-mobile section-icon"></span>
               <h3>Screen Mirror</h3>
+              <span class="section-actions">${mirrorActions('popout', 'link-external', 'Open in editor tab')}</span>
               <span class="codicon codicon-chevron-right section-chevron" aria-hidden="true"></span>
             </summary>
             <div class="section-content">
@@ -240,19 +278,20 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             </div>
           </details>
 
-          <!-- Scrcpy Section -->
           <details class="section" data-section="native">
             <summary class="section-header">
               <img src="${deviceIconUri}" alt="Device" width="16" height="16" class="section-icon" />
               <h3>Native Window</h3>
+              <span class="section-actions">
+                <span class="status-indicator stopped" id="scrcpy-status">
+                  <span class="codicon codicon-stop status-icon"></span>
+                  <span class="status-text">Stopped</span>
+                </span>
+              </span>
               <span class="codicon codicon-chevron-right section-chevron" aria-hidden="true"></span>
             </summary>
             <div class="section-content">
-              <div class="status-indicator" id="scrcpy-status">
-                <span class="codicon codicon-stop status-icon"></span>
-                <span class="status-text">Stopped</span>
-              </div>
-              
+
               <div class="button-group">
                 <button id="launch-scrcpy-btn" class="primary-button" ${!this.scrcpyStatus && this.connectionStatus ? '' : 'disabled'}>
                   <span class="codicon codicon-play"></span>
@@ -270,7 +309,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             </div>
           </details>
 
-          <!-- Pairing Section -->
           <details class="section" data-section="pairing">
             <summary class="section-header">
               <span class="codicon codicon-link section-icon"></span>
@@ -308,7 +346,6 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             </div>
           </details>
 
-          <!-- Connection History Section -->
           <details class="section" data-section="history" open>
             <summary class="section-header">
               <span class="codicon codicon-history section-icon"></span>
@@ -322,12 +359,15 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
             </div>
           </details>
 
-          <!-- Logs Section -->
           <div class="section">
-            <div class="section-content">
+            <div class="section-content footer-actions">
               <button id="show-logs-btn" class="secondary-button">
                 <span class="codicon codicon-output"></span>
                 Show Logs
+              </button>
+              <button id="reset-adb-btn" class="secondary-button danger-button" title="Stop mirroring, remove port forwards and restart the ADB server">
+                <span class="codicon codicon-debug-restart"></span>
+                Reset ADB
               </button>
             </div>
           </div>
@@ -345,6 +385,10 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private headless(): boolean {
+    return vscode.workspace.getConfiguration('droidbridge').get<boolean>('emulator.headless', true);
+  }
+
   private _updateWebviewState(): void {
     if (this._view) {
       this._view.webview.postMessage({
@@ -354,7 +398,8 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         currentIp: this.currentIp,
         currentPort: this.currentPort,
         connectionHistory: this.connectionHistory.getRecentConnections(),
-        availableDevices: this.availableDevices
+        availableDevices: this.availableDevices,
+        headless: this.headless()
       });
     }
   }
@@ -570,7 +615,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         <div class="history-item" data-id="${entry.id}">
           <div class="history-info">
             <div class="history-name">${displayName}</div>
-            <div class="history-details">${entry.ip}:${entry.port}</div>
+            ${entry.name ? `<div class="history-details">${entry.ip}:${entry.port}</div>` : ''}
             <div class="history-meta">Last: ${lastConnected} (${entry.connectionCount}x)</div>
           </div>
           <div class="history-actions">
@@ -636,7 +681,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   reset(): void {
     this.connectionStatus = false;
     this.scrcpyStatus = false;
-    this.loadDefaultValues(); // Reload defaults instead of clearing
+    this.loadDefaultValues();
     this._updateWebviewState();
   }
 
