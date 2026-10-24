@@ -1,5 +1,6 @@
 import { execFile } from 'child_process';
 import * as zlib from 'zlib';
+import { deviceLoad, isBusy } from './avd';
 
 export const ADB = process.env.DROIDBRIDGE_ADB || 'adb';
 
@@ -23,9 +24,6 @@ export async function listDevices(): Promise<{ serial: string; state: string; mo
   });
 }
 
-/**
- * Picks the device for a call: explicit serial, then DROIDBRIDGE_SERIAL, then the only online device.
- */
 export async function resolveSerial(serial?: string): Promise<string> {
   if (serial) {
     return serial;
@@ -39,7 +37,7 @@ export async function resolveSerial(serial?: string): Promise<string> {
     return online[0].serial;
   }
   if (online.length === 0) {
-    throw new Error('No Android device connected. Connect one over USB or with DroidBridge: Connect to Device.');
+    throw new Error('No Android device connected. Call start_emulator to boot an emulator, or connect a phone over USB or with DroidBridge: Connect to Device.');
   }
   throw new Error(`Several devices are connected (${online.map(d => d.serial).join(', ')}). Pass "serial".`);
 }
@@ -61,9 +59,6 @@ export interface Screenshot {
   scale: number;
 }
 
-/**
- * Raw screencap downscaled by an integer box filter so the longest side is at most maxSide.
- */
 export async function screenshot(serial: string, maxSide = 1024): Promise<Screenshot> {
   maxSide = Number.isFinite(maxSide) && maxSide >= 64 ? Math.min(maxSide, 4096) : 1024;
   const raw = await adb(['-s', serial, 'exec-out', 'screencap'], { timeout: 60000 });
@@ -91,7 +86,7 @@ export async function screenshot(serial: string, maxSide = 1024): Promise<Screen
       const o = rowStart + 1 + x * 3;
       rows[o] = r / n; rows[o + 1] = g / n; rows[o + 2] = b / n;
     }
-    // PNG "Sub" filter: store each byte as the difference to the pixel on its left, which compresses far better.
+    // PNG Sub filter: delta to the left pixel compresses far better.
     rows[rowStart] = 1;
     for (let i = rowStart + ow * 3; i > rowStart + 3; i--) {
       rows[i] = (rows[i] - rows[i - 3]) & 0xff;
@@ -100,7 +95,6 @@ export async function screenshot(serial: string, maxSide = 1024): Promise<Screen
   return { png: encodePng(rows, ow, oh), width: ow, height: oh, deviceWidth: w, deviceHeight: h, scale: k };
 }
 
-/** Encodes RGB rows, each prefixed with its PNG filter type byte, as a PNG. */
 export function encodePng(rows: Buffer, width: number, height: number): Buffer {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
@@ -159,7 +153,6 @@ const decode = (s: string) => s
   .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
   .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n))).replace(/&amp;/g, '&');
 
-/** Keeps nodes that carry text, a description, an id, or accept input. */
 export function parseUiTree(xml: string): UiNode[] {
   const nodes: UiNode[] = [];
   for (const m of xml.matchAll(/<node\s([^>]*?)\/?>/g)) {
@@ -205,19 +198,30 @@ export function formatUiNode(n: UiNode): string {
   return parts.join(' ');
 }
 
-export async function uiTree(serial: string): Promise<UiNode[]> {
-  // Unique file per call so concurrent requests do not read each other's dump.
-  const path = `/data/local/tmp/droidbridge-ui-${process.pid}-${Date.now()}-${Math.floor(Math.random() * 1e6)}.xml`;
-  let xml = '';
+// A second uiautomator kills the first, so dumps run one at a time.
+let uiQueue: Promise<unknown> = Promise.resolve();
+
+export function uiTree(serial: string): Promise<UiNode[]> {
+  const run = uiQueue.then(() => readUiTree(serial));
+  uiQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function readUiTree(serial: string): Promise<UiNode[]> {
+  const path = `/data/local/tmp/droidbridge-ui-${process.pid}-${Date.now()}.xml`;
   for (let attempt = 0; attempt < 3; attempt++) {
-    xml = await shell(serial, `uiautomator dump ${path} >/dev/null 2>&1; cat ${path} 2>/dev/null; rm -f ${path}`, 30000);
+    const xml = await shell(serial, `uiautomator dump ${path} >/dev/null 2>&1; cat ${path} 2>/dev/null; rm -f ${path}`, 20000).catch(() => '');
     if (xml.includes('<hierarchy')) {
       return parseUiTree(xml);
     }
     // uiautomator fails with "could not get idle state" while the screen animates.
     await new Promise(r => setTimeout(r, 700));
   }
-  throw new Error('Could not read the screen UI (the screen may be animating or show protected content). Try again or use screenshot.');
+  const load = await deviceLoad(ADB, serial);
+  if (isBusy(load)) {
+    throw new Error(`Could not read the screen UI: the device is overloaded (load ${load!.load.toFixed(1)} on ${load!.cores} cores), common for a minute or two after starting. Wait and try again, or use screenshot.`);
+  }
+  throw new Error('Could not read the screen UI. The screen may be animating or show protected content. Try again, or use screenshot.');
 }
 
 export const KEYCODES: Record<string, number> = {
