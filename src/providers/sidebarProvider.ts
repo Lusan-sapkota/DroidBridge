@@ -19,6 +19,7 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
   private connectionHistory: ConnectionHistoryManager;
   private mirror?: MirrorController;
   private availableDevices: string[] = [];
+  private emulators: string[] = [];
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -137,6 +138,12 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
           case 'startEmulator':
             vscode.commands.executeCommand('droidbridge.startEmulator');
             break;
+          case 'stopEmulator':
+            vscode.commands.executeCommand('droidbridge.stopEmulator');
+            break;
+          case 'emulatorSettings':
+            vscode.commands.executeCommand('droidbridge.emulatorSettings');
+            break;
           case 'setHeadless':
             this.setHeadless(!!message.value);
             break;
@@ -243,25 +250,33 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
                 </button>
               </div>
 
-              <div class="split-button emulator-row" data-headless="${this.headless()}">
-                <button id="start-emulator-btn" class="secondary-button split-main">
-                  <span class="codicon codicon-vm"></span>
-                  <span class="split-label">Start Emulator</span>
-                  <span class="split-mode" id="emulator-mode">${this.headless() ? 'Headless' : 'Window'}</span>
-                </button>
-                <button id="emulator-menu-btn" class="secondary-button split-toggle" aria-haspopup="menu" aria-expanded="false" title="Choose how the emulator is shown" aria-label="Choose how the emulator is shown">
-                  <span class="codicon codicon-chevron-down"></span>
-                </button>
-                <div class="split-menu" id="emulator-menu" role="menu" hidden>
-                  <button class="split-item" role="menuitemradio" data-headless="true" aria-checked="${this.headless()}">
-                    <span class="codicon codicon-check"></span>
-                    <span><strong>Headless</strong><small>Screen only in DroidBridge</small></span>
+              <div class="emulator-row">
+                <div class="split-button" data-headless="${this.headless()}">
+                  <button id="start-emulator-btn" class="secondary-button split-main">
+                    <span class="codicon codicon-vm"></span>
+                    <span class="split-label">Start Emulator</span>
+                    <span class="split-mode" id="emulator-mode">${this.headless() ? 'Headless' : 'Window'}</span>
                   </button>
-                  <button class="split-item" role="menuitemradio" data-headless="false" aria-checked="${!this.headless()}">
-                    <span class="codicon codicon-check"></span>
-                    <span><strong>With window</strong><small>Also open the emulator window</small></span>
+                  <button id="emulator-menu-btn" class="secondary-button split-toggle" aria-haspopup="menu" aria-expanded="false" title="Choose how the emulator is shown" aria-label="Choose how the emulator is shown">
+                    <span class="codicon codicon-chevron-down"></span>
                   </button>
+                  <div class="split-menu" id="emulator-menu" role="menu" hidden>
+                    <button class="split-item" role="menuitemradio" data-headless="true" aria-checked="${this.headless()}">
+                      <span class="codicon codicon-check"></span>
+                      <span><strong>Headless</strong><small>Screen only in DroidBridge</small></span>
+                    </button>
+                    <button class="split-item" role="menuitemradio" data-headless="false" aria-checked="${!this.headless()}">
+                      <span class="codicon codicon-check"></span>
+                      <span><strong>With window</strong><small>Also open the emulator window</small></span>
+                    </button>
+                  </div>
                 </div>
+                <button id="stop-emulator-btn" class="secondary-button emulator-side" title="Stop the running emulator" aria-label="Stop the running emulator" ${this.emulators.length ? '' : 'disabled'}>
+                  <span class="codicon codicon-debug-stop"></span>
+                </button>
+                <button id="emulator-settings-btn" class="secondary-button emulator-side" title="Emulator hardware settings: CPU cores, memory, graphics, storage" aria-label="Emulator hardware settings">
+                  <span class="codicon codicon-settings-gear"></span>
+                </button>
               </div>
             </div>
           </details>
@@ -408,13 +423,15 @@ export class DroidBridgeSidebarProvider implements vscode.WebviewViewProvider {
         currentPort: this.currentPort,
         connectionHistory: this.connectionHistory.getRecentConnections(),
         availableDevices: this.availableDevices,
+        emulators: this.emulators,
         headless: this.headless()
       });
     }
   }
 
-  setAvailableDevices(devices: string[]): void {
+  setAvailableDevices(devices: string[], emulators: string[] = []): void {
     this.availableDevices = devices;
+    this.emulators = emulators;
     this._updateWebviewState();
   }
 

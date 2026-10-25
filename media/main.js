@@ -166,6 +166,8 @@ function setupEventListeners() {
   }
 
   startEmulatorBtn?.addEventListener('click', () => vscode.postMessage({ type: 'startEmulator' }));
+  document.getElementById('stop-emulator-btn')?.addEventListener('click', () => vscode.postMessage({ type: 'stopEmulator' }));
+  document.getElementById('emulator-settings-btn')?.addEventListener('click', () => vscode.postMessage({ type: 'emulatorSettings' }));
   document.getElementById('reset-adb-btn')?.addEventListener('click', () => vscode.postMessage({ type: 'resetAdb' }));
   emulatorMenuBtn?.addEventListener('click', () => showEmulatorMenu(!!emulatorMenu?.hidden));
   emulatorMenu?.addEventListener('click', (e) => {
@@ -307,6 +309,11 @@ function updateButtonStates() {
   if (stopScrcpyBtn) {
     stopScrcpyBtn.disabled = !isScrcpyRunning;
   }
+
+  const stopEmulatorBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('stop-emulator-btn'));
+  if (stopEmulatorBtn) {
+    stopEmulatorBtn.disabled = (state.emulators || []).length === 0;
+  }
 }
 
 /** @param {any} state */
@@ -443,6 +450,7 @@ window.addEventListener("message", (event) => {
         currentPort: message.currentPort,
         connectionHistory: message.connectionHistory,
         availableDevices: message.availableDevices || [],
+        emulators: message.emulators || [],
         headless: message.headless,
       };
       vscode.setState(newState);

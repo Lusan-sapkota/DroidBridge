@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 export class DeviceTracker implements vscode.Disposable {
   private process?: ChildProcess;
   private devices: string[] = [];
+  private emulatorSerials: string[] = [];
   private disposed = false;
   private restartTimer?: NodeJS.Timeout;
   private readonly changed = new vscode.EventEmitter<string[]>();
@@ -13,6 +14,10 @@ export class DeviceTracker implements vscode.Disposable {
 
   get online(): string[] {
     return this.devices;
+  }
+
+  get emulators(): string[] {
+    return this.emulatorSerials;
   }
 
   async start(): Promise<void> {
@@ -33,7 +38,8 @@ export class DeviceTracker implements vscode.Disposable {
         if (Number.isNaN(len) || buf.length < 4 + len) {
           break;
         }
-        this.update(parseDeviceList(buf.slice(4, 4 + len)));
+        const list = buf.slice(4, 4 + len);
+        this.update(parseDeviceList(list), parseEmulators(list));
         buf = buf.slice(4 + len);
       }
     });
@@ -43,7 +49,7 @@ export class DeviceTracker implements vscode.Disposable {
         return;
       }
       this.process = undefined;
-      this.update([]);
+      this.update([], []);
       if (!this.disposed) {
         this.restartTimer = setTimeout(() => this.start(), 3000);
       }
@@ -64,9 +70,10 @@ export class DeviceTracker implements vscode.Disposable {
     this.changed.dispose();
   }
 
-  private update(devices: string[]): void {
-    if (devices.join(',') !== this.devices.join(',')) {
+  private update(devices: string[], emulators: string[]): void {
+    if (devices.join(',') !== this.devices.join(',') || emulators.join(',') !== this.emulatorSerials.join(',')) {
       this.devices = devices;
+      this.emulatorSerials = emulators;
       this.changed.fire(devices);
     }
   }
@@ -77,4 +84,8 @@ export function parseDeviceList(text: string): string[] {
     .map(l => l.trim().split(/\s+/))
     .filter(([serial, state]) => serial && state === 'device')
     .map(([serial]) => serial);
+}
+
+export function parseEmulators(text: string): string[] {
+  return text.split('\n').map(l => l.trim().split(/\s+/)[0]).filter(serial => serial?.startsWith('emulator-'));
 }

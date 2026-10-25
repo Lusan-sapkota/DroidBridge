@@ -3,6 +3,7 @@ import { CommandManager, ConfigManager, ProcessManager, BinaryManager, Logger } 
 import { DroidBridgeSidebarProvider } from './providers';
 import { MirrorController } from './providers/mirrorController';
 import { registerMcp } from './providers/mcpProvider';
+import { EmulatorSettingsPanel } from './providers/emulatorSettings';
 import { DeviceTracker } from './managers/deviceTracker';
 import { stopHeadlessEmulators } from './managers/emulator';
 import { ExtensionState } from './types';
@@ -113,9 +114,11 @@ function registerVSCodeComponents(context: vscode.ExtensionContext): void {
   commandManager.registerCommands(context);
   mirrorController.registerCommands(context);
   registerMcp(context, binaryManager, configManager, logger);
+  context.subscriptions.push(vscode.commands.registerCommand('droidbridge.emulatorSettings',
+    () => EmulatorSettingsPanel.show(vscode.Uri.file(context.extensionPath), binaryManager)));
 
   const deviceTracker = new DeviceTracker(() => binaryManager.getAdbPath());
-  deviceTracker.onDidChange(devices => sidebarProvider.setAvailableDevices(devices));
+  deviceTracker.onDidChange(devices => sidebarProvider.setAvailableDevices(devices, deviceTracker.emulators));
   context.subscriptions.push(deviceTracker, configManager.onConfigurationChanged(() => deviceTracker.restart()));
   deviceTracker.start();
   logger.debug('All commands registered');

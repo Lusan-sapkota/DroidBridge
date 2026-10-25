@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {
-  bootAvd, cmdlineTool, emulators, emulatorTool, exec, findSdk, killEmulators, listAvds,
+  avdName, bootAvd, cmdlineTool, emulators, emulatorTool, exec, findSdk, killEmulators, listAvds,
   listSystemImages, pendingEmulators, pickProfile, recoverPending, WIN,
 } from '../mcp/avd';
 
@@ -97,10 +97,11 @@ export async function startEmulator(adbPath: string): Promise<string | undefined
     placeHolder: avds.length ? 'Choose an emulator to start' : 'No emulator exists yet',
   });
   const avd = picked === CREATE_ITEM ? await createAvd(sdk, avds) : picked;
-  if (!avd) {
-    return undefined;
-  }
+  return avd ? launchAvd(adbPath, avd) : undefined;
+}
 
+export async function launchAvd(adbPath: string, avd: string): Promise<string | undefined> {
+  const emulator = emulatorTool(findSdk(adbPath));
   const headless = isHeadless();
   const serial = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `Starting emulator ${avd}`, cancellable: true },
@@ -128,9 +129,21 @@ export async function stopEmulator(adbPath: string): Promise<void> {
   }
   const serial = running.length === 1 ? running[0] : await vscode.window.showQuickPick(running, { placeHolder: 'Choose the emulator to stop' });
   if (serial) {
-    await killEmulators(adbPath, [serial]);
+    await vscode.commands.executeCommand('droidbridge.stopMirror', serial);
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Stopping ${serial}` }, () => killEmulators(adbPath, [serial]));
     headlessStarted.delete(serial);
   }
+}
+
+export async function runningAvds(adbPath: string): Promise<Map<string, string>> {
+  const running = new Map<string, string>();
+  for (const e of await emulators(adbPath)) {
+    const name = await avdName(adbPath, e.serial);
+    if (name) {
+      running.set(name, e.serial);
+    }
+  }
+  return running;
 }
 
 export async function stopHeadlessEmulators(): Promise<void> {
