@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Headless emulators could break the windowed emulator: they often render in software and saved their Quick Boot state on exit, so the next windowed start showed a black screen, "Failed to find ColorBuffer" and "System UI isn't responding". Headless starts now cold boot and never save state. To repair an emulator already affected, use Delete Saved State in Emulator Settings
 - MCP `screenshot` assumed RGBA pixels; RGBX, RGB, BGRA and RGB_565 screens now decode with the right colours
 - MCP `current_app` failed while the screen was changing
+- Screen recording reported success when the device refused to record, for example right after boot before shared storage was ready. Recordings now go to app-independent temporary storage and a refusal is shown at start
 
 ## [1.1.0] - 2026-10-25
 
