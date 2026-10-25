@@ -268,14 +268,19 @@ footer a { color: var(--white); }
           <tr><td>Tap</td><td>Click</td></tr>
           <tr><td>Swipe or drag</td><td>Click and drag</td></tr>
           <tr><td>Scroll</td><td>Mouse wheel or trackpad</td></tr>
-          <tr><td>Type</td><td>Click the mirror, then type. Enter, Backspace and arrow keys work.</td></tr>
+          <tr><td>Type</td><td>Click the mirror, then type in any keyboard layout. Enter, Backspace and arrow keys work.</td></tr>
+          <tr><td>Paste from your computer</td><td>Ctrl+V (Cmd+V on macOS) or the clipboard button</td></tr>
           <tr><td>Back</td><td>Right click or Escape, or the back button in the toolbar</td></tr>
-          <tr><td>Home, recent apps, rotate</td><td>Toolbar buttons above the mirror</td></tr>
+          <tr><td>Home, recent apps, rotate, volume, power, notifications</td><td>Toolbar buttons above the mirror</td></tr>
+          <tr><td>Screenshot</td><td>Camera button: saves a full resolution PNG where you choose</td></tr>
+          <tr><td>Record the screen</td><td>Record button, then the red stop button to save the MP4 (up to 3 minutes)</td></tr>
         </tbody>
       </table>
       <h3>More room</h3>
       <p>Use <em>Open in editor tab</em> to move the mirror into a resizable editor tab. Drag that tab out to give the device its own window, and use <em>Move back to sidebar</em> to dock it again.</p>
       <img class="wide" src="assets/editor-tab-mirror.png" alt="Mirror in an editor tab showing a tablet with the keyboard open" width="1100" height="608" loading="lazy">
+      <h3>Emulators</h3>
+      <p>Under Connect, <em>Start Emulator</em> boots or creates an emulator. The square button next to it stops the running emulator, and the gear opens <em>Emulator Settings</em>: CPU cores, memory, VM heap, internal storage, graphics (Automatic, Hardware or Software), Quick or cold boot, start orientation, computer keyboard and device frame. It can also delete the saved Quick Boot state or wipe the emulator's data. Changes apply on the next start, or right away with <em>Save and Restart</em>.</p>
       <p>Prefer the classic scrcpy window? Use <em>Open in native scrcpy window</em>. It needs <a href="https://github.com/Genymobile/scrcpy">scrcpy</a> installed; the embedded mirror does not.</p>
     </section>
 
@@ -322,25 +327,34 @@ footer a { color: var(--white); }
         <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
         <tbody>
           <tr><td><code>list_devices</code></td><td>Connected devices and emulators, with their serials, plus the emulators that can be started</td></tr>
-          <tr><td><code>start_emulator</code>, <code>stop_emulator</code></td><td>Boot an emulator by <code>avd</code> name and wait until it is ready (headless unless <code>headless</code> is false), or shut one down, even one stuck offline. Starting an emulator that is already running returns its serial.</td></tr>
+          <tr><td><code>start_emulator</code>, <code>stop_emulator</code></td><td>Boot an emulator by <code>avd</code> name and wait until it is ready (headless unless <code>headless</code> is false), or shut one down, even one stuck offline. Headless starts cold boot and never save state, so they cannot break the windowed emulator's Quick Boot. Starting an emulator that is already running returns its serial.</td></tr>
+          <tr><td><code>pair_device</code>, <code>connect_device</code>, <code>disconnect_device</code></td><td>Wireless debugging: pair with the <code>address</code> and <code>code</code> from the pairing dialog, then connect or disconnect by IP:port</td></tr>
           <tr><td><code>device_info</code></td><td>Model, Android version, screen size, rotation, load, free memory and battery</td></tr>
-          <tr><td><code>screenshot</code></td><td>The screen as an image, with the scale to device pixels. <code>maxSide</code> sets the image size (default 1024).</td></tr>
-          <tr><td><code>ui_tree</code></td><td>On-screen elements with text, description, id and tap position. <code>filter</code> narrows the list.</td></tr>
-          <tr><td><code>tap_element</code></td><td>Find an element by <code>text</code>, <code>id</code> or <code>desc</code> and tap it</td></tr>
-          <tr><td><code>wait_for</code></td><td>Wait until an element matching <code>text</code>, <code>id</code> or <code>desc</code> appears, or disappears with <code>gone</code></td></tr>
-          <tr><td><code>tap</code>, <code>long_press</code></td><td>Touch at <code>x</code>, <code>y</code></td></tr>
+          <tr><td><code>screenshot</code></td><td>The screen as an image, with the scale to device pixels. <code>maxSide</code> sets the image size (default 1024). Handles every screencap pixel format.</td></tr>
+          <tr><td><code>screen_record</code></td><td><code>action</code> start, do the steps, then stop to save an MP4 on your computer (<code>localPath</code>, default the temp folder). For animations and timing bugs.</td></tr>
+          <tr><td><code>ui_tree</code></td><td>On-screen elements with text, description, id and tap position. <code>filter</code> narrows the list. Reports which app it read, how many nodes it held, whether another window has focus, and why the result is empty (for example a Flutter app without semantics). When UI Automator cannot read the screen, it falls back to the Android view hierarchy.</td></tr>
+          <tr><td><code>tap_element</code></td><td>Find an element by <code>text</code>, <code>id</code> or <code>desc</code> and tap it. Scrolls the largest list up to <code>maxScrolls</code> times (default 5) when the element is not on screen yet.</td></tr>
+          <tr><td><code>wait_for</code></td><td>Wait until an element matching <code>text</code>, <code>id</code> or <code>desc</code> appears, or disappears with <code>gone</code>. Polls less often the longer it waits, to keep the device responsive.</td></tr>
+          <tr><td><code>tap</code>, <code>long_press</code></td><td>Touch at <code>x</code>, <code>y</code>. Taps hold for <code>durationMs</code> (default 60 ms) so gesture detectors in React Native, Compose and Flutter register them.</td></tr>
           <tr><td><code>swipe</code></td><td>Swipe from <code>x1</code>, <code>y1</code> to <code>x2</code>, <code>y2</code>. Swipe up to scroll down.</td></tr>
-          <tr><td><code>type_text</code></td><td>Type into the focused field. ASCII only. <code>submit</code> presses Enter.</td></tr>
+          <tr><td><code>type_text</code></td><td>Type into the focused field, in any language. Text that is not plain ASCII is pasted through the device clipboard. <code>submit</code> presses Enter.</td></tr>
           <tr><td><code>press_key</code></td><td>back, home, recents, enter, delete, tab, arrows, power, volume and more, or any Android keycode</td></tr>
           <tr><td><code>current_app</code></td><td>The app and screen in the foreground</td></tr>
           <tr><td><code>list_apps</code>, <code>launch_app</code></td><td>Find installed packages and start one</td></tr>
+          <tr><td><code>start_activity</code></td><td>Start a <code>component</code>, or an <code>action</code> with <code>data</code>, with typed <code>extras</code> such as <code>{"userId": 42, "debug": true}</code>. <code>stopFirst</code> force-stops the app first.</td></tr>
+          <tr><td><code>stop_app</code>, <code>clear_app_data</code></td><td>Force-stop an app, or erase its data as if freshly installed</td></tr>
+          <tr><td><code>set_permission</code></td><td>Grant or revoke a runtime permission, such as <code>CAMERA</code></td></tr>
+          <tr><td><code>set_display</code></td><td>Dark mode, font scale, screen size and density (test tablet layouts on a phone), and rotation. <code>reset</code> restores the default.</td></tr>
+          <tr><td><code>set_app_locale</code></td><td>Run an app in another language, Android 13 and later</td></tr>
           <tr><td><code>open_url</code></td><td>Open a URL or app deep link</td></tr>
-          <tr><td><code>install_apk</code></td><td>Install or update an APK from your computer</td></tr>
-          <tr><td><code>logcat</code></td><td>Recent logs, filtered by <code>level</code> or text, optionally clearing the buffer</td></tr>
+          <tr><td><code>install_apk</code></td><td>Install an APK, the split APKs of one app (<code>paths</code>), or an .aab through bundletool. <code>grantPermissions</code> and <code>allowDowngrade</code> map to <code>-g</code> and <code>-d</code>.</td></tr>
+          <tr><td><code>push_file</code>, <code>pull_file</code></td><td>Copy files to and from the device. With <code>package</code>, <code>pull_file</code> reads a debuggable app's private files, such as <code>databases/app.db</code>.</td></tr>
+          <tr><td><code>logcat</code></td><td>Recent logs, filtered on the device by <code>package</code>, <code>tags</code>, <code>level</code> and <code>sinceSeconds</code>, or by text, optionally clearing the buffer</td></tr>
           <tr><td><code>shell</code></td><td>Run an <code>adb shell</code> command on the device</td></tr>
-          <tr><td><code>reset_adb</code></td><td>Restart the ADB server when devices are stuck offline or commands hang</td></tr>
+          <tr><td><code>reset_adb</code></td><td>Reconnect devices stuck offline. <code>restartServer</code> restarts the ADB server, which also drops Android Studio, scrcpy and logcat sessions; it is used automatically when ADB does not respond.</td></tr>
         </tbody>
       </table>
+      <p>Input tools (<code>tap</code>, <code>tap_element</code>, <code>long_press</code>, <code>swipe</code>, <code>type_text</code>, <code>press_key</code>) take an optional <code>expectPackage</code>. When another app is in the foreground they refuse to act, so an extra Back press cannot send the next taps into another app.</p>
       <p class="note">Agents act on your device the way you would. Review what you allow, especially <code>shell</code> and <code>install_apk</code>. Most MCP clients ask before each tool call.</p>
     </section>
 
@@ -353,7 +367,7 @@ footer a { color: var(--white); }
           <tr><td><code>droidbridge.scrcpy.maxSize</code></td><td><code>1024</code></td><td>Longest side of the mirror in pixels. <code>0</code> uses the native resolution.</td></tr>
           <tr><td><code>droidbridge.scrcpy.bitrate</code></td><td><code>"8M"</code></td><td>Video bitrate. Raise it for sharp tablets, lower it on slow Wi-Fi.</td></tr>
           <tr><td><code>droidbridge.scrcpy.alwaysOnTop</code></td><td><code>true</code></td><td>Keep the native scrcpy window above other windows.</td></tr>
-          <tr><td><code>droidbridge.emulator.headless</code></td><td><code>true</code></td><td>Start emulators without their own window, shown only in the DroidBridge mirror. Also switchable from the Start Emulator menu.</td></tr>
+          <tr><td><code>droidbridge.emulator.headless</code></td><td><code>true</code></td><td>Start emulators without their own window, shown only in the DroidBridge mirror. Headless starts cold boot and do not save state. Also switchable from the Start Emulator menu.</td></tr>
           <tr><td><code>droidbridge.defaultIp</code></td><td><code>"192.168.1.100"</code></td><td>IP address filled in under Connect.</td></tr>
           <tr><td><code>droidbridge.defaultPort</code></td><td><code>"5555"</code></td><td>Port filled in under Connect.</td></tr>
           <tr><td><code>droidbridge.adbPath</code></td><td><code>""</code></td><td>Custom ADB path. Leave empty to detect it automatically.</td></tr>
@@ -371,6 +385,8 @@ footer a { color: var(--white); }
           <tr><td>Open Screen Mirror in Editor Tab</td><td>Move the mirror to an editor tab</td></tr>
           <tr><td>Open Screen Mirror in Native Window, Launch Scrcpy, Launch Scrcpy Screen Off, Stop Scrcpy</td><td>Native scrcpy window</td></tr>
           <tr><td>Start Emulator, Stop Emulator</td><td>Boot or create an Android SDK emulator (AVD), or shut one down</td></tr>
+          <tr><td>Emulator Settings</td><td>CPU cores, memory, storage, graphics and boot mode of an emulator; delete saved state or wipe data</td></tr>
+          <tr><td>Save Device Screenshot, Start or Stop Screen Recording</td><td>Capture the device screen to a PNG or MP4</td></tr>
           <tr><td>Connect to Device, Disconnect Device, Pair Device (Manual)</td><td>Wireless ADB</td></tr>
           <tr><td>Set Up AI Agent Access (MCP)</td><td>Copy setup for Claude Code, Cursor and other agents</td></tr>
           <tr><td>Check Binary Status, Download Missing Binaries, Refresh Binary Detection</td><td>ADB and scrcpy setup</td></tr>
@@ -400,11 +416,11 @@ footer a { color: var(--white); }
       </details>
       <details>
         <summary>An agent says ui_tree failed</summary>
-        <p>The screen was animating or showed protected content, such as a banking app or a lock screen. Ask the agent to try again or take a screenshot instead. If the error says the device is overloaded, it has just started and is still busy; see below.</p>
+        <p>The screen was animating or showed protected content, such as a banking app or a lock screen. The error includes UI Automator's own message; "could not get idle state" means the app animates continuously. The tool then returns the Android view hierarchy instead. Ask the agent to try again or take a screenshot. If the error says the device is overloaded, it has just started and is still busy; see below. A Flutter app shows no elements until semantics is enabled.</p>
       </details>
       <details>
         <summary>A device stays offline or the mirror hangs</summary>
-        <p>Click <em>Reset ADB</em> in the sidebar footer. It stops mirroring and scrcpy, removes port forwards, restarts the ADB server and reconnects a wireless device. USB devices and emulators come back on their own. Agents can do the same with <code>reset_adb</code>.</p>
+        <p>Click <em>Reset ADB</em> in the sidebar footer. It stops mirroring and scrcpy, removes port forwards, restarts the ADB server and reconnects a wireless device. USB devices and emulators come back on their own. Agents can call <code>reset_adb</code>, which first only reconnects devices so Android Studio and other ADB users keep working.</p>
       </details>
       <details>
         <summary>No emulators are listed</summary>
@@ -416,7 +432,11 @@ footer a { color: var(--white); }
       </details>
       <details>
         <summary>An emulator starts but nothing works</summary>
-        <p>Its saved Quick Boot state may be broken. DroidBridge detects this and cold boots once. If it keeps happening, use <em>Wipe Data</em> on the AVD in Android Studio Device Manager.</p>
+        <p>Its saved Quick Boot state may be broken. DroidBridge detects this and cold boots once. If it keeps happening, use <em>Wipe Data</em> in Emulator Settings.</p>
+      </details>
+      <details>
+        <summary>Black screen, "Failed to find ColorBuffer" or "System UI isn't responding"</summary>
+        <p>The emulator resumed a Quick Boot state saved with a different renderer, for example by a headless start in DroidBridge 1.1. Stop it, open Emulator Settings and click <em>Delete Saved State</em>. Headless starts no longer save state, so it will not come back. If the screen stays black with Hardware graphics, choose Software.</p>
       </details>
       <details>
         <summary>A headless emulator keeps running</summary>
