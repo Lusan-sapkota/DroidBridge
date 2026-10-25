@@ -10,7 +10,7 @@
   }
   const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
 
-  const KEY = { home: 3, recents: 187, enter: 66, backspace: 67, del: 112, tab: 61, up: 19, down: 20, left: 21, right: 22, moveHome: 122, moveEnd: 123, pageUp: 92, pageDown: 93 };
+  const KEY = { home: 3, recents: 187, volumeUp: 24, volumeDown: 25, power: 26, enter: 66, backspace: 67, del: 112, tab: 61, up: 19, down: 20, left: 21, right: 22, moveHome: 122, moveEnd: 123, pageUp: 92, pageDown: 93 };
   const KEYMAP = /** @type {Record<string, number>} */ ({
     Enter: KEY.enter, Backspace: KEY.backspace, Delete: KEY.del, Tab: KEY.tab,
     ArrowUp: KEY.up, ArrowDown: KEY.down, ArrowLeft: KEY.left, ArrowRight: KEY.right,
@@ -187,6 +187,11 @@
     send({ kind: 'scroll', hscroll: -e.deltaX * scale, vscroll: -e.deltaY * scale, ...position(e) });
   }, { passive: false });
   canvas.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'v') {
+      post({ type: 'mirrorAction', action: 'paste' });
+      e.preventDefault();
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) {
       return;
     }
@@ -194,8 +199,8 @@
       send({ kind: 'back' });
     } else if (KEYMAP[e.key]) {
       send({ kind: 'key', keycode: KEYMAP[e.key] });
-    } else if (e.key.length === 1) {
-      send({ kind: 'text', text: e.key });
+    } else if ([...e.key].length === 1) {
+      send(/^[\x20-\x7e]$/.test(e.key) ? { kind: 'text', text: e.key } : { kind: 'paste', text: e.key });
     } else {
       return;
     }
@@ -209,9 +214,9 @@
     }
     e.preventDefault();
     const action = button.getAttribute('data-mirror-action');
-    if (action === 'home' || action === 'recents') {
+    if (action === 'home' || action === 'recents' || action === 'volumeUp' || action === 'volumeDown' || action === 'power') {
       send({ kind: 'key', keycode: KEY[action] });
-    } else if (action === 'back' || action === 'rotate') {
+    } else if (action === 'back' || action === 'rotate' || action === 'notifications') {
       send({ kind: action });
     } else {
       post({ type: 'mirrorAction', action });
@@ -240,6 +245,12 @@
         failure = '';
         break;
       case 'mirrorState':
+        root.dataset.recording = String(!!msg.recording);
+        root.querySelectorAll('[data-mirror-action="record"]').forEach(b => {
+          const title = msg.recording ? 'Stop recording and save' : 'Record the screen';
+          b.setAttribute('title', title);
+          b.setAttribute('aria-label', title);
+        });
         if (root.dataset.state === 'unsupported') {
           break;
         }

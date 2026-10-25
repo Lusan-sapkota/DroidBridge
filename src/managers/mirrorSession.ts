@@ -1,5 +1,6 @@
 import { ChildProcess, execFile, spawn } from 'child_process';
 import * as net from 'net';
+import { clipboardMessage, SCRCPY_REMOTE_JAR as REMOTE_JAR, SCRCPY_VERSION as SERVER_VERSION } from '../mcp/android';
 import { Logger } from './logger';
 
 export interface MirrorTarget {
@@ -19,16 +20,18 @@ export type MirrorInput =
   | { kind: 'scroll'; x: number; y: number; w: number; h: number; hscroll: number; vscroll: number }
   | { kind: 'key'; keycode: number }
   | { kind: 'text'; text: string }
+  | { kind: 'paste'; text: string }
+  | { kind: 'notifications' }
   | { kind: 'back' }
   | { kind: 'rotate' };
 
-export const SERVER_VERSION = '3.3.4';
-const REMOTE_JAR = '/data/local/tmp/droidbridge-scrcpy-server.jar';
+export { SERVER_VERSION };
 const MSG_INJECT_KEYCODE = 0;
 const MSG_INJECT_TEXT = 1;
 const MSG_INJECT_TOUCH = 2;
 const MSG_INJECT_SCROLL = 3;
 const MSG_BACK_OR_SCREEN_ON = 4;
+const MSG_EXPAND_NOTIFICATION_PANEL = 5;
 const MSG_ROTATE_DEVICE = 11;
 const MSG_RESET_VIDEO = 17;
 
@@ -66,6 +69,10 @@ export function serializeInput(input: MirrorInput): Buffer[] {
       b.writeUInt32BE(text.length, 1);
       return [Buffer.concat([b, text])];
     }
+    case 'paste':
+      return [clipboardMessage(input.text.slice(0, 100000), true, 0)];
+    case 'notifications':
+      return [Buffer.from([MSG_EXPAND_NOTIFICATION_PANEL])];
     case 'back':
       return [0, 1].map(action => Buffer.from([MSG_BACK_OR_SCREEN_ON, action]));
     case 'rotate':
