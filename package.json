@@ -2,7 +2,7 @@
   "name": "droidbridge",
   "displayName": "DroidBridge",
   "description": "Live, touchable Android phone and tablet mirror inside VS Code, plus an MCP server that lets AI agents see and control your device.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -81,6 +81,24 @@
         "command": "droidbridge.stopEmulator",
         "title": "Stop Emulator",
         "category": "DroidBridge"
+      },
+      {
+        "command": "droidbridge.emulatorSettings",
+        "title": "Emulator Settings",
+        "category": "DroidBridge",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "droidbridge.mirrorScreenshot",
+        "title": "Save Device Screenshot",
+        "category": "DroidBridge",
+        "icon": "$(device-camera)"
+      },
+      {
+        "command": "droidbridge.mirrorRecord",
+        "title": "Start or Stop Screen Recording",
+        "category": "DroidBridge",
+        "icon": "$(record)"
       },
       {
         "command": "droidbridge.launchScrcpyScreenOff",
@@ -210,7 +228,7 @@
         "droidbridge.emulator.headless": {
           "type": "boolean",
           "default": true,
-          "description": "Start emulators without their own window and show them only in the DroidBridge mirror. Headless emulators started by DroidBridge stop when VS Code closes."
+          "description": "Start emulators without their own window and show them only in the DroidBridge mirror. Headless emulators always cold boot and do not save their state, so they cannot break the Quick Boot snapshot of the windowed emulator. Headless emulators started by DroidBridge stop when VS Code closes."
         }
       }
     },
