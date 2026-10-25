@@ -10,6 +10,7 @@ export function registerMcp(context: vscode.ExtensionContext, binaryManager: Bin
   try {
     fs.mkdirSync(context.globalStorageUri.fsPath, { recursive: true });
     fs.copyFileSync(bundled, stable);
+    fs.copyFileSync(vscode.Uri.joinPath(context.extensionUri, 'resources', 'scrcpy-server').fsPath, vscode.Uri.joinPath(context.globalStorageUri, 'scrcpy-server').fsPath);
   } catch (error) {
     logger.error('Could not copy the MCP server to global storage', error instanceof Error ? error : undefined);
   }

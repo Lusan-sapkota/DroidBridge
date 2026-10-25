@@ -176,7 +176,8 @@ export interface BootOptions {
 export async function bootAvd(adbPath: string, emulator: string, avd: string, options: BootOptions): Promise<string | undefined> {
   const { headless, cold, cancelled = () => false, report } = options;
   const before = new Set((await emulators(adbPath)).map(e => e.serial));
-  const args = ['-avd', avd, ...(headless ? ['-no-window'] : []), ...(cold ? ['-no-snapshot-load'] : [])];
+  // A headless emulator often renders in software; its snapshot would break the next windowed boot and the reverse.
+  const args = ['-avd', avd, ...(headless ? ['-no-window', '-no-snapshot'] : cold ? ['-no-snapshot-load'] : [])];
   const proc = spawn(emulator, args, { detached: true, stdio: 'ignore' });
   let exited: string | undefined;
   proc.on('error', e => { exited = e.message; });
@@ -240,5 +241,57 @@ async function settle(adbPath: string, serial: string, cancelled: () => boolean,
     }
     report?.(`Android is busy after starting (load ${load!.load.toFixed(1)} on ${load!.cores} cores)...`);
     await new Promise(r => setTimeout(r, 3000));
+  }
+}
+
+export function avdHome(): string {
+  const env = process.env;
+  return env.ANDROID_AVD_HOME
+    || (env.ANDROID_EMULATOR_HOME && path.join(env.ANDROID_EMULATOR_HOME, 'avd'))
+    || (env.ANDROID_USER_HOME && path.join(env.ANDROID_USER_HOME, 'avd'))
+    || path.join(os.homedir(), '.android', 'avd');
+}
+
+export function avdDir(avd: string): string {
+  const home = avdHome();
+  const ini = path.join(home, `${avd}.ini`);
+  const linked = fs.existsSync(ini) ? /^path=(.+)$/m.exec(fs.readFileSync(ini, 'utf8'))?.[1].trim() : undefined;
+  return linked && fs.existsSync(linked) ? linked : path.join(home, `${avd}.avd`);
+}
+
+export function readAvdConfig(avd: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of fs.readFileSync(path.join(avdDir(avd), 'config.ini'), 'utf8').split(/\r?\n/)) {
+    const eq = line.indexOf('=');
+    if (eq > 0) {
+      config[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+    }
+  }
+  return config;
+}
+
+export function writeAvdConfig(avd: string, changes: Record<string, string>): void {
+  const file = path.join(avdDir(avd), 'config.ini');
+  const pending = new Map(Object.entries(changes));
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).map(line => {
+    const key = line.slice(0, line.indexOf('=')).trim();
+    if (line.includes('=') && pending.has(key)) {
+      const value = pending.get(key);
+      pending.delete(key);
+      return `${key}=${value}`;
+    }
+    return line;
+  });
+  while (lines.length && !lines[lines.length - 1]) {
+    lines.pop();
+  }
+  fs.writeFileSync(file, [...lines, ...[...pending].map(([k, v]) => `${k}=${v}`), ''].join('\n'));
+}
+
+export function wipeAvd(avd: string, keepData: boolean): void {
+  const dir = avdDir(avd);
+  const targets = keepData ? ['snapshots'] : ['snapshots', 'userdata-qemu.img', 'userdata-qemu.img.qcow2', 'cache.img', 'cache.img.qcow2', 'encryptionkey.img', 'encryptionkey.img.qcow2'];
+  for (const name of targets) {
+    fs.rmSync(path.join(dir, name), { recursive: true, force: true });
   }
 }

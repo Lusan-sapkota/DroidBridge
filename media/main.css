@@ -472,6 +472,37 @@ button:disabled {
   margin-left: auto;
 }
 
+.mirror-toolbar > .mirror-tools {
+  column-gap: 10px;
+}
+
+.mirror-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.icon-button {
+  position: relative;
+}
+
+.icon-badge {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mirror[data-recording="true"] [data-mirror-action="record"] {
+  color: var(--vscode-errorForeground, #f14c4c);
+}
+
+.mirror[data-recording="true"] [data-mirror-action="record"] .codicon::before {
+  content: "\ead7";
+}
+
 .mirror-stage {
   display: flex;
   align-items: center;
@@ -550,7 +581,7 @@ body.mirror-panel .mirror-stage {
 }
 
 body.mirror-panel #mirror-canvas {
-  max-height: calc(100vh - 60px);
+  max-height: 100%;
 }
 
 @media (pointer: coarse) {
@@ -569,7 +600,20 @@ body.mirror-panel #mirror-canvas {
 }
 
 .emulator-row {
+  display: flex;
+  gap: 4px;
   margin-top: 12px;
+}
+
+.emulator-row > .split-button {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.emulator-side {
+  flex: 0 0 auto;
+  min-width: 28px;
+  padding: 0 6px;
 }
 
 .split-button {
@@ -645,7 +689,7 @@ body.mirror-panel #mirror-canvas {
   visibility: hidden;
 }
 
-@media (max-width: 220px) {
+@media (max-width: 330px) {
   .split-mode {
     display: none;
   }

@@ -1,4 +1,7 @@
+import { execFile } from 'child_process';
+import * as os from 'os';
 import * as vscode from 'vscode';
+import { startRecording, stopRecording } from '../mcp/android';
 import { isCancelled, MirrorInput, MirrorSession } from '../managers/mirrorSession';
 import { BinaryManager } from '../managers/binaryManager';
 import { startEmulator } from '../managers/emulator';
@@ -6,8 +9,8 @@ import { ConfigManager } from '../managers/configManager';
 import { Logger } from '../managers/logger';
 import { ProcessManager } from '../managers/processManager';
 
-const toolButton = (action: string, icon: string, title: string) =>
-  `<button class="icon-button" data-mirror-action="${action}" title="${title}" aria-label="${title}"><span class="codicon codicon-${icon}"></span></button>`;
+const toolButton = (action: string, icon: string, title: string, badge = '') =>
+  `<button class="icon-button" data-mirror-action="${action}" title="${title}" aria-label="${title}"><span class="codicon codicon-${icon}"></span>${badge && `<span class="icon-badge" aria-hidden="true">${badge}</span>`}</button>`;
 
 export function mirrorActions(placement: string, icon: string, title: string): string {
   return `
@@ -20,11 +23,24 @@ export function getMirrorMarkup(inPanel: boolean): string {
   return `
     <div id="mirror" class="mirror" data-state="idle">
       <div class="mirror-toolbar">
-        <span class="mirror-when-live">
-          ${toolButton('back', 'arrow-left', 'Back')}
-          ${toolButton('home', 'circle-large-outline', 'Home')}
-          ${toolButton('recents', 'versions', 'Recent apps')}
-          ${toolButton('rotate', 'refresh', 'Rotate device')}
+        <span class="mirror-when-live mirror-tools">
+          <span class="mirror-group">
+            ${toolButton('back', 'arrow-left', 'Back')}
+            ${toolButton('home', 'circle-large-outline', 'Home')}
+            ${toolButton('recents', 'versions', 'Recent apps')}
+          </span>
+          <span class="mirror-group">
+            ${toolButton('rotate', 'refresh', 'Rotate device')}
+            ${toolButton('volumeDown', 'unmute', 'Volume down', '-')}
+            ${toolButton('volumeUp', 'unmute', 'Volume up', '+')}
+            ${toolButton('power', 'lock', 'Power: lock or wake the device')}
+          </span>
+          <span class="mirror-group">
+            ${toolButton('notifications', 'bell', 'Open notifications')}
+            ${toolButton('paste', 'clippy', 'Paste the computer clipboard on the device (Ctrl+V)')}
+            ${toolButton('screenshot', 'device-camera', 'Save a screenshot')}
+            ${toolButton('record', 'record', 'Record the screen')}
+          </span>
         </span>
         ${inPanel ? `<span class="mirror-toolbar-end">${mirrorActions('dock', 'layout-sidebar-left', 'Move back to sidebar')}</span>` : ''}
       </div>
@@ -51,6 +67,7 @@ export class MirrorController implements vscode.Disposable {
   private starting = false;
   private startPromise?: Promise<void>;
   private serial?: string;
+  private recording?: { adbPath: string; serial: string };
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -61,6 +78,9 @@ export class MirrorController implements vscode.Disposable {
   ) {
     this.session = new MirrorSession(logger, reason => {
       this.setContext(false);
+      if (this.recording) {
+        this.toggleRecording();
+      }
       if (reason) {
         vscode.window.showWarningMessage(`DroidBridge mirror stopped: ${reason}`);
       }
@@ -71,7 +91,13 @@ export class MirrorController implements vscode.Disposable {
   registerCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
       vscode.commands.registerCommand('droidbridge.startMirror', (serial?: unknown) => this.start(typeof serial === 'string' ? serial : undefined)),
-      vscode.commands.registerCommand('droidbridge.stopMirror', () => this.session.stop()),
+      vscode.commands.registerCommand('droidbridge.stopMirror', (serial?: unknown) => {
+        if (typeof serial !== 'string' || serial === this.serial) {
+          return this.session.stop();
+        }
+      }),
+      vscode.commands.registerCommand('droidbridge.mirrorScreenshot', () => this.screenshot()),
+      vscode.commands.registerCommand('droidbridge.mirrorRecord', () => this.toggleRecording()),
       vscode.commands.registerCommand('droidbridge.openMirrorInEditor', () => this.openPanel()),
       vscode.commands.registerCommand('droidbridge.openMirrorNative', () => this.openNative()),
       this,
@@ -206,6 +232,94 @@ export class MirrorController implements vscode.Disposable {
       case 'popout': this.openPanel(); break;
       case 'dock': this.panel?.dispose(); break;
       case 'native': this.openNative(); break;
+      case 'screenshot': this.screenshot(); break;
+      case 'record': this.toggleRecording(); break;
+      case 'paste': this.paste(); break;
+    }
+  }
+
+  private async paste(): Promise<void> {
+    const text = await vscode.env.clipboard.readText();
+    if (text) {
+      this.session.sendInput({ kind: 'paste', text });
+    }
+  }
+
+  private async target(): Promise<{ adbPath: string; serial: string } | undefined> {
+    const adbPath = await this.binaryManager.getAdbPath();
+    const serial = this.session.running ? this.serial : (await this.processManager.getDeviceSerials())[0];
+    if (!serial) {
+      vscode.window.showWarningMessage('Connect a device or start the mirror first.');
+    }
+    return serial ? { adbPath, serial } : undefined;
+  }
+
+  private async saveUri(serial: string, ext: string, filter: string): Promise<vscode.Uri | undefined> {
+    const stamp = new Date().toISOString().replace(/\..*/, '').replace(/[-:]/g, '').replace('T', '-');
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(os.homedir());
+    return vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.joinPath(folder, `${serial.replace(/[^\w.-]/g, '_')}-${stamp}.${ext}`),
+      filters: { [filter]: [ext] },
+    });
+  }
+
+  private async screenshot(): Promise<void> {
+    const t = await this.target();
+    if (!t) {
+      return;
+    }
+    try {
+      const png = await new Promise<Buffer>((resolve, reject) => execFile(t.adbPath, ['-s', t.serial, 'exec-out', 'screencap', '-p'],
+        { encoding: 'buffer', maxBuffer: 128 * 1024 * 1024, timeout: 30000 }, (e, out, err) => (e ? reject(new Error(err.toString().trim() || e.message)) : resolve(out))));
+      if (png.subarray(1, 4).toString() !== 'PNG') {
+        throw new Error('The device did not return an image');
+      }
+      const uri = await this.saveUri(t.serial, 'png', 'PNG image');
+      if (uri) {
+        await vscode.workspace.fs.writeFile(uri, png);
+        this.offerOpen(uri, 'Screenshot saved');
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(`DroidBridge screenshot: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  private async toggleRecording(): Promise<void> {
+    const t = this.recording ?? await this.target();
+    if (!t) {
+      return;
+    }
+    try {
+      if (!this.recording) {
+        await startRecording(t.adbPath, t.serial);
+        this.recording = t;
+        this.broadcastState();
+        return;
+      }
+      this.recording = undefined;
+      this.broadcastState();
+      const tmp = vscode.Uri.joinPath(vscode.Uri.file(os.tmpdir()), `droidbridge-${Date.now()}.mp4`);
+      await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Saving the screen recording' },
+        () => stopRecording(t.adbPath, t.serial, tmp.fsPath));
+      const uri = await this.saveUri(t.serial, 'mp4', 'MP4 video');
+      if (uri) {
+        await vscode.workspace.fs.copy(tmp, uri, { overwrite: true });
+        this.offerOpen(uri, 'Recording saved');
+      }
+      await vscode.workspace.fs.delete(tmp).then(undefined, () => undefined);
+    } catch (error) {
+      this.recording = undefined;
+      this.broadcastState();
+      vscode.window.showErrorMessage(`DroidBridge recording: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  private async offerOpen(uri: vscode.Uri, message: string): Promise<void> {
+    const choice = await vscode.window.showInformationMessage(`${message}: ${uri.fsPath}`, 'Open', 'Reveal');
+    if (choice === 'Open') {
+      vscode.commands.executeCommand('vscode.open', uri);
+    } else if (choice === 'Reveal') {
+      vscode.commands.executeCommand('revealFileInOS', uri);
     }
   }
 
@@ -233,7 +347,7 @@ export class MirrorController implements vscode.Disposable {
       state = 'running';
       text = '';
     }
-    webview.postMessage({ type: 'mirrorState', state, text });
+    webview.postMessage({ type: 'mirrorState', state, text, recording: !!this.recording });
   }
 
   private broadcastState(): void {

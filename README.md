@@ -43,7 +43,9 @@ DroidBridge transforms your VS Code into a powerful Android development hub with
 - **Fully Interactive**: Click to tap, drag to swipe, scroll wheel to scroll, type to send text, right click for Back
 - **Phones and Tablets**: Keeps the device aspect ratio at any sidebar width and follows rotation live
 - **Pop Out**: Move the mirror into a resizable editor tab (or drag that tab into its own window), and back again
-- **Device Controls**: Back, Home, Recent apps and Rotate buttons
+- **Device Controls**: Back, Home, Recent apps, Rotate, Volume, Power and Notifications buttons
+- **Capture**: Save a full resolution screenshot or record the screen to MP4 from the toolbar
+- **Any Language**: Type in any keyboard layout, and paste your computer clipboard onto the device with Ctrl+V
 - **Native Window Option**: Open the classic scrcpy window when you want it, with always-on-top
 - **Nothing Extra to Install**: The scrcpy server is bundled; the embedded mirror only needs ADB
 
@@ -63,6 +65,7 @@ DroidBridge transforms your VS Code into a powerful Android development hub with
 - **Tidy Sidebar**: Collapsible sections that remember whether you opened or closed them
 - **USB and Emulators**: Detects USB devices and emulators automatically, no IP needed
 - **Start an Emulator**: With nothing connected, Start Mirror offers your Android SDK emulators, boots the one you pick and mirrors it. You can also create a new phone or tablet emulator from an installed system image right there
+- **Stop and Tune Emulators**: Stop the running emulator from the sidebar, and set CPU cores, memory, storage, graphics (hardware or software) and boot mode in Emulator Settings
 - **Several Devices**: With more than one device connected, choose which one to mirror
 - **Command Palette**: Access all features via `Ctrl+Shift+P`
 - **Comprehensive Logging**: Detailed logs for troubleshooting
@@ -104,7 +107,7 @@ code --install-extension lusansapkota.droidbridge
 1. **Open DroidBridge**: Click the icon in VS Code's Activity Bar
 2. **Connect Device**: Enter IP address and port, click "Connect Device"
 3. **Start Mirroring**: Click "Start Mirror" in the Screen Mirror section (or the play button in the view title)
-4. **Interact**: Click, drag, scroll and type on the mirror; use the toolbar for Back, Home, Recents and Rotate
+4. **Interact**: Click, drag, scroll and type on the mirror; use the toolbar for device buttons, screenshots and recordings
 5. **Pop Out**: Use the external link button to move the mirror into an editor tab, or the window button for a native scrcpy window
 
 > **Pro Tip**: DroidBridge automatically handles ADB and scrcpy binaries - no manual installation needed!
@@ -127,19 +130,27 @@ External clients need Node.js. The copied path stays valid across DroidBridge up
 |------|--------------|
 | `list_devices` | Connected devices and emulators, plus the emulators that can be started |
 | `start_emulator`, `stop_emulator` | Boot an emulator (headless by default) and wait until it is ready, or shut one down |
+| `pair_device`, `connect_device`, `disconnect_device` | Wireless debugging: pair with a code, connect and disconnect by IP:port |
 | `device_info` | Model, Android version, screen size, rotation, load, memory and battery |
 | `screenshot` | Screen image (downscaled), with the scale to device pixels |
-| `ui_tree` | On-screen elements with text, id, description and tap coordinates |
-| `tap`, `long_press`, `swipe` | Touch input in device pixels |
-| `tap_element` | Tap an element by text, resource id or description |
+| `screen_record` | Start and stop an MP4 screen recording, saved on your computer |
+| `ui_tree` | On-screen elements with text, id, description and tap coordinates. Says which app it read and how many nodes it held, and falls back to the view hierarchy when UI Automator cannot read the screen |
+| `tap`, `long_press`, `swipe` | Touch input in device pixels. Taps last 60 ms by default (`durationMs`) |
+| `tap_element` | Tap an element by text, resource id or description, scrolling the list to find it when needed |
 | `wait_for` | Wait until an element appears, or disappears with `gone` |
-| `type_text`, `press_key` | Keyboard input (ASCII text; keys such as back, home, enter) |
+| `type_text`, `press_key` | Keyboard input in any language (non-ASCII text is pasted) and keys such as back, home, enter |
 | `current_app`, `list_apps`, `launch_app` | Inspect and start apps |
+| `start_activity` | Start an activity or intent with action, data and typed extras |
+| `stop_app`, `clear_app_data`, `set_permission` | Force-stop, reset an app's data, grant or revoke runtime permissions |
+| `set_display`, `set_app_locale` | Dark mode, font scale, screen size and density, rotation, and per-app language |
 | `open_url` | Open a URL or app deep link |
-| `install_apk` | Install or update an APK from your computer |
-| `logcat` | Recent logs, filtered by priority or text |
+| `install_apk` | Install an APK, split APKs or an .aab (with bundletool), optionally granting permissions or allowing a downgrade |
+| `push_file`, `pull_file` | Copy files to and from the device, including a debuggable app's private files such as its database |
+| `logcat` | Recent logs filtered on the device by app, tags, priority and time, or by text |
 | `shell` | Run an `adb shell` command on the device |
-| `reset_adb` | Restart the ADB server when devices are stuck offline |
+| `reset_adb` | Reconnect devices stuck offline, or restart the ADB server (which also drops other ADB users such as Android Studio) |
+
+Input tools (`tap`, `tap_element`, `long_press`, `swipe`, `type_text`, `press_key`) take an optional `expectPackage` and refuse to act when another app is in the foreground, so stray input cannot land in another app.
 
 With more than one device connected, tools take a `serial` argument (see `list_devices`). Agents act on your device as you would, so review what you allow them to run, especially `shell` and `install_apk`.
 
@@ -151,15 +162,17 @@ Section headers show status and quick actions before the expand arrow, so they w
 
 #### **Screen Mirror**
 - **Live View**: Interactive device screen that resizes with the sidebar
-- **Toolbar**: Back, Home, Recent apps and Rotate
+- **Toolbar**: Back, Home, Recent apps; Rotate, Volume down, Volume up, Power; Notifications, Paste clipboard, Screenshot and Record (click again to stop and save)
 - **Header**: Open in editor tab, open native window, stop
-- **Keyboard**: Click the mirror, then type; Enter, Backspace, arrows and Escape (Back) are supported
+- **Keyboard**: Click the mirror, then type in any layout; Enter, Backspace, arrows and Escape (Back) are supported, and Ctrl+V (Cmd+V) pastes your computer clipboard
 
 #### **Device Connection**
 - **Header Status**: Disconnected, Ready (USB device or emulator) or Connected, with details on hover
 - **IP/Port Fields**: Pre-filled with your last successful connection
 - **Connect/Disconnect**: One-click connection management
 - **Start Emulator**: Boot or create an emulator. The arrow on the right switches between Headless (screen only in DroidBridge) and With window
+- **Stop Emulator**: The square button next to it shuts down the running emulator, including one stuck offline
+- **Emulator Settings**: The gear button opens a page to set CPU cores, memory, VM heap, internal storage, graphics (Automatic, Hardware or Software), Quick or cold boot, start orientation, keyboard and device frame, and to delete the saved state or wipe data
 
 #### **Footer**
 - **Show Logs**: Open the DroidBridge output log
@@ -191,6 +204,9 @@ DroidBridge: Launch Scrcpy Screen Off
 DroidBridge: Stop Scrcpy
 DroidBridge: Start Emulator
 DroidBridge: Stop Emulator
+DroidBridge: Emulator Settings
+DroidBridge: Save Device Screenshot
+DroidBridge: Start or Stop Screen Recording
 DroidBridge: Start Screen Mirror
 DroidBridge: Stop Screen Mirror
 DroidBridge: Open Screen Mirror in Editor Tab
@@ -218,7 +234,7 @@ Configure DroidBridge via `Settings` > `Extensions` > `DroidBridge`:
 | `droidbridge.scrcpy.maxSize` | Longest side of the mirror in pixels, `0` for native | `1024` |
 | `droidbridge.scrcpy.bitrate` | Video bitrate, raise for high resolution tablets | `"8M"` |
 | `droidbridge.scrcpy.alwaysOnTop` | Keep the mirror window above other windows | `true` |
-| `droidbridge.emulator.headless` | Start emulators without their own window, shown only in the DroidBridge mirror | `true` |
+| `droidbridge.emulator.headless` | Start emulators without their own window, shown only in the DroidBridge mirror. Headless starts cold boot and do not save state | `true` |
 
 ### Configuration Examples
 
@@ -324,10 +340,14 @@ No internet? No problem:
 ### Emulator Is Slow or the UI Cannot Be Read Right After Starting
 - Images with Google Play update themselves for a minute or two after a cold boot. DroidBridge waits for this before reporting the emulator ready, and agents are told when the device is too busy
 - Check with the `device_info` MCP tool, which reports the load
-- Prefer Google APIs images over Google Play images for automation, and give the AVD more CPU cores in Android Studio
+- Prefer Google APIs images over Google Play images for automation, and give the AVD more CPU cores in **Emulator Settings**
+
+### Black Screen, "Failed to find ColorBuffer" or "System UI isn't responding"
+- The emulator resumed a Quick Boot state saved with a different renderer, for example by an older DroidBridge headless start. Open **Emulator Settings**, stop the emulator and click **Delete Saved State**. Headless starts now always cold boot and never save state, so this cannot happen again
+- If the screen stays black with Hardware graphics, switch Graphics to Software
 
 ### Emulator Starts but Nothing Works
-- A saved Quick Boot state can be broken. DroidBridge detects this and cold boots once; if it persists, use **Wipe Data** on the AVD in Android Studio Device Manager
+- A saved Quick Boot state can be broken. DroidBridge detects this and cold boots once; if it persists, use **Wipe Data** in **Emulator Settings**
 
 ### A Headless Emulator Keeps Running
 - Run **DroidBridge: Stop Emulator**. Headless emulators DroidBridge started also stop when VS Code closes

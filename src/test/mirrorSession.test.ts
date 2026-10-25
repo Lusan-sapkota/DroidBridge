@@ -27,5 +27,8 @@ suite('MirrorSession Tests', () => {
 
     assert.deepStrictEqual(serializeInput({ kind: 'back' }).map(b => [...b]), [[4, 0], [4, 1]]);
     assert.deepStrictEqual([...serializeInput({ kind: 'rotate' })[0]], [11]);
+    assert.deepStrictEqual([...serializeInput({ kind: 'notifications' })[0]], [5]);
+    const [paste] = serializeInput({ kind: 'paste', text: 'é' });
+    assert.deepStrictEqual([paste[0], paste.readBigUInt64BE(1), paste[9], paste.readUInt32BE(10)], [9, 0n, 1, 2]);
   });
 });

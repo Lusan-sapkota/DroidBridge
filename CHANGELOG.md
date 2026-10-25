@@ -5,6 +5,33 @@ All notable changes to the DroidBridge extension are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-25
+
+### Added
+- Mirror toolbar: Volume down, Volume up, Power, Notifications, Paste clipboard, Screenshot (full resolution PNG) and Record (MP4, click again to stop and save). Also available as DroidBridge: Save Device Screenshot and DroidBridge: Start or Stop Screen Recording
+- Typing in the mirror works in any keyboard layout, and Ctrl+V (Cmd+V) pastes the computer clipboard onto the device
+- Stop Emulator button next to Start Emulator in the sidebar, enabled while an emulator runs, including one stuck offline
+- Emulator Settings (gear button or DroidBridge: Emulator Settings): CPU cores, memory, VM heap, internal storage, graphics (Automatic, Hardware or Software), Quick or cold boot, start orientation, computer keyboard and device frame, with Save and Restart, Delete Saved State and Wipe Data
+- MCP tools: `set_display` (dark mode, font scale, screen size, density, rotation), `set_app_locale`, `stop_app`, `clear_app_data`, `set_permission`, `start_activity` (intents with typed extras), `push_file`, `pull_file` (including a debuggable app's private files), `screen_record`, `pair_device`, `connect_device` and `disconnect_device`
+- MCP `expectPackage` on input tools: they refuse to act when another app is in the foreground
+- MCP `install_apk` installs split APKs (`paths`) and .aab bundles through bundletool, with `grantPermissions` (-g) and `allowDowngrade` (-d)
+- MCP `logcat` filters on the device by `package`, `tags` and `sinceSeconds`
+- MCP `tap_element` scrolls the largest list to find an element that is not on screen yet (`maxScrolls`, `scrollDirection`)
+
+### Changed
+- MCP `type_text` types any language and emoji by pasting through the device clipboard, instead of rejecting text that is not ASCII
+- MCP `tap` holds for 60 ms by default (`durationMs`), so gesture detectors that ignore zero length taps in some React Native, Compose and Flutter apps register it
+- MCP `ui_tree` reports the app it read, the node count and whether another window has focus, explains empty results (such as Flutter without semantics), includes UI Automator's own error, and falls back to the Android view hierarchy when the screen cannot be read
+- MCP `wait_for` polls less often the longer it waits, so repeated UI dumps do not load the device
+- MCP `reset_adb` first only reconnects devices; restarting the ADB server, which also drops Android Studio, scrcpy and logcat sessions, needs `restartServer` or happens when ADB does not respond
+- Stopping an emulator stops its mirror without a "device disconnected" warning
+
+### Fixed
+- Headless emulators could break the windowed emulator: they often render in software and saved their Quick Boot state on exit, so the next windowed start showed a black screen, "Failed to find ColorBuffer" and "System UI isn't responding". Headless starts now cold boot and never save state. To repair an emulator already affected, use Delete Saved State in Emulator Settings
+- MCP `screenshot` assumed RGBA pixels; RGBX, RGB, BGRA and RGB_565 screens now decode with the right colours
+- MCP `current_app` failed while the screen was changing
+- Screen recording reported success when the device refused to record, for example right after boot before shared storage was ready. Recordings now go to app-independent temporary storage and a refusal is shown at start
+
 ## [1.1.0] - 2026-10-25
 
 ### Added

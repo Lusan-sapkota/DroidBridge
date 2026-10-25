@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as zlib from 'zlib';
-import { encodePng, formatUiNode, parseUiTree } from '../mcp/android';
+import { clipboardMessage, encodePng, encodeScreencap, formatUiNode, parseUiDump, parseUiTree } from '../mcp/android';
 import { handle } from '../mcp/server';
 
 suite('MCP Server Tests', () => {
@@ -60,6 +60,44 @@ suite('MCP Server Tests', () => {
     assert.strictEqual(nodes.length, 2);
     assert.deepStrictEqual([nodes[0].text, nodes[0].id, nodes[0].x, nodes[0].y], ['Sign in & sync', 'login', 200, 230]);
     assert.strictEqual(formatUiNode(nodes[1]), '#1 Switch desc="Mute" id=mute clickable checked center=50,350');
+    const dump = parseUiDump(xml.replace('class="android.widget.FrameLayout"', 'class="android.widget.FrameLayout" package="com.app"'));
+    assert.deepStrictEqual([dump.total, dump.packages], [3, ['com.app']]);
+  });
+
+  test('decodes screencap pixel formats', () => {
+    const pixels = (format: number, bytes: number[]) => {
+      const head = Buffer.alloc(16);
+      head.writeUInt32LE(2, 0);
+      head.writeUInt32LE(1, 4);
+      head.writeUInt32LE(format, 8);
+      const png = encodeScreencap(Buffer.concat([head, Buffer.from(bytes)])).png;
+      const idat = png.indexOf('IDAT');
+      const rows = zlib.inflateSync(png.subarray(idat + 4, idat + 4 + png.readUInt32BE(idat - 4)));
+      return [rows[1], rows[2], rows[3], (rows[4] + rows[1]) & 0xff, (rows[5] + rows[2]) & 0xff, (rows[6] + rows[3]) & 0xff];
+    };
+    assert.deepStrictEqual(pixels(1, [255, 0, 0, 255, 0, 0, 255, 255]), [255, 0, 0, 0, 0, 255]);
+    assert.deepStrictEqual(pixels(5, [255, 0, 0, 255, 0, 0, 255, 255]), [0, 0, 255, 255, 0, 0]);
+    assert.deepStrictEqual(pixels(4, [0x00, 0xf8, 0x1f, 0x00]), [255, 0, 0, 0, 0, 255]);
+    assert.throws(() => pixels(1, [1, 2, 3]), /Unexpected screencap format/);
+  });
+
+  test('builds scrcpy clipboard paste messages', () => {
+    const msg = clipboardMessage('é', true, 7);
+    assert.deepStrictEqual([...msg], [9, 0, 0, 0, 0, 0, 0, 0, 7, 1, 0, 0, 0, 2, 0xc3, 0xa9]);
+  });
+
+  test('new tools validate input before touching the device', async () => {
+    const call = async (name: string, args: object) => ((await handle({ id: 20, method: 'tools/call', params: { name, arguments: { serial: 'x', ...args } } })) as any).result;
+    assert.match((await call('set_display', { fontScale: '9' })).content[0].text, /fontScale/);
+    assert.match((await call('stop_app', { package: 'x; rm -rf /' })).content[0].text, /package name/);
+    assert.match((await call('push_file', { localPath: 'rel.txt', devicePath: '/sdcard/' })).content[0].text, /absolute path/);
+    assert.match((await call('start_activity', {})).content[0].text, /component/);
+    assert.match((await call('logcat', { tags: ['a b'] })).content[0].text, /Tags/);
+    const list: any = await handle({ id: 21, method: 'tools/list' });
+    const tool = (name: string) => list.result.tools.find((t: any) => t.name === name);
+    assert.ok(tool('tap').inputSchema.properties.expectPackage);
+    assert.strictEqual(tool('screenshot').inputSchema.properties.expectPackage, undefined);
+    assert.strictEqual(tool('connect_device').inputSchema.properties.serial, undefined);
   });
 
   test('encodes valid PNG data', () => {
