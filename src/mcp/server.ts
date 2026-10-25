@@ -731,7 +731,7 @@ export const TOOLS: Tool[] = [
     required: ['action'],
     async run(args, serial) {
       if (args.action === 'start') {
-        startRecording(ADB, serial, int(args, 'timeLimit', 180));
+        await startRecording(ADB, serial, int(args, 'timeLimit', 180));
         return `Recording ${serial}. Call screen_record with action stop to save it.`;
       }
       if (args.action !== 'stop') {

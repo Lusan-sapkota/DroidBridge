@@ -360,15 +360,23 @@ export async function pasteText(serial: string, text: string): Promise<void> {
 
 const recordings = new Map<string, { proc: ChildProcess; remote: string }>();
 
-export function startRecording(adbPath: string, serial: string, seconds = 180): string {
+export async function startRecording(adbPath: string, serial: string, seconds = 180): Promise<string> {
   if (recordings.has(serial)) {
     throw new Error('A recording is already running on this device.');
   }
-  const remote = `/sdcard/droidbridge-${Date.now()}.mp4`;
+  const remote = `/data/local/tmp/droidbridge-${Date.now()}.mp4`;
   const proc = spawn(adbPath, ['-s', serial, 'shell', 'screenrecord', '--time-limit', String(Math.min(Math.max(Math.round(seconds), 1), 180)), remote]);
-  proc.on('error', () => undefined);
+  let output = '';
+  proc.stdout?.on('data', d => { output += d; });
+  proc.stderr?.on('data', d => { output += d; });
+  proc.on('error', e => { output += e.message; });
   proc.on('exit', () => { if (recordings.get(serial)?.proc === proc && proc.exitCode) { recordings.delete(serial); } });
   recordings.set(serial, { proc, remote });
+  await new Promise(r => setTimeout(r, 700));
+  if (proc.exitCode !== null || proc.signalCode) {
+    recordings.delete(serial);
+    throw new Error(`Screen recording could not start: ${output.trim() || `exit code ${proc.exitCode}`}`);
+  }
   return remote;
 }
 

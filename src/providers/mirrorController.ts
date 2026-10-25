@@ -291,7 +291,7 @@ export class MirrorController implements vscode.Disposable {
     }
     try {
       if (!this.recording) {
-        startRecording(t.adbPath, t.serial);
+        await startRecording(t.adbPath, t.serial);
         this.recording = t;
         this.broadcastState();
         return;
